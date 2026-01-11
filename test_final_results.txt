@@ -1,0 +1,16 @@
+
+> citycard-vue@0.0.0 test
+> vitest
+
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90m/Users/north/CascadeProjects/2048/citycard-vue[39m
+
+ [32m✓[39m src/tests/unit/battleSkills.test.js [2m([22m[2m19 tests[22m[2m)[22m[32m 49[2mms[22m[39m
+ [32m✓[39m src/tests/integration/skillCombinations.test.js [2m([22m[2m15 tests[22m[2m)[22m[32m 47[2mms[22m[39m
+ [32m✓[39m src/tests/unit/nonBattleSkills.test.js [2m([22m[2m31 tests[22m[2m)[22m[32m 59[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[32m65 passed[39m[22m[90m (65)[39m
+[2m   Start at [22m 21:55:14
+[2m   Duration [22m 716ms[2m (transform 415ms, setup 0ms, import 785ms, tests 154ms, environment 768ms)[22m
+
