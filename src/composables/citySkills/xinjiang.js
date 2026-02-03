@@ -19,14 +19,14 @@ import {
  */
 export function handleWulumuqiSkill(attacker, skillData, addPublicLog, gameStore) {
   // 被动技能：检查是否为中心
-  const cityIndex = attacker.cities.findIndex(c => c.name === skillData.cityName)
-  const centerIndex = attacker.centerIndex ?? 0
-  const isCenter = cityIndex === centerIndex
+  const cityName = skillData.cityName
+  const centerCityName = attacker.centerCityName ?? 0
+  const isCenter = cityName === centerCityName
 
   if (!gameStore.asiaCenter) gameStore.asiaCenter = {}
   gameStore.asiaCenter[attacker.name] = {
     active: true,
-    cityIndex: cityIndex,
+    cityName: cityName,
     isCenter: isCenter,
     centerAttackPower: 80000,
     subCenterMultiplier: 1.5
@@ -60,7 +60,7 @@ export function handleKelamayiSkill(attacker, defender, skillData, addPublicLog,
     enemyCity.hp = 0
 
     const capturedCity = { ...enemyCity, currentHp: enemyHp, hp: enemyHp, isAlive: true }
-    attacker.cities.push(capturedCity)
+    attacker.cities[capturedCity.name] = capturedCity
 
     addPublicLog(`${attacker.name}的${skillData.cityName}激活"黑油山，魔鬼城"，${selfCity.name}（${selfHp}HP）战胜${enemyCity.name}（${enemyHp}HP），获得该城市！`)
   } else {
@@ -68,8 +68,8 @@ export function handleKelamayiSkill(attacker, defender, skillData, addPublicLog,
     if (!gameStore.copiedSkills) gameStore.copiedSkills = {}
     if (!gameStore.copiedSkills[attacker.name]) gameStore.copiedSkills[attacker.name] = {}
 
-    const cityIndex = attacker.cities.findIndex(c => c.name === skillData.cityName)
-    gameStore.copiedSkills[attacker.name][cityIndex] = {
+    const cityName = skillData.cityName
+    gameStore.copiedSkills[attacker.name][cityName] = {
       active: true,
       copiedFrom: enemyCity.name,
       copiedSkill: enemyCity.citySkill
@@ -102,21 +102,21 @@ export function handleTulufanSkill(attacker, defender, skillData, addPublicLog, 
 
   if (!targetCity) return
 
-  const cityIndex = defender.cities.indexOf(targetCity)
+  const cityName = defender.cities.indexOf(targetCity)
 
   if (!gameStore.burnEffect) gameStore.burnEffect = {}
   if (!gameStore.burnEffect[defender.name]) gameStore.burnEffect[defender.name] = {}
 
   // 灼烧可叠加
-  if (!gameStore.burnEffect[defender.name][cityIndex]) {
-    gameStore.burnEffect[defender.name][cityIndex] = {
+  if (!gameStore.burnEffect[defender.name][cityName]) {
+    gameStore.burnEffect[defender.name][cityName] = {
       active: true,
       stacks: 0,
       percentPerStack: 0.2,
       stopWhenLowest: true
     }
   }
-  gameStore.burnEffect[defender.name][cityIndex].stacks += 1
+  gameStore.burnEffect[defender.name][cityName].stacks += 1
 
   addPublicLog(`${attacker.name}的${skillData.cityName}激活"红山，洼地"，${defender.name}的${targetCity.name}受到灼烧（每回合-20%HP）！`)
   gameStore.recordSkillUsage(attacker.name, skillData.cityName)
@@ -135,7 +135,7 @@ export function handleHamiSkill(attacker, skillData, addPublicLog, gameStore) {
       initialTokens: 3,
       damageMultiplier: 2,
       lossThreshold: 15000,
-      cityTokens: {}  // cityIndex -> token count
+      cityTokens: {}  // cityName -> token count
     }
   }
 
@@ -143,11 +143,11 @@ export function handleHamiSkill(attacker, skillData, addPublicLog, gameStore) {
   const aliveCities = getAliveCities(attacker)
   for (let i = 0; i < 3; i++) {
     const city = getRandomElement(aliveCities)
-    const cityIndex = attacker.cities.indexOf(city)
-    if (!gameStore.melonTokens[attacker.name].cityTokens[cityIndex]) {
-      gameStore.melonTokens[attacker.name].cityTokens[cityIndex] = 0
+    const cityName = attacker.cities.indexOf(city)
+    if (!gameStore.melonTokens[attacker.name].cityTokens[cityName]) {
+      gameStore.melonTokens[attacker.name].cityTokens[cityName] = 0
     }
-    gameStore.melonTokens[attacker.name].cityTokens[cityIndex] += 1
+    gameStore.melonTokens[attacker.name].cityTokens[cityName] += 1
   }
 
   addPublicLog(`${attacker.name}的${skillData.cityName}"甜蜜之旅"被动效果已激活，分配了3个蜜瓜！`)
@@ -201,13 +201,13 @@ export function handleBayinguolengSkill(attacker, defender, skillData, addPublic
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityIndex = defender.cities.indexOf(targetCity)
+  const cityName = defender.cities.indexOf(targetCity)
   const targetHp = getCurrentHp(targetCity)
 
   if (!gameStore.missingState) gameStore.missingState = {}
   if (!gameStore.missingState[defender.name]) gameStore.missingState[defender.name] = {}
 
-  gameStore.missingState[defender.name][cityIndex] = {
+  gameStore.missingState[defender.name][cityName] = {
     active: true,
     roundsLeft: 5,
     damagePerRound: targetHp,
@@ -226,12 +226,12 @@ export function handleBayinguolengSkill(attacker, defender, skillData, addPublic
  */
 export function handleAkesuSkill(attacker, skillData, addPublicLog, gameStore) {
   // 被动技能：免疫减益
-  const cityIndex = attacker.cities.findIndex(c => c.name === skillData.cityName)
+  const cityName = skillData.cityName
 
   if (!gameStore.debuffImmune) gameStore.debuffImmune = {}
   if (!gameStore.debuffImmune[attacker.name]) gameStore.debuffImmune[attacker.name] = {}
 
-  gameStore.debuffImmune[attacker.name][cityIndex] = {
+  gameStore.debuffImmune[attacker.name][cityName] = {
     active: true,
     immuneToDebuff: true,
     immuneToClearBuff: true,
@@ -290,7 +290,7 @@ export function handleHetianSkill(attacker, defender, skillData, addPublicLog, g
   if (selfCities.length === 0 || enemyCities.length === 0) return
 
   const targetCity = getRandomElement(enemyCities)
-  const selfCity = attacker.cities.find(c => c.name === skillData.cityName)
+  const selfCity = Object.values(attacker.cities).find(c => c.name === skillData.cityName)
 
   if (!selfCity) return
 
@@ -383,14 +383,14 @@ export function handleAletaiSkill(attacker, skillData, addPublicLog, gameStore) 
  */
 export function handleShiheziSkill(attacker, skillData, addPublicLog, gameStore) {
   // 被动技能：记录军垦系统
-  const cityIndex = attacker.cities.findIndex(c => c.name === skillData.cityName)
+  const cityName = skillData.cityName
 
   if (!gameStore.militaryReclamation) gameStore.militaryReclamation = {}
   if (!gameStore.militaryReclamation[attacker.name]) {
     gameStore.militaryReclamation[attacker.name] = {}
   }
 
-  gameStore.militaryReclamation[attacker.name][cityIndex] = {
+  gameStore.militaryReclamation[attacker.name][cityName] = {
     active: true,
     summonOnBattle: true,
     provinceBonus: true,

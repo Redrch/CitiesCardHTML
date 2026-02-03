@@ -14,21 +14,22 @@ export function useBattle() {
   const battleDeployments = ref({})
   // 战斗结果历史
   const battleHistory = ref([])
-  // 护盾系统
-  const barriers = ref({})
+  // 关键修复：不再使用本地 barriers ref，直接使用 gameStore.barrier
+  // 这里创建一个 computed 引用以保持向后兼容
+  const barriers = computed(() => gameStore.barrier)
 
   /**
    * 部署城市参战
    * @param {string} playerName - 玩家名称
-   * @param {Array} cityIndices - 参战城市索引数组
+   * @param {Array} cityNames - 参战城市名称数组
    */
-  function deployCities(playerName, cityIndices) {
+  function deployCities(playerName, cityNames) {
     battleDeployments.value[playerName] = {
-      cities: cityIndices,
+      cities: cityNames,
       skills: []
     }
 
-    gameStore.addLog(`${playerName} 部署了 ${cityIndices.length} 个城市参战`)
+    gameStore.addLog(`${playerName} 部署了 ${cityNames.length} 个城市参战`)
   }
 
   /**
@@ -43,7 +44,7 @@ export function useBattle() {
 
     // 计算总攻击力
     let totalAttackPower = 0
-    const attackingCities = attackerDeployment.cities.map(idx => attacker.cities[idx])
+    const attackingCities = attackerDeployment.cities.map(name => attacker.cities[name])
 
     attackingCities.forEach(city => {
       if (city && city.isAlive) {
@@ -53,7 +54,7 @@ export function useBattle() {
 
     // 计算总防御力
     let totalDefensePower = 0
-    const defendingCities = defenderDeployment.cities.map(idx => defender.cities[idx])
+    const defendingCities = defenderDeployment.cities.map(name => defender.cities[name])
 
     defendingCities.forEach(city => {
       if (city && city.isAlive) {
@@ -72,14 +73,17 @@ export function useBattle() {
     // 计算净伤害
     let netDamage = Math.max(0, totalAttackPower - greenDefenseBonus)
 
-    // 检查护盾
-    if (barriers.value[defender.name]) {
-      const barrier = barriers.value[defender.name]
+    // 检查护盾 - 关键修复：同步使用 gameStore.barrier
+    if (gameStore.barrier[defender.name]) {
+      const barrier = gameStore.barrier[defender.name]
       const absorbed = Math.min(netDamage * 0.5, barrier.hp)
       const reflected = absorbed // 50%吸收，50%反弹
 
+      // 关键修复：减少屏障HP（直接修改gameStore.barrier）
       barrier.hp -= absorbed
       netDamage -= absorbed
+
+      console.log(`[useBattle] 屏障吸收伤害: ${Math.floor(absorbed)}, 剩余HP: ${Math.floor(barrier.hp)}`)
 
       // 反弹伤害
       if (reflected > 0) {
@@ -88,7 +92,7 @@ export function useBattle() {
       }
 
       if (barrier.hp <= 0) {
-        delete barriers.value[defender.name]
+        delete gameStore.barrier[defender.name]
         gameStore.addLog(`${defender.name} 的护盾被摧毁`)
       }
     }
@@ -107,8 +111,8 @@ export function useBattle() {
       casualties: damageResult.casualties,
       attackingCities: attackingCities.filter(c => c && c.isAlive).length,
       defendingCities: defendingCities.filter(c => c && c.isAlive).length,
-      barrierDamage: barriers.value[defender.name] ? Math.min(netDamage * 0.5, barriers.value[defender.name].hp) : 0,
-      barrierReflect: barriers.value[defender.name] ? Math.min(netDamage * 0.5, barriers.value[defender.name].hp) : 0,
+      barrierDamage: gameStore.barrier[defender.name] ? Math.min(netDamage * 0.5, gameStore.barrier[defender.name].hp) : 0,
+      barrierReflect: gameStore.barrier[defender.name] ? Math.min(netDamage * 0.5, gameStore.barrier[defender.name].hp) : 0,
       specialEffects: [],
       timestamp: Date.now()
     }
@@ -169,46 +173,37 @@ export function useBattle() {
    * @param {number} damage - 伤害值
    */
   function applyDamageToPlayer(player, damage) {
-    const aliveCities = player.cities.filter(c => c.isAlive)
+    const aliveCities = Object.values(player.cities).filter(c => c.isAlive)
     if (aliveCities.length > 0) {
       distributeDamage(aliveCities, damage)
     }
   }
 
   /**
-   * 设置护盾
+   * 设置护盾 - 关键修复：使用 gameStore.barrier
    * @param {string} playerName - 玩家名称
    * @param {number} hp - 护盾血量
    * @param {number} duration - 持续回合数
    */
   function setBarrier(playerName, hp, duration = 5) {
-    barriers.value[playerName] = {
+    gameStore.barrier[playerName] = {
       hp: hp,
       maxHp: hp,
-      duration: duration,
-      createdRound: gameStore.currentRound
+      roundsLeft: duration,
+      team: 0
     }
 
     gameStore.addLog(`${playerName} 设置了护盾（${hp}HP，持续${duration}回合）`)
   }
 
   /**
-   * 更新护盾状态（每回合调用）
+   * 更新护盾状态（每回合调用） - 关键修复：使用 gameStore.barrier
+   * 注意：这个函数已不再使用，屏障更新由 gameStore.updateRoundStates() 处理
    */
   function updateBarriers() {
-    for (const playerName in barriers.value) {
-      const barrier = barriers.value[playerName]
-
-      // 回血
-      barrier.hp = Math.min(barrier.hp + 3000, barrier.maxHp)
-
-      // 检查持续时间
-      const roundsPassed = gameStore.currentRound - barrier.createdRound
-      if (roundsPassed >= barrier.duration) {
-        delete barriers.value[playerName]
-        gameStore.addLog(`${playerName} 的护盾持续时间结束`)
-      }
-    }
+    // 屏障的回血和持续时间已由 gameStore.updateRoundStates() 统一处理
+    // 这里保留空函数以保持向后兼容
+    console.log('[useBattle] updateBarriers 已废弃，屏障更新由 gameStore.updateRoundStates() 处理')
   }
 
   /**
@@ -266,7 +261,7 @@ export function useBattle() {
    * @returns {number}
    */
   function getAliveCitiesCount(player) {
-    return player.cities.filter(c => c.isAlive).length
+    return Object.values(player.cities).filter(c => c.isAlive).length
   }
 
   /**
@@ -291,21 +286,21 @@ export function useBattle() {
    * 标记出战城市为已知城市
    * @param {Object} attacker - 进攻方
    * @param {Object} defender - 防守方
-   * @param {Array} attackerCityIndices - 进攻方出战城市索引
-   * @param {Array} defenderCityIndices - 防守方出战城市索引
+   * @param {Array} attackerCityNames - 进攻方出战城市名称
+   * @param {Array} defenderCityNames - 防守方出战城市名称
    */
-  function markBattleCitiesAsKnown(attacker, defender, attackerCityIndices, defenderCityIndices) {
+  function markBattleCitiesAsKnown(attacker, defender, attackerCityNames, defenderCityNames) {
     // 使用setCityKnown来标记已知城市
-    // setCityKnown(owner, cityIdx, observer) - owner拥有城市，observer知道它
+    // setCityKnown(owner, cityName, observer) - owner拥有城市，observer知道它
 
     // 进攻方知道防守方的出战城市
-    defenderCityIndices.forEach(cityIdx => {
-      gameStore.setCityKnown(defender.name, cityIdx, attacker.name)
+    defenderCityNames.forEach(cityName => {
+      gameStore.setCityKnown(defender.name, cityName, attacker.name)
     })
 
     // 防守方知道进攻方的出战城市
-    attackerCityIndices.forEach(cityIdx => {
-      gameStore.setCityKnown(attacker.name, cityIdx, defender.name)
+    attackerCityNames.forEach(cityName => {
+      gameStore.setCityKnown(attacker.name, cityName, defender.name)
     })
   }
 
@@ -315,7 +310,8 @@ export function useBattle() {
   function resetBattle() {
     battleDeployments.value = {}
     battleHistory.value = []
-    barriers.value = {}
+    // 关键修复：barriers 现在是 computed，不需要重置
+    // 屏障由 gameStore.barrier 管理，需要时在 gameStore 中重置
   }
 
   return {

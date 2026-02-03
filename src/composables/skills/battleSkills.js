@@ -92,14 +92,14 @@ export function useBattleSkills() {
       return { success: false, message: '未选择城市' }
     }
 
-    // 检查该城市是否在上一轮出过战
-    const cityIdx = caster.cities.indexOf(selfCity)
-    if (cityIdx === -1) {
+    // 获取城市名称
+    const cityName = selfCity.name
+    if (!caster.cities[cityName]) {
       return { success: false, message: '城市不存在' }
     }
 
     if (!caster.streaks) caster.streaks = {}
-    const streak = caster.streaks[cityIdx] || 0
+    const streak = caster.streaks[cityName] || 0
 
     if (streak === 0) {
       return {
@@ -282,14 +282,14 @@ export function useBattleSkills() {
     }
 
     // 计算战斗力（有效HP + 红色加成）
-    function calculatePower(player, cityIdx) {
-      const city = player.cities[cityIdx]
+    function calculatePower(player, cityName) {
+      const city = player.cities[cityName]
       if (!city) return 0
 
       // 检查厚积薄发状态：如果城市处于厚积薄发期间，攻击力为1
       if (gameStore.hjbf && gameStore.hjbf[player.name] &&
-          gameStore.hjbf[player.name][cityIdx] &&
-          gameStore.hjbf[player.name][cityIdx].roundsLeft > 0) {
+          gameStore.hjbf[player.name][cityName] &&
+          gameStore.hjbf[player.name][cityName].roundsLeft > 0) {
         return 1
       }
 
@@ -300,11 +300,11 @@ export function useBattleSkills() {
 
     // 找出双方最低战力城市
     const myPick = myCards
-      .map(card => ({ cityIdx: card.cityIdx, power: calculatePower(caster, card.cityIdx) }))
+      .map(card => ({ cityName: card.cityName, power: calculatePower(caster, card.cityName) }))
       .sort((a, b) => a.power - b.power)[0]
 
     const oppPick = oppCards
-      .map(card => ({ cityIdx: card.cityIdx, power: calculatePower(target, card.cityIdx) }))
+      .map(card => ({ cityName: card.cityName, power: calculatePower(target, card.cityName) }))
       .sort((a, b) => a.power - b.power)[0]
 
     // 检查坚不可摧护盾
@@ -332,9 +332,8 @@ export function useBattleSkills() {
     }
 
     // 执行偷袭
-    const targetCityObj = target.cities[oppPick.cityIdx]
-    const centerIdx = target.centerIndex || 0
-    const isCenter = oppPick.cityIdx === centerIdx
+    const targetCityObj = target.cities[oppPick.cityName]
+    const isCenter = oppPick.cityName === target.centerCityName
 
     // 检查屏障
     if (gameStore.barrier[target.name]) {
@@ -370,10 +369,10 @@ export function useBattleSkills() {
 
       if (reflectSpill > 0 && myCards.length > 0) {
         const lowestHpCard = myCards
-          .map(card => ({ cityIdx: card.cityIdx, hp: caster.cities[card.cityIdx].currentHp || caster.cities[card.cityIdx].hp }))
+          .map(card => ({ cityName: card.cityName, hp: caster.cities[card.cityName].currentHp || caster.cities[card.cityName].hp }))
           .sort((a, b) => a.hp - b.hp)[0]
 
-        const reflectCity = caster.cities[lowestHpCard.cityIdx]
+        const reflectCity = caster.cities[lowestHpCard.cityName]
         const currentHp = reflectCity.currentHp || reflectCity.hp
         reflectCity.currentHp = Math.max(0, currentHp - reflectSpill)
         if (reflectCity.currentHp <= 0) {
@@ -413,7 +412,7 @@ export function useBattleSkills() {
     }
 
     // 进攻方城市撤退
-    casterState.currentBattleCities = casterState.currentBattleCities.filter(card => card.cityIdx !== myPick.cityIdx)
+    casterState.currentBattleCities = casterState.currentBattleCities.filter(card => card.cityName !== myPick.cityName)
 
     return {
       success: true,
@@ -594,14 +593,14 @@ export function useBattleSkills() {
       return { success: false, message: '未选择城市' }
     }
 
-    // 获取城市索引
-    const cityIdx = caster.cities.indexOf(selfCity)
-    if (cityIdx === -1) {
+    // 获取城市名称
+    const cityName = selfCity.name
+    if (!caster.cities[cityName]) {
       return { success: false, message: '城市不在玩家城市列表中' }
     }
 
     // 检查是否已使用过狂暴模式
-    if (gameStore.berserkFired[caster.name] && gameStore.berserkFired[caster.name][cityIdx]) {
+    if (gameStore.berserkFired[caster.name] && gameStore.berserkFired[caster.name][cityName]) {
       return { success: false, message: '该城市已使用过狂暴模式' }
     }
 
@@ -624,7 +623,7 @@ export function useBattleSkills() {
     if (!gameStore.berserkFired[caster.name]) {
       gameStore.berserkFired[caster.name] = {}
     }
-    gameStore.berserkFired[caster.name][cityIdx] = selfCity.currentHp || selfCity.hp
+    gameStore.berserkFired[caster.name][cityName] = selfCity.currentHp || selfCity.hp
 
     // 双日志
     addSkillUsageLog(
@@ -678,9 +677,9 @@ export function useBattleSkills() {
       return { success: false, message: '未选择城市' }
     }
 
-    // 获取城市索引
-    const cityIdx = caster.cities.indexOf(selfCity)
-    if (cityIdx === -1) {
+    // 获取城市名称
+    const cityName = selfCity.name
+    if (!caster.cities[cityName]) {
       return { success: false, message: '城市不在玩家城市列表中' }
     }
 
@@ -692,7 +691,7 @@ export function useBattleSkills() {
     if (!gameStore.jilaizan[caster.name]) {
       gameStore.jilaizan[caster.name] = {}
     }
-    gameStore.jilaizan[caster.name][cityIdx] = { used: false }
+    gameStore.jilaizan[caster.name][cityName] = { used: false }
 
     // 双日志
     addSkillUsageLog(
@@ -1018,7 +1017,6 @@ export function useBattleSkills() {
     gameStore.yqgzMarks.push({
       player: caster.name,
       target: target.name,
-      cityIdx: targetCityIdx,
       cityName: targetCity.name,
       roundCreated: gameStore.currentRound
     })
@@ -1104,11 +1102,37 @@ export function useBattleSkills() {
       caster.cities[casterIdx] = target.cities[targetIdx]
       target.cities[targetIdx] = temp
 
-      // 同步交换initialCities
-      if (gameStore.initialCities[caster.name] && gameStore.initialCities[target.name]) {
-        const tempInitial = gameStore.initialCities[caster.name][casterIdx]
-        gameStore.initialCities[caster.name][casterIdx] = gameStore.initialCities[target.name][targetIdx]
-        gameStore.initialCities[target.name][targetIdx] = tempInitial
+      // 注意：initialCities 现在按城市名称追踪，无需交换
+      // 城市的初始HP记录会自动跟随城市名称
+
+      // 交换疲劳计数器（fatigue streaks）
+      // 注意：疲劳也按城市名称追踪，无需交换
+      if (!caster.streaks) caster.streaks = {}
+      if (!target.streaks) target.streaks = {}
+
+      const tempStreak = caster.streaks[casterIdx] || 0
+      caster.streaks[casterIdx] = target.streaks[targetIdx] || 0
+      target.streaks[targetIdx] = tempStreak
+
+      // 交换拔旗易帜标记（changeFlagMark）
+      if (!gameStore.changeFlagMark[caster.name]) gameStore.changeFlagMark[caster.name] = {}
+      if (!gameStore.changeFlagMark[target.name]) gameStore.changeFlagMark[target.name] = {}
+
+      const casterMark = gameStore.changeFlagMark[caster.name][casterIdx]
+      const targetMark = gameStore.changeFlagMark[target.name][targetIdx]
+
+      if (casterMark || targetMark) {
+        if (targetMark) {
+          gameStore.changeFlagMark[caster.name][casterIdx] = { ...targetMark }
+        } else {
+          delete gameStore.changeFlagMark[caster.name][casterIdx]
+        }
+
+        if (casterMark) {
+          gameStore.changeFlagMark[target.name][targetIdx] = { ...casterMark }
+        } else {
+          delete gameStore.changeFlagMark[target.name][targetIdx]
+        }
       }
 
       // 清除狐假虎威伪装状态
@@ -1499,7 +1523,7 @@ export function useBattleSkills() {
   }
 
   /**
-   * 目不转睛 - 对方3回合内不能使用技能（除当机立断）
+   * 寸步难行 - 对方3回合内不能使用技能（除当机立断）
    */
   function executeMuBuZhuanJing(caster, target) {
     if (!target) {
@@ -1517,22 +1541,22 @@ export function useBattleSkills() {
     if (gameStore.muBuZhuanJingUsageCount[caster.name] >= 3) {
       return {
         success: false,
-        message: '目不转睛每局最多使用3次'
+        message: '寸步难行每局最多使用3次'
       }
     }
 
     // 检查冷却时间
     if (gameStore.cooldowns && gameStore.cooldowns[caster.name] &&
-        gameStore.cooldowns[caster.name]['目不转睛'] > 0) {
-      const remainingCooldown = gameStore.cooldowns[caster.name]['目不转睛']
+        gameStore.cooldowns[caster.name]['寸步难行'] > 0) {
+      const remainingCooldown = gameStore.cooldowns[caster.name]['寸步难行']
       return {
         success: false,
-        message: `目不转睛冷却中，剩余${remainingCooldown}回合`
+        message: `寸步难行冷却中，剩余${remainingCooldown}回合`
       }
     }
 
     // 金币检查和扣除
-    const goldCheck = checkAndDeductGold('目不转睛', caster, gameStore)
+    const goldCheck = checkAndDeductGold('寸步难行', caster, gameStore)
     if (!goldCheck.success) return goldCheck
 
     // 增加使用次数
@@ -1545,9 +1569,9 @@ export function useBattleSkills() {
     if (!gameStore.cooldowns[caster.name]) {
       gameStore.cooldowns[caster.name] = {}
     }
-    gameStore.cooldowns[caster.name]['目不转睛'] = 5
+    gameStore.cooldowns[caster.name]['寸步难行'] = 5
 
-    // 设置目不转睛状态（禁用对方技能3回合）
+    // 设置寸步难行状态（禁用对方技能3回合）
     if (!gameStore.stareDown) {
       gameStore.stareDown = {}
     }
@@ -1560,9 +1584,9 @@ export function useBattleSkills() {
     addSkillUsageLog(
       gameStore,
       caster.name,
-      '目不转睛',
-      `${caster.name}使用了目不转睛，目不转睛生效，${target.name}在3回合内不能使用技能（除当机立断）（剩余${3 - gameStore.muBuZhuanJingUsageCount[caster.name]}次）`,
-      `你对${target.name}使用了目不转睛`
+      '寸步难行',
+      `${caster.name}使用了寸步难行，寸步难行生效，${target.name}在3回合内不能使用技能（除当机立断）（剩余${3 - gameStore.muBuZhuanJingUsageCount[caster.name]}次）`,
+      `你对${target.name}使用了寸步难行`
     )
 
     return {

@@ -22,11 +22,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
-# Other
-dist/
-node_modules/
-城市卡牌游戏.zip
-城市卡牌游戏-双击即玩版.tar.gz
-城市卡牌游戏/
-城市卡牌游戏-双击即玩版/

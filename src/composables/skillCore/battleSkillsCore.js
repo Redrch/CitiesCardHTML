@@ -108,15 +108,15 @@ export function executeCaoMuJieBingCore(params) {
  *
  * @param {Object} params - 技能参数
  * @param {Object} params.caster - 施法者玩家对象
- * @param {number} params.cityIdx - 城市索引
+ * @param {string} params.cityName - 城市名称
  * @param {Object} params.gameStore - 游戏状态存储
  * @returns {Object} { success: boolean, message: string }
  */
 export function executeYueZhanYueYongCore(params) {
-  const { caster, cityIdx, gameStore } = params
+  const { caster, cityName, gameStore } = params
 
   // 前置检查1：城市有效性
-  const city = caster.cities[cityIdx]
+  const city = caster.cities[cityName]
   if (!city) {
     return { success: false, message: '城市不存在' }
   }
@@ -275,7 +275,7 @@ export function executeQianNengJiFaCore(params) {
   let count = 0
   const affectedCities = []
 
-  caster.cities.forEach(city => {
+  Object.values(caster.cities).forEach(city => {
     if (city.isAlive !== false) {
       const currentHp = city.currentHp || city.hp
       const newHp = Math.min(currentHp * 2, 100000)
@@ -332,13 +332,16 @@ export function executeYuJiaQinZhengCore(params) {
   }
 
   // 前置检查3：中心城市检查
-  const centerCity = caster.cities.find(c => c.isCenter)
+  const centerCityName = caster.centerCityName
+  const centerCity = centerCityName ? caster.cities[centerCityName] : null
   if (!centerCity) {
     return { success: false, message: '没有中心城市' }
   }
 
   // 前置检查4：目标城市检查
-  const targetCities = target.cities.filter(c => c.isAlive !== false && !c.isCenter)
+  const targetCities = Object.values(target.cities).filter(c =>
+    c.isAlive !== false && c.name !== target.centerCityName
+  )
   if (targetCities.length === 0) {
     return { success: false, message: '对手没有可摧毁的城市' }
   }
@@ -348,11 +351,11 @@ export function executeYuJiaQinZhengCore(params) {
     (city.currentHp || city.hp) > (max.currentHp || max.hp) ? city : max
   )
 
-  // 获取城市索引
-  const cityIdx = target.cities.indexOf(highestHpCity)
+  // 获取城市名称
+  const cityName = highestHpCity.name
 
   // 检查并消耗保护罩/钢铁护盾
-  if (gameStore.consumeProtection(target.name, cityIdx)) {
+  if (gameStore.consumeProtection(target.name, cityName)) {
     caster.gold -= cost // 即使被护盾抵消也要扣金币
     gameStore.addLog(`${caster.name}御驾亲征，击破了${target.name}的${highestHpCity.name}的护盾`)
     return {
@@ -368,12 +371,12 @@ export function executeYuJiaQinZhengCore(params) {
   highestHpCity.isAlive = false
   highestHpCity.currentHp = 0
 
-  // 添加到deadCities列表
+  // 添加到deadCities列表（使用城市名称）
   if (!gameStore.deadCities[target.name]) {
     gameStore.deadCities[target.name] = []
   }
-  if (cityIdx !== -1 && !gameStore.deadCities[target.name].includes(cityIdx)) {
-    gameStore.deadCities[target.name].push(cityIdx)
+  if (!gameStore.deadCities[target.name].includes(cityName)) {
+    gameStore.deadCities[target.name].push(cityName)
   }
 
   gameStore.addLog(`${caster.name}御驾亲征，摧毁了${target.name}的${highestHpCity.name}`)

@@ -36,8 +36,8 @@ export function useCityDraw() {
 
     players.forEach(player => {
       // 如果玩家已经有城市，跳过
-      if (player.cities && player.cities.length > 0) {
-        player.cities.forEach(city => usedCityNames.add(city.name))
+      if (player.cities && Object.keys(player.cities).length > 0) {
+        Object.values(player.cities).forEach(city => usedCityNames.add(city.name))
         return
       }
 
@@ -47,8 +47,16 @@ export function useCityDraw() {
       // 更新已使用的城市名称
       cities.forEach(city => usedCityNames.add(city.name))
 
-      // 分配给玩家
-      player.cities = cities
+      // 转换为对象结构并分配给玩家
+      const citiesObj = {}
+      cities.forEach(city => {
+        citiesObj[city.name] = city
+      })
+      player.cities = citiesObj
+
+      // 设置中心城市为第一个城市
+      player.centerCityName = cities[0].name
+
       player.gold = 2 // 初始金币
     })
 

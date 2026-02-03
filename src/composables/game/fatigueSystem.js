@@ -34,8 +34,8 @@ export function applyFatigueReduction(gameStore, gameState, players, mode) {
         Object.values(playerState.currentBattleData).forEach(citiesArray => {
           if (Array.isArray(citiesArray)) {
             citiesArray.forEach(card => {
-              if (card.cityIdx !== undefined && !deployedCities.includes(card.cityIdx)) {
-                deployedCities.push(card.cityIdx)
+              if (card.cityName && !deployedCities.includes(card.cityName)) {
+                deployedCities.push(card.cityName)
               }
             })
           }
@@ -43,30 +43,37 @@ export function applyFatigueReduction(gameStore, gameState, players, mode) {
       }
     } else {
       // 2P/2v2模式：从currentBattleCities获取
-      deployedCities = (playerState.currentBattleCities || []).map(card => card.cityIdx)
+      // 关键修复：确保currentBattleCities是数组（Firebase可能返回对象）
+      const battleCities = Array.isArray(playerState.currentBattleCities)
+        ? playerState.currentBattleCities
+        : (playerState.currentBattleCities ? Object.values(playerState.currentBattleCities) : [])
+      deployedCities = battleCities.map(card => card.cityName)
     }
 
-    console.log(`[疲劳系统] ${player.name} 本轮出战城市索引:`, deployedCities)
+    console.log(`[疲劳系统] ===== ${player.name} 疲劳检查开始 =====`)
+    console.log(`[疲劳系统] ${player.name} 本轮出战城市名称:`, deployedCities)
+    console.log(`[疲劳系统] ${player.name} 当前所有streaks:`, JSON.stringify(player.streaks, null, 2))
 
     // 遍历所有出战城市，检查疲劳
-    deployedCities.forEach(cityIdx => {
-      const city = player.cities[cityIdx]
+    deployedCities.forEach(cityName => {
+      const city = player.cities[cityName]
       if (!city || city.currentHp <= 0) return
 
-      const prevStreak = player.streaks[cityIdx] || 0
-      console.log(`[疲劳系统] ${player.name} 的 ${city.name} (索引${cityIdx}) 上一轮streak=${prevStreak}`)
+      // 使用城市名称追踪疲劳
+      const prevStreak = player.streaks[cityName] || 0
+      console.log(`[疲劳系统] ${player.name} 的 ${city.name} 上一轮streak=${prevStreak}, 当前HP=${city.currentHp}`)
 
       // 跳过本轮复活的城市（借尸还魂）
       if (gameStore.revivedCities && gameStore.revivedCities[player.name] &&
-          gameStore.revivedCities[player.name][cityIdx]) {
+          gameStore.revivedCities[player.name][cityName]) {
         gameStore.addLog(`(借尸还魂) ${player.name}的${city.name} 本轮复活，疲劳指数恢复如初，跳过疲劳减半`)
-        player.streaks[cityIdx] = 0
+        player.streaks[cityName] = 0
         return
       }
 
       // 检查豁免机制
-      const hasYYY = checkYueZhanYueYong(gameStore, player, cityIdx)  // 越战越勇
-      const hasJLZA = checkJiLaiZeAn(gameStore, player, cityIdx)      // 既来则安
+      const hasYYY = checkYueZhanYueYong(gameStore, player, cityName)  // 越战越勇
+      const hasJLZA = checkJiLaiZeAn(gameStore, player, cityName)      // 既来则安
       const hasIgnoreFatigue = checkIgnoreFatigueModifier(city)       // 其他ignore_fatigue效果
 
       // 连续第2次及以上出战才减半（prevStreak >= 1），但豁免技能可以跳过
@@ -78,6 +85,18 @@ export function applyFatigueReduction(gameStore, gameState, players, mode) {
         if (city.hp !== undefined) {
           city.hp = city.currentHp
         }
+
+        // 关键修复：记录疲劳信息到gameState，供动画使用
+        if (!gameState.fatigueThisRound) {
+          gameState.fatigueThisRound = []
+        }
+        gameState.fatigueThisRound.push({
+          playerName: player.name,
+          cityName: city.name,
+          hpBefore: beforeHp,
+          hpAfter: city.currentHp,
+          streak: prevStreak + 1
+        })
 
         gameStore.addLog(
           `(疲劳) ${player.name}的${city.name} 连续第${prevStreak + 1}次出战，战斗前HP减半：${Math.floor(beforeHp)} → ${Math.floor(city.currentHp)}`
@@ -122,8 +141,8 @@ export function updateFatigueStreaks(players, gameState, mode) {
         Object.values(playerState.currentBattleData).forEach(citiesArray => {
           if (Array.isArray(citiesArray)) {
             citiesArray.forEach(card => {
-              if (card.cityIdx !== undefined && !deployedCities.includes(card.cityIdx)) {
-                deployedCities.push(card.cityIdx)
+              if (card.cityName && !deployedCities.includes(card.cityName)) {
+                deployedCities.push(card.cityName)
               }
             })
           }
@@ -131,27 +150,31 @@ export function updateFatigueStreaks(players, gameState, mode) {
       }
     } else {
       // 2P/2v2模式：从currentBattleCities获取
-      deployedCities = (playerState.currentBattleCities || []).map(card => card.cityIdx)
+      // 关键修复：确保currentBattleCities是数组（Firebase可能返回对象）
+      const battleCities = Array.isArray(playerState.currentBattleCities)
+        ? playerState.currentBattleCities
+        : (playerState.currentBattleCities ? Object.values(playerState.currentBattleCities) : [])
+      deployedCities = battleCities.map(card => card.cityName)
     }
 
     const deployedSet = new Set(deployedCities)
     console.log(`[疲劳系统] ${player.name} 本轮出战城市:`, deployedCities)
 
     // 更新所有城市的streak
-    player.cities.forEach((city, cityIdx) => {
+    Object.entries(player.cities).forEach(([cityName, city]) => {
       if (!city) return
 
-      if (deployedSet.has(cityIdx)) {
+      if (deployedSet.has(cityName)) {
         // 出战城市：streak +1（无论是否触发撤退/归顺）
-        const oldStreak = player.streaks[cityIdx] || 0
-        player.streaks[cityIdx] = oldStreak + 1
-        console.log(`[疲劳系统] ${player.name} 的 ${city.name} streak: ${oldStreak} → ${player.streaks[cityIdx]}`)
+        const oldStreak = player.streaks[cityName] || 0
+        player.streaks[cityName] = oldStreak + 1
+        console.log(`[疲劳系统] ${player.name} 的 ${city.name} streak: ${oldStreak} → ${player.streaks[cityName]}`)
       } else {
         // 未出战城市：归零
-        if (player.streaks[cityIdx] > 0) {
-          console.log(`[疲劳系统] ${player.name} 的 ${city.name} 未出战，streak归零: ${player.streaks[cityIdx]} → 0`)
+        if (player.streaks[cityName] > 0) {
+          console.log(`[疲劳系统] ${player.name} 的 ${city.name} 未出战，streak归零: ${player.streaks[cityName]} → 0`)
         }
-        player.streaks[cityIdx] = 0
+        player.streaks[cityName] = 0
       }
     })
   })
@@ -162,22 +185,22 @@ export function updateFatigueStreaks(players, gameState, mode) {
 /**
  * 检查城市是否有越战越勇效果
  */
-function checkYueZhanYueYong(gameStore, player, cityIdx) {
+function checkYueZhanYueYong(gameStore, player, cityName) {
   if (!gameStore.yueyueyong || !gameStore.yueyueyong[player.name]) {
     return false
   }
-  const yyyState = gameStore.yueyueyong[player.name][cityIdx]
+  const yyyState = gameStore.yueyueyong[player.name][cityName]
   return yyyState && yyyState.active === true
 }
 
 /**
  * 检查城市是否有既来则安效果
  */
-function checkJiLaiZeAn(gameStore, player, cityIdx) {
+function checkJiLaiZeAn(gameStore, player, cityName) {
   if (!gameStore.jilaizan || !gameStore.jilaizan[player.name]) {
     return false
   }
-  const jlzaState = gameStore.jilaizan[player.name][cityIdx]
+  const jlzaState = gameStore.jilaizan[player.name][cityName]
   return jlzaState && jlzaState.active === true
 }
 
@@ -197,8 +220,8 @@ function checkIgnoreFatigueModifier(city) {
 export function resetAllFatigueStreaks(players) {
   players.forEach(player => {
     if (player.streaks) {
-      Object.keys(player.streaks).forEach(cityIdx => {
-        player.streaks[cityIdx] = 0
+      Object.keys(player.streaks).forEach(cityKey => {
+        player.streaks[cityKey] = 0
       })
     }
   })
@@ -209,17 +232,19 @@ export function resetAllFatigueStreaks(players) {
  */
 export function resetPlayerFatigueStreaks(player) {
   if (player.streaks) {
-    Object.keys(player.streaks).forEach(cityIdx => {
-      player.streaks[cityIdx] = 0
+    Object.keys(player.streaks).forEach(cityKey => {
+      player.streaks[cityKey] = 0
     })
   }
 }
 
 /**
  * 重置特定城市的疲劳状态
+ * @param {Object} player - 玩家对象
+ * @param {String} cityName - 城市名称
  */
-export function resetCityFatigueStreak(player, cityIdx) {
+export function resetCityFatigueStreak(player, cityName) {
   if (player.streaks) {
-    player.streaks[cityIdx] = 0
+    player.streaks[cityName] = 0
   }
 }

@@ -1,7 +1,5 @@
 <template>
   <div id="playerMode">
-    <button v-if="currentStep !== 'menu'" class="exit-btn" @click="handleExit">← 返回主菜单</button>
-
     <div class="player-container">
       <!-- Firebase配置步骤 -->
       <FirebaseConfig
@@ -31,7 +29,7 @@
       <CenterCitySelection
         v-if="currentStep === 'center-city-selection'"
         :player-name="currentPlayer?.name || ''"
-        :cities="currentPlayer?.cities || []"
+        :cities="currentPlayer?.cities ? Object.values(currentPlayer.cities) : []"
         :initial-center-index="centerCityIndex"
         :current-draw-count="playerDrawCount"
         @center-selected="handleCenterSelected"
@@ -39,28 +37,44 @@
         @redraw="handleRedrawCities"
       />
 
-      <!-- 游戏进行中（带固定日志面板的布局） -->
-      <div v-if="currentStep === 'game'" class="game-with-log-layout">
-        <!-- 左侧：游戏主界面 -->
-        <div class="game-main-area">
-          <GameBoard
-            :show-battle-area="false"
-            :current-battle="null"
-            @show-skills="showSkillSelector = true"
-            @exit="handleExit"
-            @use-skill="handleUseSkill"
-            @end-turn="handleEndTurn"
-            @heal-city="handleHealCity"
-            @quick-skill="handleQuickSkill"
-          />
+      <!-- 等待其他玩家确认中心城市 -->
+      <div v-if="currentStep === 'waiting-for-center-confirmation'" class="game-waiting-area">
+        <div class="waiting-content">
+          <div class="waiting-icon">⏳</div>
+          <h3>等待其他玩家确认中心城市...</h3>
+          <p class="waiting-hint">你已完成中心城市选择，请耐心等待</p>
         </div>
+      </div>
 
-        <!-- 右侧：固定日志面板 -->
-        <div class="game-log-area">
-          <GameLogSimple />
+      <!-- 城市部署步骤 -->
+      <CityDeployment
+        v-if="currentStep === 'city-deployment'"
+        :current-player="currentPlayer"
+        :game-mode="gameMode"
+        :all-players="gameStore.players"
+        :room-id="currentRoomId"
+        @deployment-confirmed="handleDeploymentConfirmed"
+        @skill-used="handleSkillSelected"
+      />
+
+      <!-- 游戏进行中 - 战斗会自动在后台进行，玩家通过日志查看 -->
+      <!-- 战斗完成后会自动返回部署界面 -->
+      <div v-if="currentStep === 'game'" class="game-waiting-area">
+        <div class="waiting-content">
+          <div class="waiting-icon">⚔️</div>
+          <h3>战斗计算中...</h3>
+          <p class="waiting-hint">请查看右侧战斗日志</p>
+          <GameLogSimple :current-player-name="currentPlayer?.name" />
         </div>
       </div>
     </div>
+
+    <!-- 战斗动画 -->
+    <BattleAnimation
+      :show="showBattleAnimation"
+      :battle-data="battleAnimationData"
+      @complete="handleBattleAnimationComplete"
+    />
 
     <!-- 游戏日志模态框（仅在非game步骤显示） -->
     <GameLog v-if="currentStep !== 'game'" :show="showLog" @close="showLog = false" />
@@ -70,8 +84,42 @@
       v-if="showSkillSelector"
       :current-player="currentPlayer"
       @close="showSkillSelector = false"
-      @skill-selected="handleSkillSelected"
+      @skill-used="handleSkillSelected"
+      @skill-failed="handleSkillFailed"
     />
+
+    <!-- 先声夺人待处理请求面板 -->
+    <PendingSwapsPanel
+      v-if="currentPlayer && (currentStep === 'city-deployment' || currentStep === 'game')"
+      :current-player="currentPlayer"
+      @swap-accepted="handleSwapAccepted"
+      @swap-rejected="handleSwapRejected"
+    />
+
+    <!-- 技能失败提示弹窗 -->
+    <div v-if="showSkillFailureModal" class="skill-failure-modal" @click.self="closeSkillFailureModal">
+      <div class="skill-failure-content">
+        <div class="skill-failure-header">
+          <span class="skill-failure-icon">❌</span>
+          <h3 class="skill-failure-title">技能使用失败</h3>
+        </div>
+        <div class="skill-failure-body">
+          <div class="skill-failure-skill">
+            <span class="label">技能名称：</span>
+            <span class="value">{{ skillFailureInfo?.skillName }}</span>
+          </div>
+          <div class="skill-failure-reason">
+            <span class="label">失败原因：</span>
+            <span class="value">{{ skillFailureInfo?.message }}</span>
+          </div>
+        </div>
+        <div class="skill-failure-footer">
+          <button class="skill-failure-btn" @click="closeSkillFailureModal">
+            确定
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- 胜利/失败模态框 -->
     <div v-if="showVictory && gameLogic?.isGameOver?.value" class="victory-modal" @click.self="handleExit">
@@ -95,7 +143,7 @@
           <div class="stat-item">
             <span class="stat-label">存活城市</span>
             <span class="stat-value">
-              {{ gameLogic.winner.value?.cities?.filter(c => c.isAlive).length || 0 }}
+              {{ gameLogic.winner.value?.cities ? Object.values(gameLogic.winner.value.cities).filter(c => c.isAlive).length : 0 }}
             </span>
           </div>
         </div>
@@ -124,15 +172,17 @@ import FirebaseConfig from '../Firebase/FirebaseConfig.vue'
 import RoomSelection from '../Room/RoomSelection.vue'
 import WaitingRoom from '../Room/WaitingRoom.vue'
 import CenterCitySelection from './CenterCitySelection.vue'
-import GameBoard from '../Game/GameBoard.vue'
+import CityDeployment from '../Game/CityDeployment.vue'
 import GameLog from '../Game/GameLog.vue'
 import GameLogSimple from '../Game/GameLogSimple.vue'
 import SkillSelector from '../Skills/SkillSelector.vue'
+import PendingSwapsPanel from '../Game/PendingSwapsPanel.vue'
+import BattleAnimation from '../Game/BattleAnimation.vue'
 
 const emit = defineEmits(['exit'])
 
 const gameStore = useGameStore()
-const { leaveRoom, getRoomData, saveRoomData, startRoomListener, stopRoomListener } = useRoom()
+const { leaveRoom, getRoomData, saveRoomData, updateRoomGameState, startRoomListener, stopRoomListener } = useRoom()
 const gameLogic = useGameLogic()
 const { drawCities, getUsedNames } = useCityDraw()
 
@@ -148,6 +198,11 @@ const currentPlayer = ref(null)
 const gameMode = ref('2P')
 const centerCityIndex = ref(null)
 const playerDrawCount = ref(1)
+const isBattleProcessing = ref(false)  // 防止战斗处理被重复调用
+const showBattleAnimation = ref(false)  // 控制战斗动画显示
+const battleAnimationData = ref(null)   // 战斗动画数据
+const showSkillFailureModal = ref(false)  // 控制技能失败弹窗显示
+const skillFailureInfo = ref(null)       // 技能失败信息
 let roomDataListener = null
 
 onMounted(() => {
@@ -203,16 +258,125 @@ async function handleAllReady(players) {
   if (roomData) {
     const playerData = roomData.players.find(p => p.name === currentPlayer.value?.name)
     if (playerData) {
-      console.log('[PlayerMode] handleAllReady - 初始化currentPlayer')
+      console.log('[PlayerMode] ===== BUG 6 诊断: handleAllReady =====')
       console.log('[PlayerMode] 玩家名称:', playerData.name)
-      console.log('[PlayerMode] 城市数量:', playerData.cities.length)
-      console.log('[PlayerMode] 城市列表:', playerData.cities.map(c => c.name))
+      console.log('[PlayerMode] 城市数量:', Object.keys(playerData.cities).length)
+      console.log('[PlayerMode] 城市列表:')
+      Object.entries(playerData.cities).forEach(([cityName, city]) => {
+        console.log(`  ${cityName}: ${city.name} (HP: ${city.hp})`)
+      })
+      console.log('[PlayerMode] centerIndex (from Firebase):', playerData.centerCityName)
       console.log('[PlayerMode] 这是用户将在选择界面看到的初始城市列表')
+      console.log('[PlayerMode] ========================================')
 
       // 初始化currentPlayer - 关键修复：深度克隆以避免引用共享
       currentPlayer.value = JSON.parse(JSON.stringify(playerData))
       console.log('[PlayerMode] currentPlayer已深度克隆，独立于roomData')
       gameMode.value = roomData.mode || '2P'
+
+      // 关键修复：重置所有玩家的ready标志为false，准备进入中心城市选择
+      // 这样在handleCenterConfirmed中检查时，只有确认了中心城市的玩家ready才会是true
+      roomData.players.forEach(player => {
+        player.ready = false
+      })
+
+      // 关键修复：初始化gameState（如果不存在）
+      // 必须在这里初始化，确保后续的监听器和战斗检查能正确访问
+      // 注意：Firebase的set()会过滤掉空对象{}，所以需要用非空值初始化
+
+      // 关键修复：检测空的playerStates（旧数据），强制重新初始化
+      const needsInitialization = !roomData.gameState ||
+                                   !roomData.gameState.playerStates ||
+                                   (typeof roomData.gameState.playerStates === 'object' &&
+                                    Object.keys(roomData.gameState.playerStates).length === 0)
+
+      if (needsInitialization) {
+        console.log('[PlayerMode] ===== 初始化/修复gameState =====')
+        console.log('[PlayerMode] 原因:', !roomData.gameState ? '不存在' : 'playerStates为空对象')
+        console.log('[PlayerMode] roomData存在:', !!roomData)
+        console.log('[PlayerMode] roomData.players存在:', !!roomData.players)
+        console.log('[PlayerMode] roomData.players类型:', typeof roomData.players)
+        console.log('[PlayerMode] roomData.players是否为数组:', Array.isArray(roomData.players))
+        console.log('[PlayerMode] roomData.players数量:', roomData.players?.length)
+        console.log('[PlayerMode] roomData.players完整内容:', JSON.stringify(roomData.players, null, 2))
+
+        // 为每个玩家初始化playerState
+        const playerStates = {}
+
+        if (!roomData.players || roomData.players.length === 0) {
+          console.error('[PlayerMode] ❌ 错误：roomData.players为空，无法初始化playerStates')
+          console.error('[PlayerMode] 这不应该发生！handleAllReady应该在玩家加入后才调用')
+        } else {
+          console.log('[PlayerMode] 开始构建playerStates，循环次数:', roomData.players.length)
+          roomData.players.forEach((player, idx) => {
+            console.log(`[PlayerMode] 处理玩家 #${idx}:`, player)
+            if (!player || !player.name) {
+              console.error(`[PlayerMode] ❌ 玩家${idx}没有name属性:`, player)
+              return
+            }
+            console.log(`[PlayerMode] ✓ 为玩家初始化playerState: "${player.name}"`)
+            playerStates[player.name] = {
+              currentBattleCities: [],
+              battleGoldSkill: null,
+              deadCities: [],
+              usedSkills: [],
+              activatedCitySkills: null  // 关键修复：用null代替{}
+            }
+            console.log(`[PlayerMode] playerStates["${player.name}"]已创建:`, playerStates[player.name])
+          })
+          console.log('[PlayerMode] 循环结束')
+        }
+
+        console.log('[PlayerMode] playerStates构建完成，keys:', Object.keys(playerStates))
+        console.log('[PlayerMode] playerStates是否为空对象:', Object.keys(playerStates).length === 0)
+        console.log('[PlayerMode] playerStates内容:', JSON.stringify(playerStates, null, 2))
+
+        // 关键修复：如果playerStates为空，使用null代替，避免被Firebase过滤
+        // 后续在部署时再初始化具体的playerState
+        const finalPlayerStates = Object.keys(playerStates).length > 0 ? playerStates : null
+        if (finalPlayerStates === null) {
+          console.warn('[PlayerMode] ⚠️ playerStates为空，使用null代替，将在部署时初始化')
+        }
+
+        // 如果roomData.gameState已存在但需要修复，保留currentRound
+        const currentRound = roomData.gameState?.currentRound || 1
+
+        roomData.gameState = {
+          currentRound: currentRound,
+          playerStates: finalPlayerStates,  // 使用非空对象或null
+          battleProcessed: false,
+          knownCities: null,  // 用null代替{}，后续需要时再初始化
+          ironCities: null,
+          strengthBoost: null,
+          morale: null,
+          yqgzMarks: [],
+          battleLogs: [],
+          pendingSwaps: []
+        }
+
+        console.log('[PlayerMode] gameState初始化完成')
+        console.log('[PlayerMode] playerStates keys:', finalPlayerStates ? Object.keys(finalPlayerStates) : 'null')
+        console.log('[PlayerMode] 完整gameState:', JSON.stringify(roomData.gameState, null, 2))
+        console.log('[PlayerMode] ======================================')
+      }
+
+      await saveRoomData(currentRoomId.value, roomData)
+      console.log('[PlayerMode] 已重置所有玩家的ready标志为false并初始化gameState')
+
+      // 关键诊断：立即读取验证保存结果
+      const verifyRoomData = await getRoomData(currentRoomId.value)
+      if (verifyRoomData && verifyRoomData.gameState) {
+        console.log('[PlayerMode] ===== 验证保存后的gameState =====')
+        console.log('[PlayerMode] gameState存在:', !!verifyRoomData.gameState)
+        console.log('[PlayerMode] gameState keys:', Object.keys(verifyRoomData.gameState))
+        console.log('[PlayerMode] playerStates存在:', !!verifyRoomData.gameState.playerStates)
+        console.log('[PlayerMode] playerStates keys:', verifyRoomData.gameState.playerStates ? Object.keys(verifyRoomData.gameState.playerStates) : 'undefined')
+        console.log('[PlayerMode] playerStates内容:', JSON.stringify(verifyRoomData.gameState.playerStates, null, 2))
+        console.log('[PlayerMode] 完整gameState:', JSON.stringify(verifyRoomData.gameState, null, 2))
+        console.log('[PlayerMode] ======================================')
+      } else {
+        console.error('[PlayerMode] ❌ 验证失败：无法读取gameState')
+      }
 
       // 根据游戏模式决定下一步
       if (gameMode.value === '2P' || gameMode.value === '2v2') {
@@ -241,40 +405,45 @@ function handlePlayerJoined({ name, asSpectator }) {
 /**
  * 选择中心城市
  */
-async function handleCenterSelected(idx) {
-  centerCityIndex.value = idx
+async function handleCenterSelected(cityName) {
+  console.log('[PlayerMode] ===== 选择中心城市 (使用城市名称) =====')
+  console.log('[PlayerMode] 选择的城市名称:', cityName)
 
-  // 保存到房间数据（只更新centerIndex，不修改cities）
+  // 保存到房间数据
   if (currentRoomId.value && currentPlayer.value) {
     const roomData = await getRoomData(currentRoomId.value)
     if (roomData) {
       const playerIdx = roomData.players.findIndex(p => p.name === currentPlayer.value.name)
       if (playerIdx !== -1) {
-        // 只更新centerIndex，保持其他字段不变
-        roomData.players[playerIdx].centerIndex = idx
+        // 保存城市名称
+        roomData.players[playerIdx].centerCityName = cityName
         await saveRoomData(currentRoomId.value, roomData)
-        console.log('[PlayerMode] 中心城市已保存到房间数据，cities未被修改')
+        console.log('[PlayerMode] 中心城市已保存到房间数据:', cityName)
       }
     }
   }
+  console.log('[PlayerMode] ==========================================')
 }
 
 /**
  * 确认中心城市
  */
-async function handleCenterConfirmed(idx) {
-  centerCityIndex.value = idx
-  console.log('[PlayerMode] 确认中心城市，开始游戏')
-  console.log('[PlayerMode] handleCenterConfirmed - 确认前currentPlayer:', currentPlayer.value?.name)
-  console.log('[PlayerMode] handleCenterConfirmed - 确认前cities:', currentPlayer.value?.cities?.map(c => c.name))
+async function handleCenterConfirmed(cityName) {
+  console.log('[PlayerMode] ===== 确认中心城市 (使用城市名称) =====')
+  console.log('[PlayerMode] 确认的城市名称:', cityName)
+  console.log('[PlayerMode] 确认前currentPlayer.name:', currentPlayer.value?.name)
 
-  // 同步roomData到currentPlayer，但保持cities数组引用一致
+  // 同步roomData到currentPlayer
   if (currentRoomId.value && currentPlayer.value) {
     const roomData = await getRoomData(currentRoomId.value)
     if (roomData) {
       const playerIdx = roomData.players.findIndex(p => p.name === currentPlayer.value.name)
       if (playerIdx !== -1) {
-        roomData.players[playerIdx].ready = true // 标记为准备完成
+        // 设置centerCityName和ready状态
+        roomData.players[playerIdx].centerCityName = cityName
+        roomData.players[playerIdx].ready = true
+        console.log('[PlayerMode] ✅ 保存centerCityName到Firebase:', cityName)
+
         await saveRoomData(currentRoomId.value, roomData)
       }
 
@@ -283,18 +452,37 @@ async function handleCenterConfirmed(idx) {
 
       const updatedPlayerData = roomData.players.find(p => p.name === currentPlayer.value.name)
       if (updatedPlayerData) {
-        // 只更新其他字段（centerIndex等），保持cities引用不变
         currentPlayer.value = {
           ...updatedPlayerData,
-          cities: currentPlayer.value.cities  // 明确保持原有cities数组引用
+          cities: currentPlayer.value.cities  // 保持原有cities数组引用
         }
-        console.log('[PlayerMode] 已同步centerIndex等字段，cities引用保持不变')
+
+        console.log('[PlayerMode] 同步后currentPlayer.centerCityName:', currentPlayer.value.centerCityName)
+      }
+
+      console.log('[PlayerMode] ==========================================')
+
+      // 检查是否所有玩家都准备好了
+      const allPlayersReady = roomData.players.every(p => p.ready === true)
+      console.log('[PlayerMode] 所有玩家是否都已准备:', allPlayersReady)
+
+      if (allPlayersReady) {
+        // 如果所有玩家都准备好了，直接进入部署界面
+        console.log('[PlayerMode] 所有玩家已确认中心城市，直接进入部署界面')
+        currentStep.value = 'city-deployment'
+
+        // 启动监听器以监听游戏状态变化
+        startRoomDataListener()
+      } else {
+        // 如果还有玩家未准备好，进入等待界面
+        console.log('[PlayerMode] 进入等待界面，等待其他玩家确认中心城市')
+        currentStep.value = 'waiting-for-center-confirmation'
+
+        // 启动监听器以检测其他玩家的准备状态
+        startRoomDataListener()
       }
     }
   }
-
-  // 直接进入游戏
-  currentStep.value = 'game'
 }
 
 /**
@@ -339,7 +527,7 @@ async function handleRedrawCities() {
     roomData.players[playerIdx].cities = newCities
 
     // 清空之前选择的中心城市和预备城市
-    roomData.players[playerIdx].centerIndex = null
+    roomData.players[playerIdx].centerCityName = null
     roomData.players[playerIdx].roster = []
 
     // 保存到房间数据
@@ -348,15 +536,15 @@ async function handleRedrawCities() {
     // 关键修复：深度克隆避免引用共享，从roomData获取更新后的玩家对象
     const updatedPlayerData = JSON.parse(JSON.stringify(roomData.players[playerIdx]))
     console.log('[PlayerMode] 重新抽取后更新currentPlayer（深度克隆）')
-    console.log('[PlayerMode] 新城市列表:', updatedPlayerData.cities.map(c => c.name))
+    console.log('[PlayerMode] 新城市列表:', Object.values(updatedPlayerData.cities).map(c => c.name))
     currentPlayer.value = updatedPlayerData
     centerCityIndex.value = null
-    rosterCities.value = []
+    // 注意：roster只在3P模式使用，2P模式不需要清空rosterCities
 
     // 增加抽取次数
     playerDrawCount.value++
 
-    console.log('[PlayerMode] 城市已重新抽取，共', updatedPlayerData.cities.length, '个城市')
+    console.log('[PlayerMode] 城市已重新抽取，共', Object.keys(updatedPlayerData.cities).length, '个城市')
   } catch (error) {
     console.error('[PlayerMode] 重新抽取城市失败:', error)
   }
@@ -420,7 +608,7 @@ async function handleEndTurn() {
   // 1. 执行所有回合结束状态更新
   // 这包括：屏障倒计时、保护罩倒计时、禁用倒计时、越战越勇、战力加成、
   // 移花接木、不露踪迹、定海神针、定时爆破、深藏不露、生于紫室、
-  // 金币贷款、金融危机、目不转睛、抛砖引玉、血量存储利息、海市蜃楼、厚积薄发等
+  // 金币贷款、金融危机、寸步难行、抛砖引玉、血量存储利息、海市蜃楼、厚积薄发等
   gameStore.updateRoundStates()
   console.log('[PlayerMode] 回合结束状态更新完成')
 
@@ -470,14 +658,23 @@ async function handleEndTurn() {
   roomData.players.forEach((player, idx) => {
     const gameStorePlayer = gameStore.players.find(p => p.name === player.name)
     if (gameStorePlayer) {
-      // 同步城市HP和存活状态
-      player.cities = gameStorePlayer.cities.map(city => ({
-        ...city,
-        currentHp: city.currentHp,
-        isAlive: city.isAlive !== false
-      }))
+      // 同步城市HP和存活状态 - 保持对象结构
+      player.cities = {}
+      Object.entries(gameStorePlayer.cities).forEach(([cityName, city]) => {
+        player.cities[cityName] = {
+          ...city,
+          currentHp: city.currentHp,
+          isAlive: city.isAlive !== false
+        }
+      })
       // 同步金币
       player.gold = gameStorePlayer.gold
+
+      // 关键修复Bug1: 同步streak数据
+      if (gameStorePlayer.streaks) {
+        player.streaks = { ...gameStorePlayer.streaks }
+        console.log(`[PlayerMode] handleEndTurn - 同步${player.name}的streaks到Firebase:`, player.streaks)
+      }
     }
   })
 
@@ -519,6 +716,19 @@ async function handleSkillSelected(skillData) {
   console.log('[PlayerMode] 技能已选择', skillData)
   showSkillSelector.value = false
 
+  // ===== 诊断：检查 gameStore 状态 =====
+  console.log('[PlayerMode] ===== gameStore 诊断 =====')
+  console.log('[PlayerMode] gameStore 是否存在:', !!gameStore)
+  console.log('[PlayerMode] gameStore.pendingSwaps 类型:', typeof gameStore.pendingSwaps)
+  console.log('[PlayerMode] gameStore.pendingSwaps 值:', gameStore.pendingSwaps)
+  console.log('[PlayerMode] gameStore.createPendingSwap 是否存在:', typeof gameStore.createPendingSwap)
+  // 关键修复：Pinia自动解包ref，直接检查数组
+  if (Array.isArray(gameStore.pendingSwaps)) {
+    console.log('[PlayerMode] gameStore.pendingSwaps 长度:', gameStore.pendingSwaps.length)
+    console.log('[PlayerMode] gameStore.pendingSwaps内容:', gameStore.pendingSwaps)
+  }
+  console.log('[PlayerMode] ===========================')
+
   if (!skillData || !skillData.skillName) {
     console.error('[PlayerMode] 技能数据无效')
     return
@@ -528,6 +738,75 @@ async function handleSkillSelected(skillData) {
     console.error('[PlayerMode] 缺少房间或玩家信息')
     return
   }
+
+  // 如果技能已在SkillSelector中执行成功，直接同步数据到Firebase
+  if (skillData.result && skillData.result.success) {
+    console.log('[PlayerMode] 技能已在SkillSelector中执行，直接同步数据到Firebase')
+
+    try {
+      // 关键修复：不依赖getRoomData，直接使用gameStore的最新状态
+      // 构建玩家数据更新（使用gameStore.players，不需要读取Firebase）
+      const { getDatabase, ref: dbRef, update } = await import('firebase/database')
+      const db = getDatabase()
+
+      const playerUpdates = {}
+      gameStore.players.forEach((gameStorePlayer, idx) => {
+        // 更新城市HP和存活状态
+        playerUpdates[`rooms/${currentRoomId.value}/players/${idx}/cities`] = Object.values(gameStorePlayer.cities).map(city => ({
+          ...city,
+          currentHp: city.currentHp,
+          isAlive: city.isAlive !== false
+        }))
+        // 更新金币
+        playerUpdates[`rooms/${currentRoomId.value}/players/${idx}/gold`] = gameStorePlayer.gold
+      })
+
+      console.log('[PlayerMode] 准备更新玩家数据:', Object.keys(playerUpdates))
+
+      // 关键修复：正确读取pendingSwaps (Pinia会自动解包ref)
+      // 先检查是否已解包成数组,再检查是否是未解包的ref
+      let pendingSwapsUpdate = []
+      if (Array.isArray(gameStore.pendingSwaps)) {
+        // Pinia自动解包,gameStore.pendingSwaps直接是数组
+        pendingSwapsUpdate = gameStore.pendingSwaps
+        console.log('[PlayerMode] pendingSwaps已被Pinia解包,直接使用数组')
+      } else if (gameStore.pendingSwaps?.value && Array.isArray(gameStore.pendingSwaps.value)) {
+        // 未解包的ref,需要访问.value
+        pendingSwapsUpdate = gameStore.pendingSwaps.value
+        console.log('[PlayerMode] pendingSwaps是未解包的ref,使用.value')
+      } else {
+        // 其他情况,使用空数组
+        pendingSwapsUpdate = []
+        console.warn('[PlayerMode] pendingSwaps既不是数组也不是ref,使用空数组')
+      }
+
+      console.log('[PlayerMode] 技能执行后 gameStore.pendingSwaps:', gameStore.pendingSwaps)
+      console.log('[PlayerMode] 技能执行后 pendingSwaps类型:', Array.isArray(gameStore.pendingSwaps) ? 'Array' : typeof gameStore.pendingSwaps)
+      console.log('[PlayerMode] 同步pendingSwaps到Firebase:', pendingSwapsUpdate.length, '条请求', pendingSwapsUpdate)
+
+      // 关键修复：一次性更新所有数据（玩家数据 + pendingSwaps + logs），避免触发多次监听器
+      // 将pendingSwaps也加入到playerUpdates中，一起更新
+      playerUpdates[`rooms/${currentRoomId.value}/gameState/pendingSwaps`] = pendingSwapsUpdate
+
+      // 关键修复：同步日志到Firebase，确保所有玩家都能看到技能使用日志
+      playerUpdates[`rooms/${currentRoomId.value}/gameState/battleLogs`] = [...gameStore.logs]
+
+      console.log('[PlayerMode] 准备一次性更新到Firebase:', Object.keys(playerUpdates).length, '个字段')
+
+      await update(dbRef(db), playerUpdates)
+      console.log('[PlayerMode] 所有数据已一次性同步到Firebase（玩家数据 + pendingSwaps + logs）')
+
+      gameStore.addLog(skillData.result.message || `${skillData.skillName} 执行成功`)
+    } catch (error) {
+      console.error('[PlayerMode] 同步数据到Firebase失败:', error)
+      gameStore.addLog(`同步数据异常: ${error.message}`)
+    }
+
+    return
+  }
+
+  // 下面是原来的代码，用于处理SkillSelector中未执行的技能（理论上不应该走到这里）
+  console.warn('[PlayerMode] 技能在SkillSelector中未执行，开始在此处执行（不推荐）')
 
   // 获取最新房间数据
   const roomData = await getRoomData(currentRoomId.value)
@@ -604,7 +883,7 @@ async function handleSkillSelected(skillData) {
       '趁火打劫': () => battleSkills.useBattleSkills().executeChenHuoDaJie(caster, target),
       '玉碎瓦全': () => battleSkills.useBattleSkills().executeYuSuiWaQuan(caster, target, targetCityIdx),
       '合纵连横': () => battleSkills.useBattleSkills().executeHeZongLianHeng(caster, target),
-      '目不转睛': () => battleSkills.useBattleSkills().executeMuBuZhuanJing(caster, target),
+      '寸步难行': () => battleSkills.useBattleSkills().executeMuBuZhuanJing(caster, target),
       '抛砖引玉': () => battleSkills.useBattleSkills().executePaoZhuanYinYu(caster)
     }
 
@@ -645,7 +924,7 @@ async function handleSkillSelected(skillData) {
 
       // ========== 4. 攻击/伤害类 (18个) ==========
       '无知无畏': () => nonBattleSkills.useNonBattleSkills().executeWuZhiWuWei(caster, target, selfCityIdx),
-      '提灯定损': () => nonBattleSkills.useNonBattleSkills().executeTiDengDingSun(caster, target, targetCityIdx),
+      '一落千丈': () => nonBattleSkills.useNonBattleSkills().executeTiDengDingSun(caster, target, targetCityIdx),
       '连续打击': () => nonBattleSkills.useNonBattleSkills().executeLianXuDaJi(caster, target),
       '波涛汹涌': () => nonBattleSkills.useNonBattleSkills().executeBotaoXiongYong(caster, target),
       '狂轰滥炸': () => nonBattleSkills.useNonBattleSkills().executeKuangHongLanZha(caster, target),
@@ -664,7 +943,7 @@ async function handleSkillSelected(skillData) {
       '招贤纳士': () => nonBattleSkills.useNonBattleSkills().executeZhaoXianNaShi(caster, target, targetCityIdx),
 
       // ========== 5. 控制/交换类 (15个) ==========
-      '先声夺人': () => nonBattleSkills.useNonBattleSkills().executeXianShengDuoRen(caster),
+      '先声夺人': () => nonBattleSkills.useNonBattleSkills().executeXianShengDuoRen(caster, target, { casterCityIdx: selfCityIdx }),
       '时来运转': () => nonBattleSkills.useNonBattleSkills().executeShiLaiYunZhuan(caster, selfCityIdx),
       '人质交换': () => nonBattleSkills.useNonBattleSkills().executeRenZhiJiaoHuan(caster, target, selfCityIdx, targetCityIdx),
       '改弦更张': () => nonBattleSkills.useNonBattleSkills().executeGaiXianGengZhang(caster),
@@ -729,24 +1008,76 @@ async function handleSkillSelected(skillData) {
       console.log('[PlayerMode] 技能执行成功:', result)
 
       // 同步更新后的状态到Firebase
-      // 更新玩家数据
-      roomData.players.forEach((player) => {
+      // 使用Firebase update方法，只更新变化的字段，不覆盖整个房间数据
+      const playerUpdates = {}
+      roomData.players.forEach((player, idx) => {
         const gameStorePlayer = gameStore.players.find(p => p.name === player.name)
         if (gameStorePlayer) {
-          // 同步城市HP和存活状态
-          player.cities = gameStorePlayer.cities.map(city => ({
+          // 更新城市HP和存活状态
+          playerUpdates[`rooms/${currentRoomId.value}/players/${idx}/cities`] = Object.values(gameStorePlayer.cities).map(city => ({
             ...city,
             currentHp: city.currentHp,
             isAlive: city.isAlive !== false
           }))
-          // 同步金币
-          player.gold = gameStorePlayer.gold
+          // 更新金币
+          playerUpdates[`rooms/${currentRoomId.value}/players/${idx}/gold`] = gameStorePlayer.gold
         }
       })
 
-      // 保存到Firebase
-      await saveRoomData(currentRoomId.value, roomData)
-      console.log('[PlayerMode] 技能执行结果已同步到Firebase')
+      console.log('[PlayerMode] 准备更新玩家数据:', Object.keys(playerUpdates))
+
+      // 同步 pendingSwaps 到 Firebase（先声夺人技能需要）
+      console.log('[PlayerMode] 技能执行前检查 roomData.gameState:', roomData.gameState)
+
+      if (!roomData.gameState) {
+        console.log('[PlayerMode] gameState不存在，创建新的gameState对象')
+        roomData.gameState = {
+          currentRound: 1,
+          playerStates: {},
+          knownCities: {},
+          ironCities: {},
+          strengthBoost: {},
+          morale: {},
+          yqgzMarks: [],
+          battleLogs: [],
+          pendingSwaps: []
+        }
+      }
+
+      if (!roomData.gameState.pendingSwaps) {
+        console.log('[PlayerMode] pendingSwaps不存在，创建新数组')
+        roomData.gameState.pendingSwaps = []
+      }
+
+      // 关键修复：正确读取pendingSwaps (Pinia会自动解包ref)
+      let pendingSwapsUpdate = []
+      if (Array.isArray(gameStore.pendingSwaps)) {
+        pendingSwapsUpdate = gameStore.pendingSwaps
+        console.log('[PlayerMode] pendingSwaps已被Pinia解包,直接使用数组')
+      } else if (gameStore.pendingSwaps?.value && Array.isArray(gameStore.pendingSwaps.value)) {
+        pendingSwapsUpdate = gameStore.pendingSwaps.value
+        console.log('[PlayerMode] pendingSwaps是未解包的ref,使用.value')
+      } else {
+        pendingSwapsUpdate = []
+        console.warn('[PlayerMode] pendingSwaps既不是数组也不是ref,使用空数组')
+      }
+
+      console.log('[PlayerMode] 技能执行前 gameStore.pendingSwaps:', gameStore.pendingSwaps)
+      console.log('[PlayerMode] 技能执行前 pendingSwaps类型:', Array.isArray(gameStore.pendingSwaps) ? 'Array' : typeof gameStore.pendingSwaps)
+      console.log('[PlayerMode] 同步pendingSwaps到Firebase:', pendingSwapsUpdate.length, '条请求', pendingSwapsUpdate)
+
+      // 关键修复：一次性更新所有数据（玩家数据 + pendingSwaps），避免触发多次监听器
+      // 将pendingSwaps也加入到playerUpdates中，一起更新
+      playerUpdates[`rooms/${currentRoomId.value}/gameState/pendingSwaps`] = pendingSwapsUpdate
+
+      console.log('[PlayerMode] 准备一次性更新到Firebase:', Object.keys(playerUpdates).length, '个字段')
+
+      if (Object.keys(playerUpdates).length > 0) {
+        const { getDatabase, ref: dbRef, update } = await import('firebase/database')
+        const db = getDatabase()
+        await update(dbRef(db), playerUpdates)
+        console.log('[PlayerMode] 所有数据已一次性同步到Firebase（玩家数据 + pendingSwaps）')
+      }
     } else {
       gameStore.addLog(result?.message || `${skillName} 执行失败`)
       console.error('[PlayerMode] 技能执行失败:', result)
@@ -758,23 +1089,182 @@ async function handleSkillSelected(skillData) {
 }
 
 /**
+ * 处理技能执行失败
+ */
+function handleSkillFailed(failureData) {
+  console.log('[PlayerMode] 技能执行失败', failureData)
+
+  // 设置失败信息
+  skillFailureInfo.value = {
+    skillName: failureData.skill,
+    message: failureData.result?.message || failureData.error || '技能执行失败',
+    timestamp: Date.now()
+  }
+
+  // 显示失败弹窗
+  showSkillFailureModal.value = true
+
+  // 添加到游戏日志
+  gameStore.addLog(`❌ ${failureData.skill} 执行失败: ${skillFailureInfo.value.message}`)
+}
+
+/**
+ * 关闭技能失败弹窗
+ */
+function closeSkillFailureModal() {
+  showSkillFailureModal.value = false
+  skillFailureInfo.value = null
+}
+
+/**
+ * 处理先声夺人交换请求被接受
+ */
+async function handleSwapAccepted({ swap, result }) {
+  console.log('[PlayerMode] 交换请求已接受', { swap, result })
+
+  if (!currentRoomId.value) {
+    console.error('[PlayerMode] 缺少房间信息')
+    return
+  }
+
+  try {
+    // 获取最新房间数据
+    const roomData = await getRoomData(currentRoomId.value)
+    if (!roomData) {
+      console.error('[PlayerMode] 无法获取房间数据')
+      return
+    }
+
+    // 同步交换后的城市数据到 Firebase
+    const initiator = gameStore.players.find(p => p.name === swap.initiatorName)
+    const target = gameStore.players.find(p => p.name === swap.targetName)
+
+    if (initiator && target) {
+      const initiatorRoom = roomData.players.find(p => p.name === initiator.name)
+      const targetRoom = roomData.players.find(p => p.name === target.name)
+
+      if (initiatorRoom && targetRoom) {
+        // 同步城市列表 - 保持对象结构
+        initiatorRoom.cities = {}
+        Object.entries(initiator.cities).forEach(([cityName, city]) => {
+          initiatorRoom.cities[cityName] = {
+            ...city,
+            currentHp: city.currentHp,
+            isAlive: city.isAlive !== false
+          }
+        })
+
+        targetRoom.cities = {}
+        Object.entries(target.cities).forEach(([cityName, city]) => {
+          targetRoom.cities[cityName] = {
+            ...city,
+            currentHp: city.currentHp,
+            isAlive: city.isAlive !== false
+          }
+        })
+
+        // 添加交换日志到battleLogs
+        if (!roomData.gameState.battleLogs) {
+          roomData.gameState.battleLogs = []
+        }
+        roomData.gameState.battleLogs.push({
+          message: result.message,
+          timestamp: Date.now(),
+          round: roomData.gameState.currentRound || 1,
+          isPrivate: false
+        })
+
+        // 同步 pendingSwaps 到 Firebase
+        if (!roomData.gameState.pendingSwaps) {
+          roomData.gameState.pendingSwaps = []
+        }
+        // 关键修复：Pinia自动解包ref，直接使用gameStore.pendingSwaps
+        roomData.gameState.pendingSwaps = gameStore.pendingSwaps
+
+        // 保存到Firebase
+        await saveRoomData(currentRoomId.value, roomData)
+        console.log('[PlayerMode] 交换结果已同步到Firebase')
+
+        // 注释：不在这里添加本地日志，因为acceptPreemptiveStrike已经添加过了
+        // 避免重复日志：acceptPreemptiveStrike在line 1197-1200已经使用addSkillEffectLog添加了日志
+        // gameStore.addLog(result.message)
+      }
+    }
+  } catch (error) {
+    console.error('[PlayerMode] 同步交换结果失败:', error)
+    gameStore.addLog(`同步交换结果异常: ${error.message}`)
+  }
+}
+
+/**
+ * 处理先声夺人交换请求被拒绝
+ */
+async function handleSwapRejected({ swap, result }) {
+  console.log('[PlayerMode] 交换请求已拒绝', { swap, result })
+
+  if (!currentRoomId.value) {
+    console.error('[PlayerMode] 缺少房间信息')
+    return
+  }
+
+  try {
+    // 获取最新房间数据
+    const roomData = await getRoomData(currentRoomId.value)
+    if (!roomData) {
+      console.error('[PlayerMode] 无法获取房间数据')
+      return
+    }
+
+    // 添加拒绝日志到battleLogs
+    if (!roomData.gameState.battleLogs) {
+      roomData.gameState.battleLogs = []
+    }
+    roomData.gameState.battleLogs.push({
+      message: result.message || `${swap.targetName}拒绝了${swap.initiatorName}的先声夺人请求`,
+      timestamp: Date.now(),
+      round: roomData.gameState.currentRound || 1,
+      isPrivate: false
+    })
+
+    // 同步 pendingSwaps 到 Firebase
+    if (!roomData.gameState.pendingSwaps) {
+      roomData.gameState.pendingSwaps = []
+    }
+    // 关键修复：Pinia自动解包ref，直接使用gameStore.pendingSwaps
+    roomData.gameState.pendingSwaps = gameStore.pendingSwaps
+
+    // 保存到Firebase
+    await saveRoomData(currentRoomId.value, roomData)
+    console.log('[PlayerMode] 拒绝结果已同步到Firebase')
+
+    // 添加到本地日志
+    gameStore.addLog(result.message || `${swap.targetName}拒绝了${swap.initiatorName}的先声夺人请求`)
+  } catch (error) {
+    console.error('[PlayerMode] 同步拒绝结果失败:', error)
+    gameStore.addLog(`同步拒绝结果异常: ${error.message}`)
+  }
+}
+
+/**
  * 确认城市部署
  */
 async function handleDeploymentConfirmed({ cities, skill, activatedCitySkills }) {
   console.log('[PlayerMode] 确认城市部署', { cities, skill, activatedCitySkills })
   console.log('[PlayerMode] currentPlayer.name:', currentPlayer.value?.name)
   console.log('[PlayerMode] currentPlayer.cities:')
-  currentPlayer.value?.cities.forEach((city, idx) => {
-    console.log(`  [${idx}] ${city.name} (HP: ${city.currentHp ?? city.hp})`)
-  })
+  if (currentPlayer.value?.cities) {
+    Object.entries(currentPlayer.value.cities).forEach(([cityName, city]) => {
+      console.log(`  ${cityName}: ${city.name} (HP: ${city.currentHp ?? city.hp})`)
+    })
+  }
 
   // 诊断日志：详细显示激活的城市技能
   console.log('[PlayerMode] 激活的城市技能详情:')
   if (activatedCitySkills && Object.keys(activatedCitySkills).length > 0) {
-    Object.keys(activatedCitySkills).forEach(cityIdx => {
-      const skillData = activatedCitySkills[cityIdx]
-      const actualCity = currentPlayer.value?.cities[cityIdx]
-      console.log(`  cityIdx=${cityIdx}: skillData.cityName="${skillData.cityName}", actualCity="${actualCity?.name}", 匹配=${skillData.cityName === actualCity?.name}`)
+    Object.keys(activatedCitySkills).forEach(cityName => {
+      const skillData = activatedCitySkills[cityName]
+      const actualCity = currentPlayer.value?.cities[cityName]
+      console.log(`  cityName=${cityName}: skillData.cityName="${skillData.cityName}", actualCity="${actualCity?.name}", 匹配=${skillData.cityName === actualCity?.name}`)
     })
   } else {
     console.log('  (无激活的城市技能)')
@@ -790,60 +1280,203 @@ async function handleDeploymentConfirmed({ cities, skill, activatedCitySkills })
 
     // 初始化游戏状态（如果还没有）
     if (!roomData.gameState) {
+      console.log('[PlayerMode] handleDeploymentConfirmed - 初始化gameState')
+
+      // 构建playerStates
+      const playerStates = {}
+      roomData.players.forEach(player => {
+        if (player && player.name) {
+          playerStates[player.name] = {
+            currentBattleCities: [],
+            battleGoldSkill: null,
+            deadCities: [],
+            usedSkills: [],
+            activatedCitySkills: null
+          }
+        }
+      })
+
       roomData.gameState = {
         currentRound: 1,
-        playerStates: {},
+        playerStates: Object.keys(playerStates).length > 0 ? playerStates : null,
         barrier: null,
-        protections: {},
-        ironCities: {},
-        strengthBoost: {},
-        morale: {},
+        protections: null,
+        ironCities: null,
+        strengthBoost: null,
+        morale: null,
         yqgzMarks: [],
-        battleLogs: []
+        battleLogs: [],
+        pendingSwaps: []  // 先声夺人待处理请求数组
       }
+
+      console.log('[PlayerMode] handleDeploymentConfirmed - gameState初始化完成，playerStates keys:', Object.keys(playerStates))
+    }
+
+    // 确保 playerStates 存在（即使 gameState 已存在）
+    if (!roomData.gameState.playerStates) {
+      console.log('[PlayerMode] handleDeploymentConfirmed - playerStates不存在，重新初始化')
+      const playerStates = {}
+      roomData.players.forEach(player => {
+        if (player && player.name) {
+          playerStates[player.name] = {
+            currentBattleCities: [],
+            battleGoldSkill: null,
+            deadCities: [],
+            usedSkills: [],
+            activatedCitySkills: null
+          }
+        }
+      })
+      roomData.gameState.playerStates = Object.keys(playerStates).length > 0 ? playerStates : null
+      console.log('[PlayerMode] handleDeploymentConfirmed - playerStates重新初始化完成，keys:', Object.keys(playerStates))
+    }
+
+    // 确保 playerStates 是对象而不是null
+    if (!roomData.gameState.playerStates || typeof roomData.gameState.playerStates !== 'object') {
+      console.log('[PlayerMode] handleDeploymentConfirmed - playerStates为null或不是对象，重新初始化为空对象')
+      roomData.gameState.playerStates = {}
     }
 
     // 初始化玩家状态（如果还没有）
     if (!roomData.gameState.playerStates[currentPlayer.value.name]) {
+      console.log('[PlayerMode] handleDeploymentConfirmed - 初始化当前玩家的playerState:', currentPlayer.value.name)
       roomData.gameState.playerStates[currentPlayer.value.name] = {
         currentBattleCities: [],
         battleGoldSkill: null,
         deadCities: [],
         usedSkills: [],
-        activatedCitySkills: {}
+        activatedCitySkills: null  // 用null代替{}
       }
     }
 
     const playerState = roomData.gameState.playerStates[currentPlayer.value.name]
 
     // 保存出战城市和技能
-    playerState.currentBattleCities = cities.map(cityIdx => ({
-      cityIdx,
+    playerState.currentBattleCities = cities.map(cityName => ({
+      cityName,
       isStandGroundCity: skill === '按兵不动'
     }))
     playerState.battleGoldSkill = skill || null
-    playerState.activatedCitySkills = activatedCitySkills || {}
+    playerState.activatedCitySkills = activatedCitySkills || null  // 用null代替{}
 
+    // 关键修复：确保roomData.players中的cities对象和currentPlayer.cities一致
+    const playerIdx = roomData.players.findIndex(p => p.name === currentPlayer.value.name)
+    if (playerIdx !== -1) {
+      console.log('[PlayerMode] ===== 同步cities对象到roomData =====')
+      console.log('[PlayerMode] 同步前roomData.players[].cities:', Object.values(roomData.players[playerIdx].cities).map(c => c.name))
+      console.log('[PlayerMode] currentPlayer.cities:', Object.values(currentPlayer.value.cities).map(c => c.name))
+
+      // 深度克隆currentPlayer的cities到roomData，确保一致
+      roomData.players[playerIdx].cities = JSON.parse(JSON.stringify(currentPlayer.value.cities))
+
+      console.log('[PlayerMode] 同步后roomData.players[].cities:', Object.values(roomData.players[playerIdx].cities).map(c => c.name))
+    }
+
+    // 添加公开日志到roomData（所有玩家都能看到）
+    if (!roomData.gameState.battleLogs) {
+      roomData.gameState.battleLogs = []
+    }
+    roomData.gameState.battleLogs.push({
+      message: `[回合${roomData.gameState.currentRound || 1}] ${currentPlayer.value.name} 已确认出战`,
+      timestamp: Date.now(),
+      round: roomData.gameState.currentRound || 1,
+      isPrivate: false // 公开日志，所有人可见
+    })
+
+    // 一次性保存所有数据（包括部署数据和日志）
     await saveRoomData(currentRoomId.value, roomData)
-    console.log('[PlayerMode] 部署已保存，等待其他玩家')
+    console.log('[PlayerMode] 部署和日志已保存，等待其他玩家')
 
-    // 添加公开日志：玩家已确认出战
-    gameStore.addLog(`${currentPlayer.value.name} 已确认出战`)
+    // 关键修复：立即重新读取验证数据是否保存成功
+    const verifyRoomData = await getRoomData(currentRoomId.value)
+    if (verifyRoomData) {
+      const verifyState = verifyRoomData.gameState.playerStates[currentPlayer.value.name]
+      console.log('[PlayerMode] ===== 验证保存结果 =====')
+      console.log('[PlayerMode] 验证当前玩家部署状态:', verifyState)
+      console.log('[PlayerMode] currentBattleCities长度:', verifyState?.currentBattleCities?.length || 0)
+      console.log('[PlayerMode] battleGoldSkill:', verifyState?.battleGoldSkill)
+      console.log('[PlayerMode] ========================================')
+
+      // 检查所有玩家的部署状态
+      console.log('[PlayerMode] ===== 检查所有玩家部署状态 =====')
+      verifyRoomData.players.forEach(player => {
+        const state = verifyRoomData.gameState.playerStates[player.name]
+        // 关键修复：确保currentBattleCities是数组（Firebase可能返回对象）
+        const battleCities = Array.isArray(state?.currentBattleCities)
+          ? state.currentBattleCities
+          : (state?.currentBattleCities ? Object.values(state.currentBattleCities) : [])
+        const deployed = state && (
+          battleCities.length > 0 ||
+          state.battleGoldSkill === '按兵不动'
+        )
+        console.log(`[PlayerMode] ${player.name}: 已部署=${deployed}, currentBattleCities=${battleCities.length}`)
+      })
+      console.log('[PlayerMode] ========================================')
+    }
+
+    // 注释：不在本地添加日志，统一通过Firebase监听器同步，避免重复
 
     // 检查是否有未确认的对手，添加私密日志
     const allPlayers = roomData.players.filter(p => p.name !== currentPlayer.value.name)
     const unconfirmedOpponents = allPlayers.filter(opponent => {
       const oppState = roomData.gameState.playerStates[opponent.name]
-      return !oppState || !oppState.currentBattleCities || oppState.currentBattleCities.length === 0
+      // 关键修复：确保currentBattleCities是数组（Firebase可能返回对象）
+      const battleCities = Array.isArray(oppState?.currentBattleCities)
+        ? oppState.currentBattleCities
+        : (oppState?.currentBattleCities ? Object.values(oppState.currentBattleCities) : [])
+      const deployed = oppState && (
+        battleCities.length > 0 ||
+        oppState.battleGoldSkill === '按兵不动'
+      )
+      return !deployed
     })
 
     if (unconfirmedOpponents.length > 0) {
       const opponentNames = unconfirmedOpponents.map(p => p.name).join('、')
       gameStore.addPrivateLog(currentPlayer.value.name, `等待 ${opponentNames} 确认出战...`)
+      console.log('[PlayerMode] 还有未确认的对手:', opponentNames)
+    } else {
+      console.log('[PlayerMode] 所有玩家都已确认出战！')
     }
 
     // 同步玩家数据到 gameStore
     syncRoomDataToGameStore(roomData)
+
+    // 关键修复Bug2: 初始化initialCities（用于快速治疗等技能）
+    console.log('[PlayerMode] 初始化initialCities')
+    gameStore.initialCities = {}
+    roomData.players.forEach(player => {
+      gameStore.initialCities[player.name] = Object.values(player.cities).map(city => ({
+        name: city.name,
+        hp: city.hp || city.currentHp || city.baseHp,
+        baseHp: city.baseHp || city.hp || city.currentHp,
+        maxHp: city.maxHp || city.hp || city.baseHp
+      }))
+      console.log(`[PlayerMode] 初始化${player.name}的initialCities:`, gameStore.initialCities[player.name].length, '座城市')
+    })
+
+    // 验证同步后的数据一致性
+    console.log('[PlayerMode] ===== 验证数据一致性 =====')
+    const gameStorePlayer = gameStore.players.find(p => p.name === currentPlayer.value.name)
+    if (gameStorePlayer) {
+      console.log('[PlayerMode] gameStore中的cities:', Object.values(gameStorePlayer.cities).map(c => c.name))
+      console.log('[PlayerMode] currentPlayer.cities:', Object.values(currentPlayer.value.cities).map(c => c.name))
+
+      // 检查城市名称是否一致
+      const gameStoreCityNames = Object.keys(gameStorePlayer.cities).sort()
+      const currentPlayerCityNames = Object.keys(currentPlayer.value.cities).sort()
+
+      let allMatch = gameStoreCityNames.length === currentPlayerCityNames.length &&
+                     gameStoreCityNames.every((name, i) => name === currentPlayerCityNames[i])
+
+      if (!allMatch) {
+        console.error(`[PlayerMode] ⚠️ 城市列表不匹配:`)
+        console.error(`  gameStore: ${gameStoreCityNames.join(', ')}`)
+        console.error(`  currentPlayer: ${currentPlayerCityNames.join(', ')}`)
+      } else {
+        console.log('[PlayerMode] ✅ 所有城市名称匹配正确')
+      }
+    }
 
     // 关键修复：选择性更新currentPlayer，不覆盖cities
     const updatedPlayerData = roomData.players.find(p => p.name === currentPlayer.value.name)
@@ -853,10 +1486,10 @@ async function handleDeploymentConfirmed({ cities, skill, activatedCitySkills })
       // 只更新必要字段，保留本地的cities
       currentPlayer.value.gold = updatedPlayerData.gold
       currentPlayer.value.roster = updatedPlayerData.roster
-      currentPlayer.value.centerIndex = updatedPlayerData.centerIndex
+      currentPlayer.value.centerCityName = updatedPlayerData.centerCityName
       currentPlayer.value.ready = updatedPlayerData.ready
 
-      console.log('[PlayerMode] handleDeploymentConfirmed - cities未被修改，仍为:', currentPlayer.value.cities.map(c => c.name))
+      console.log('[PlayerMode] handleDeploymentConfirmed - cities未被修改，仍为:', Object.values(currentPlayer.value.cities).map(c => c.name))
     }
 
     // 启动游戏
@@ -890,8 +1523,16 @@ function syncRoomDataToGameStore(roomData) {
   }
 
   roomData.players.forEach(player => {
-    if (!player || !player.cities || !Array.isArray(player.cities)) {
+    if (!player || !player.cities) {
       console.warn('[PlayerMode] syncRoomDataToGameStore - 玩家或城市数据缺失', player)
+      return
+    }
+
+    // 关键修复：支持对象结构的cities（城市名称迁移后）
+    // player.cities可以是对象（新格式）或数组（旧格式）
+    const citiesIsObject = typeof player.cities === 'object' && !Array.isArray(player.cities)
+    if (!citiesIsObject && !Array.isArray(player.cities)) {
+      console.warn('[PlayerMode] syncRoomDataToGameStore - cities既不是对象也不是数组', player)
       return
     }
 
@@ -899,45 +1540,65 @@ function syncRoomDataToGameStore(roomData) {
     const existingPlayer = gameStore.players.find(p => p.name === player.name)
 
     // 确保每个城市都有正确的HP和存活状态
-    const cities = player.cities.map((city, idx) => {
-      // 如果现有玩家存在且有这个城市，保留其currentHp和isAlive
-      const existingCity = existingPlayer?.cities[idx]
+    // 关键修复Bug1: 同步streaks数据（疲劳系统）
+    let streaks = {}
+    if (player.streaks) {
+      streaks = { ...player.streaks }
+      console.log(`[PlayerMode] syncRoomDataToGameStore - 从roomData加载${player.name}的streaks:`, streaks)
+    } else if (existingPlayer && existingPlayer.streaks) {
+      streaks = { ...existingPlayer.streaks }
+      console.log(`[PlayerMode] syncRoomDataToGameStore - 保留${player.name}的旧streaks:`, streaks)
+    }
 
-      let currentHp, isAlive
-      if (existingCity) {
-        // 优先使用现有城市的数据
-        currentHp = existingCity.currentHp !== undefined ? existingCity.currentHp : existingCity.hp
-        isAlive = existingCity.isAlive !== undefined ? existingCity.isAlive : (currentHp > 0)
-      } else {
-        // 新城市，从city.hp初始化
-        currentHp = city.currentHp !== undefined ? city.currentHp : city.hp
-        isAlive = city.isAlive !== undefined ? city.isAlive : (currentHp > 0)
-      }
+    // 关键修复：支持对象结构的cities
+    // 将cities转换为对象格式（如果还不是的话）
+    let citiesObj = {}
+    if (citiesIsObject) {
+      // 已经是对象格式，直接使用
+      citiesObj = player.cities
+      console.log(`[PlayerMode] syncRoomDataToGameStore - ${player.name}的cities是对象格式，城市数量: ${Object.keys(citiesObj).length}`)
+    } else {
+      // 数组格式，转换为对象格式（使用城市名称作为key）
+      player.cities.forEach(city => {
+        citiesObj[city.name] = city
+      })
+      console.log(`[PlayerMode] syncRoomDataToGameStore - ${player.name}的cities从数组转换为对象，城市数量: ${Object.keys(citiesObj).length}`)
+    }
 
-      return {
+    // 确保每个城市都有正确的HP和存活状态
+    const cities = {}
+    Object.entries(citiesObj).forEach(([cityName, city]) => {
+      // 优先使用roomData中的currentHp（战斗后已更新）
+      let currentHp = city.currentHp !== undefined ? city.currentHp : city.hp
+      let isAlive = city.isAlive !== undefined ? city.isAlive : (currentHp > 0)
+
+      cities[cityName] = {
         ...city,
         currentHp: currentHp,
         isAlive: isAlive
       }
     })
 
-    // 如果玩家已存在，更新数据；否则添加新玩家
+    // 如果玩家已存在,更新数据;否则添加新玩家
     const playerIndex = gameStore.players.findIndex(p => p.name === player.name)
     const playerData = {
       name: player.name,
       gold: player.gold || 2,
       cities: cities,
-      centerIndex: player.centerIndex,
+      centerCityName: player.centerCityName,
       roster: player.roster || [],
-      battleModifiers: []
+      battleModifiers: [],
+      streaks: streaks // 关键修复Bug1: 添加streaks字段
     }
 
     if (playerIndex >= 0) {
       // 更新现有玩家
       gameStore.players[playerIndex] = playerData
+      console.log(`[PlayerMode] syncRoomDataToGameStore - 更新${player.name}的streaks:`, streaks)
     } else {
       // 添加新玩家
       gameStore.players.push(playerData)
+      console.log(`[PlayerMode] syncRoomDataToGameStore - 新增${player.name}的streaks:`, streaks)
     }
   })
 
@@ -950,6 +1611,14 @@ function syncRoomDataToGameStore(roomData) {
       gameStore.playerStates = roomData.gameState.playerStates
       console.log('[PlayerMode] 已同步playerStates到gameStore')
     }
+
+    // 关键修复：在syncRoomDataToGameStore中同步pendingSwaps
+    // 这样可以确保在Vue响应性更新触发computed之前,pendingSwaps就已经同步了
+    // 注意：Pinia自动解包ref,直接使用gameStore.pendingSwaps即可
+    if (roomData.gameState.pendingSwaps && Array.isArray(roomData.gameState.pendingSwaps)) {
+      gameStore.pendingSwaps = roomData.gameState.pendingSwaps
+      console.log(`[PlayerMode] syncRoomDataToGameStore中同步pendingSwaps: ${gameStore.pendingSwaps.length}条`)
+    }
   }
 
   console.log('[PlayerMode] gameStore已更新，玩家数量:', gameStore.players.length)
@@ -961,10 +1630,23 @@ function syncRoomDataToGameStore(roomData) {
 function startRoomDataListener() {
   if (!currentRoomId.value) return
 
+  // 防止重复启动监听器
+  if (roomDataListener) {
+    console.log('[PlayerMode] 监听器已经在运行，跳过重复启动')
+    return
+  }
+
   console.log('[PlayerMode] 开始监听房间数据变化')
 
   roomDataListener = startRoomListener(currentRoomId.value, async (data) => {
+    console.log('[PlayerMode] ===== 监听器被触发 =====', new Date().toLocaleTimeString())
+    console.log('[PlayerMode] 触发前本地pendingSwaps:', gameStore.pendingSwaps?.length || 0, '条')
     console.log('[PlayerMode] 房间数据更新', data)
+    console.log('[PlayerMode] 监听器收到的data keys:', Object.keys(data || {}))
+    console.log('[PlayerMode] 监听器收到的gameState:', data.gameState)
+    console.log('[PlayerMode] 监听器收到的gameState keys:', data.gameState ? Object.keys(data.gameState) : 'undefined')
+    console.log('[PlayerMode] 监听器收到的pendingSwaps:', data.gameState?.pendingSwaps)
+    console.log('[PlayerMode] 监听器收到的pendingSwaps长度:', data.gameState?.pendingSwaps?.length || 0)
 
     // 同步数据到 gameStore
     syncRoomDataToGameStore(data)
@@ -972,33 +1654,85 @@ function startRoomDataListener() {
     // 关键修复：选择性更新currentPlayer，不覆盖cities（防止数据被错误同步）
     const updatedPlayerData = data.players.find(p => p.name === currentPlayer.value?.name)
     if (updatedPlayerData && currentPlayer.value) {
+      console.log('[PlayerMode] ===== BUG 6 诊断: 监听器更新 =====')
       console.log('[PlayerMode] 监听器 - 选择性更新currentPlayer（保留cities）')
+
+      // 诊断：显示更新前的状态
+      console.log('[PlayerMode] 更新前本地centerCityName:', currentPlayer.value.centerCityName)
+      console.log('[PlayerMode] 更新前本地cities:')
+      if (currentPlayer.value.cities) {
+        Object.entries(currentPlayer.value.cities).forEach(([cityName, city]) => {
+          console.log(`  ${cityName}: ${city.name}`)
+        })
+      }
+      if (currentPlayer.value.centerCityName !== null && currentPlayer.value.centerCityName !== undefined) {
+        console.log('[PlayerMode] 更新前本地centerCityName指向的城市:', currentPlayer.value.cities[currentPlayer.value.centerCityName]?.name)
+      }
+
+      // 诊断：显示Firebase传来的数据
+      console.log('[PlayerMode] Firebase传来的centerCityName:', updatedPlayerData.centerCityName)
+      console.log('[PlayerMode] Firebase传来的cities:')
+      if (updatedPlayerData.cities) {
+        Object.entries(updatedPlayerData.cities).forEach(([cityName, city]) => {
+          console.log(`  ${cityName}: ${city.name}`)
+        })
+      }
+      if (updatedPlayerData.centerCityName !== null && updatedPlayerData.centerCityName !== undefined) {
+        console.log('[PlayerMode] Firebase centerCityName指向的城市:', updatedPlayerData.cities[updatedPlayerData.centerCityName]?.name)
+      }
 
       // 只更新这些字段，保留本地的cities数组不变
       currentPlayer.value.gold = updatedPlayerData.gold
       currentPlayer.value.roster = updatedPlayerData.roster
-      currentPlayer.value.centerIndex = updatedPlayerData.centerIndex
+      currentPlayer.value.centerCityName = updatedPlayerData.centerCityName
       currentPlayer.value.ready = updatedPlayerData.ready
 
-      // 只在特定情况下更新cities（如重新抽取、战斗后HP变化）
+      // 诊断：显示更新后的状态
+      console.log('[PlayerMode] 更新后本地centerCityName:', currentPlayer.value.centerCityName)
+      if (currentPlayer.value.centerCityName !== null && currentPlayer.value.centerCityName !== undefined) {
+        console.log('[PlayerMode] 更新后本地centerIndex指向的城市:', currentPlayer.value.cities[currentPlayer.value.centerCityName]?.name)
+        console.log('[PlayerMode] ⚠️ 如果这个城市名称与Firebase centerIndex指向的城市不同，说明数组顺序不一致！')
+      }
+      console.log('[PlayerMode] ==========================================')
+
+      // 只在特定情况下更新cities（如重新抽取、战斗后HP变化、城市交换）
       // 检查是否需要更新cities（通过比较城市数量判断）
-      if (updatedPlayerData.cities && updatedPlayerData.cities.length !== currentPlayer.value.cities.length) {
+      if (updatedPlayerData.cities && Object.keys(updatedPlayerData.cities).length !== Object.keys(currentPlayer.value.cities).length) {
         console.log('[PlayerMode] 监听器 - cities数量变化，更新cities')
         currentPlayer.value.cities = updatedPlayerData.cities
       } else if (updatedPlayerData.cities) {
-        // 只更新HP和存活状态，不改变城市列表
-        updatedPlayerData.cities.forEach((updatedCity, idx) => {
-          if (currentPlayer.value.cities[idx]) {
-            const localCity = currentPlayer.value.cities[idx]
-            // 只更新HP相关字段
-            if (updatedCity.currentHp !== undefined) {
-              localCity.currentHp = updatedCity.currentHp
+        // 检查是否有城市名称变化（表示发生了交换）
+        const updatedCityNames = Object.keys(updatedPlayerData.cities).sort()
+        const currentCityNames = Object.keys(currentPlayer.value.cities).sort()
+
+        const hasCitySwap = !updatedCityNames.every((name, i) => name === currentCityNames[i])
+
+        if (hasCitySwap) {
+          console.log(`[PlayerMode] 监听器 - 检测到城市交换`)
+          console.log(`  之前: ${currentCityNames.join(', ')}`)
+          console.log(`  之后: ${updatedCityNames.join(', ')}`)
+        }
+
+        if (hasCitySwap) {
+          // 发生了城市交换，完全更新cities数组
+          console.log('[PlayerMode] 监听器 - 检测到城市交换，完全更新cities')
+          // 深拷贝整个cities对象
+          currentPlayer.value.cities = JSON.parse(JSON.stringify(updatedPlayerData.cities))
+        } else {
+          // 没有交换，只更新HP和存活状态，不改变城市列表
+          Object.entries(updatedPlayerData.cities).forEach(([cityName, updatedCity]) => {
+            if (currentPlayer.value.cities[cityName]) {
+              const localCity = currentPlayer.value.cities[cityName]
+              // 只更新HP相关字段
+              if (updatedCity.currentHp !== undefined) {
+                localCity.currentHp = updatedCity.currentHp
+              }
+              if (updatedCity.isAlive !== undefined) {
+                localCity.isAlive = updatedCity.isAlive
+              }
             }
-            if (updatedCity.isAlive !== undefined) {
-              localCity.isAlive = updatedCity.isAlive
-            }
-          }
-        })
+          })
+        }
       }
     }
 
@@ -1006,91 +1740,305 @@ function startRoomDataListener() {
     if (data.gameState) {
       gameStore.currentRound = data.gameState.currentRound || 1
 
-      // 同步战斗日志到本地
+      // 同步战斗日志到本地（累积追加，不清空历史日志）
       if (data.gameState.battleLogs && Array.isArray(data.gameState.battleLogs)) {
-        gameStore.clearLogs()
-        data.gameState.battleLogs.forEach(log => {
+        // 获取当前已有的日志时间戳，用于去重
+        const existingTimestamps = new Set(gameStore.logs.map(log => log.timestamp))
+
+        // 只追加新日志，避免重复
+        const newLogs = data.gameState.battleLogs.filter(log => !existingTimestamps.has(log.timestamp))
+
+        // 过滤私密日志：只显示公开日志或对当前玩家可见的私密日志
+        const visibleLogs = newLogs.filter(log => {
+          // 公开日志
+          if (!log.isPrivate) return true
+          // 私密日志且当前玩家在可见列表中
+          if (log.isPrivate && log.visibleTo && log.visibleTo.includes(currentPlayer.value.name)) return true
+          return false
+        })
+
+        visibleLogs.forEach(log => {
           gameStore.logs.push(log)
         })
-        console.log(`[PlayerMode] 已同步${data.gameState.battleLogs.length}条战斗日志`)
+        console.log(`[PlayerMode] 已追加${visibleLogs.length}条新日志（共${gameStore.logs.length}条）`)
       }
 
-      // 检查是否所有玩家都完成了部署
-      const allDeployed = data.players.every(p => {
-        const state = data.gameState.playerStates[p.name]
-        return state && (
-          (state.currentBattleCities && state.currentBattleCities.length > 0) ||
-          state.battleGoldSkill === '按兵不动'
-        )
+      // 同步已知城市到gameStore
+      console.log('[PlayerMode] ===== 监听器同步knownCities =====')
+      console.log('[PlayerMode] data.gameState.knownCities:', JSON.stringify(data.gameState.knownCities, null, 2))
+      if (data.gameState.knownCities) {
+        Object.keys(data.gameState.knownCities).forEach(observer => {
+          if (!gameStore.knownCities[observer]) {
+            gameStore.knownCities[observer] = {}
+          }
+          Object.keys(data.gameState.knownCities[observer]).forEach(owner => {
+            gameStore.knownCities[observer][owner] = [...data.gameState.knownCities[observer][owner]]
+            console.log(`[PlayerMode] 监听器同步: knownCities[${observer}][${owner}] = [${gameStore.knownCities[observer][owner].join(', ')}]`)
+          })
+        })
+      }
+      console.log('[PlayerMode] 监听器gameStore.knownCities同步完成:', JSON.stringify(gameStore.knownCities, null, 2))
+      console.log('[PlayerMode] ==========================================')
+
+      // 验证pendingSwaps同步状态（已在syncRoomDataToGameStore中同步）
+      console.log('[PlayerMode] 验证pendingSwaps同步状态:', {
+        firebaseHas: !!data.gameState?.pendingSwaps,
+        firebaseLength: data.gameState?.pendingSwaps?.length || 0,
+        localLength: gameStore.pendingSwaps?.length || 0,
+        localData: gameStore.pendingSwaps
       })
 
-      if (allDeployed && !data.gameState.battleProcessed) {
-        // 所有玩家已部署，触发战斗
-        console.log('[PlayerMode] 所有玩家已部署，准备战斗')
+      // 最终状态验证
+      console.log('[PlayerMode] 监听器处理完毕，最终本地pendingSwaps:', gameStore.pendingSwaps?.length || 0, '条')
+      console.log('[PlayerMode] =================================')
 
-        // 只有第一个玩家负责触发战斗计算
-        if (data.players[0].name === currentPlayer.value.name) {
-          await processBattle(data)
+      // 检查是否所有玩家都完成了中心城市选择
+      if (currentStep.value === 'waiting-for-center-confirmation') {
+        const allPlayersReady = data.players.every(p => p.ready === true)
+
+        console.log('[PlayerMode] 监听器检测到等待中心城市确认状态')
+        console.log('[PlayerMode] 所有玩家是否都已准备:', allPlayersReady)
+
+        if (allPlayersReady) {
+          console.log('[PlayerMode] 所有玩家已确认中心城市，自动进入部署界面')
+          currentStep.value = 'city-deployment'
         }
       }
 
-      // 检查战斗是否完成，其他玩家需要更新UI
-      if (data.gameState.battleProcessed && currentStep.value === 'game') {
-        // 战斗已完成，显示日志并准备下一回合
-        console.log('[PlayerMode] 战斗已完成，检查是否进入下一回合')
-        console.log('[PlayerMode] 当前currentStep:', currentStep.value)
+      // 关键修复：检查是否所有玩家都完成了部署
+      // 关键修复：确保allDeployed始终返回布尔值，而不是undefined
+      const allDeployed = data.gameState?.playerStates
+        ? data.players.every(p => {
+            const state = data.gameState.playerStates[p.name]
+            // 关键修复：确保currentBattleCities是数组（Firebase可能返回对象）
+            const battleCities = Array.isArray(state?.currentBattleCities)
+              ? state.currentBattleCities
+              : (state?.currentBattleCities ? Object.values(state.currentBattleCities) : [])
+            const deployed = state && (
+              battleCities.length > 0 ||
+              state.battleGoldSkill === '按兵不动'
+            )
+            console.log(`[PlayerMode] 检查${p.name}部署状态: deployed=${deployed}, currentBattleCities=${battleCities.length}, battleGoldSkill=${state?.battleGoldSkill}`)
+            return deployed
+          })
+        : false
 
-        // 等待一段时间让玩家查看日志
-        setTimeout(async () => {
-          console.log('[PlayerMode] 3秒延迟后，开始检查下一步')
+      // 增强诊断日志：记录战斗触发条件
+      const triggerTimestamp = Date.now()
+      console.log(`[PlayerMode] ===== 战斗触发检查 (${triggerTimestamp}) =====`)
+      console.log('[PlayerMode] allDeployed:', allDeployed)
+      console.log('[PlayerMode] data.gameState.battleProcessed:', data.gameState.battleProcessed)
+      console.log('[PlayerMode] isBattleProcessing.value:', isBattleProcessing.value)
+      console.log('[PlayerMode] 当前玩家:', currentPlayer.value.name)
+      console.log('[PlayerMode] 第一个玩家:', data.players[0]?.name)
+      console.log('[PlayerMode] 是否为第一个玩家:', data.players[0]?.name === currentPlayer.value.name)
 
-          // 检查游戏是否结束（通过Firebase同步的权威状态）
-          if (data.gameState.gameOver) {
-            console.log('[PlayerMode] 游戏结束，获胜者:', data.gameState.winner)
-            showVictory.value = true
-            return
+      if (allDeployed && !data.gameState.battleProcessed && !isBattleProcessing.value) {
+        console.log(`[PlayerMode] 战斗触发条件满足 (${triggerTimestamp})`)
+
+        // 只有第一个玩家负责触发战斗计算
+        if (data.players[0].name === currentPlayer.value.name) {
+          console.log(`[PlayerMode] 第一个玩家开始处理战斗 (${triggerTimestamp})`)
+
+          // 设置本地标志，防止同一客户端重复调用
+          isBattleProcessing.value = true
+          console.log(`[PlayerMode] 已设置isBattleProcessing=true (${triggerTimestamp})`)
+
+          try {
+            // 使用Firebase事务尝试获取战斗锁
+            const lockAcquired = await tryAcquireBattleLock(currentRoomId.value)
+
+            if (lockAcquired) {
+              console.log(`[PlayerMode] ✅ 成功获取战斗锁，开始处理战斗 (${triggerTimestamp})`)
+              await processBattle(data)
+              console.log(`[PlayerMode] ✅ 战斗处理完成 (${triggerTimestamp})`)
+            } else {
+              console.log(`[PlayerMode] ⚠️ 未能获取战斗锁，其他客户端已在处理 (${triggerTimestamp})`)
+            }
+          } catch (error) {
+            console.error(`[PlayerMode] ❌ 战斗处理异常 (${triggerTimestamp}):`, error)
+          } finally {
+            isBattleProcessing.value = false
+            console.log(`[PlayerMode] 已重置isBattleProcessing=false (${triggerTimestamp})`)
           }
+        } else {
+          console.log(`[PlayerMode] 非第一个玩家，等待战斗结果 (${triggerTimestamp})`)
+        }
+      } else {
+        console.log(`[PlayerMode] 战斗触发条件不满足 (${triggerTimestamp})`)
+      }
 
-          // 检查是否需要补充预备城市
-          const myState = data.gameState.playerStates[currentPlayer.value.name]
-          console.log('[PlayerMode] 玩家状态:', myState)
-          console.log('[PlayerMode] needsRosterRefill:', myState?.needsRosterRefill)
-          console.log('[PlayerMode] rosterRefillReason:', myState?.rosterRefillReason)
+      // 关键修复：检查是否需要显示战斗动画（统一处理所有玩家）
+      console.log('[PlayerMode] ===== 监听器动画检查 (玩家:', currentPlayer.value.name, ') =====')
+      console.log('[PlayerMode] 监听器检查动画显示条件:')
+      console.log('  - battleProcessed:', data.gameState.battleProcessed)
+      console.log('  - battleAnimationData存在:', !!data.gameState.battleAnimationData)
+      console.log('  - showBattleAnimation.value:', showBattleAnimation.value)
+      console.log('  - currentStep.value:', currentStep.value)
 
-          if (myState && myState.needsRosterRefill) {
-            console.log('[PlayerMode] 需要补充预备城市，保持在game界面显示RosterRefill')
-            // RosterRefill组件会自动显示（currentStep保持为'game'）
-          } else {
-            // 不需要补充，准备下一回合并返回部署页面
-            console.log('[PlayerMode] 不需要补充预备城市，准备下一回合')
+      // ===== 诊断：详细检查battleAnimationData =====
+      if (data.gameState.battleAnimationData) {
+        console.log('[PlayerMode] battleAnimationData详情:')
+        console.log('  - round:', data.gameState.battleAnimationData.round)
+        console.log('  - specialEvent:', data.gameState.battleAnimationData.specialEvent)
+        console.log('  - player1.name:', data.gameState.battleAnimationData.player1?.name)
+        console.log('  - player1.cities数量:', data.gameState.battleAnimationData.player1?.cities?.length || 0)
+        console.log('  - player1.totalAttack:', data.gameState.battleAnimationData.player1?.totalAttack || 0)
+        console.log('  - player2.name:', data.gameState.battleAnimationData.player2?.name)
+        console.log('  - player2.cities数量:', data.gameState.battleAnimationData.player2?.cities?.length || 0)
+        console.log('  - player2.totalAttack:', data.gameState.battleAnimationData.player2?.totalAttack || 0)
+      } else {
+        console.error('[PlayerMode] ❌ battleAnimationData不存在！')
+        console.error('[PlayerMode] data.gameState keys:', Object.keys(data.gameState || {}))
+        console.error('[PlayerMode] 可能原因：1) 数据未保存到Firebase  2) 监听器接收的数据不完整  3) 数据被其他地方清空')
+      }
+      console.log('[PlayerMode] ===========================================')
 
-            // 只有第一个玩家负责准备下一回合
-            if (data.players[0].name === currentPlayer.value.name) {
-              console.log('[PlayerMode] 作为第一个玩家，准备下一回合数据')
+      if (data.gameState.battleProcessed &&
+          data.gameState.battleAnimationData &&
+          !showBattleAnimation.value) {  // 移除 currentStep === 'game' 条件
 
-              // 准备下一回合
-              data.gameState.currentRound++
-              data.gameState.battleProcessed = false
+        console.log('[PlayerMode] 监听器检测到战斗已完成，准备显示动画')
+        console.log('[PlayerMode] 当前玩家:', currentPlayer.value.name)
+        console.log('[PlayerMode] 动画数据回合:', data.gameState.battleAnimationData.round)
+        console.log('[PlayerMode] 当前回合:', data.gameState.currentRound)
 
-              // 清空所有玩家的部署
-              Object.keys(data.gameState.playerStates).forEach(playerName => {
-                data.gameState.playerStates[playerName].currentBattleCities = []
-                data.gameState.playerStates[playerName].battleGoldSkill = null
-                data.gameState.playerStates[playerName].activatedCitySkills = {}  // 清空城市技能激活状态
-              })
+        // 关键修复：验证动画数据完整性
+        const animData = data.gameState.battleAnimationData
+        if (!animData || !animData.player1 || !animData.player2) {
+          console.error('[PlayerMode] 动画数据不完整，跳过显示')
+          // 如果数据不完整，直接进入下一回合
+          currentStep.value = 'city-deployment'
+          return
+        }
 
-              await saveRoomData(currentRoomId.value, data)
-              console.log('[PlayerMode] 下一回合数据已准备完成')
+        // 关键修复：检查是否是当前回合的动画（防止显示旧动画）
+        if (animData.round === data.gameState.currentRound) {
+          battleAnimationData.value = animData
+          showBattleAnimation.value = true
+          console.log('[PlayerMode] 开始显示战斗动画')
+
+          // 等待动画完成
+          await new Promise(resolve => {
+            const checkComplete = setInterval(() => {
+              if (!showBattleAnimation.value) {
+                clearInterval(checkComplete)
+                resolve()
+              }
+            }, 500)
+
+            // 超时保护：最多等待30秒
+            setTimeout(() => {
+              clearInterval(checkComplete)
+              if (showBattleAnimation.value) {
+                console.warn('[PlayerMode] 动画超时，强制继续')
+                showBattleAnimation.value = false
+                battleAnimationData.value = null
+              }
+              resolve()
+            }, 30000)
+          })
+
+          console.log('[PlayerMode] 动画播放完成')
+        } else {
+          console.warn('[PlayerMode] 动画回合不匹配，跳过显示')
+        }
+
+        // 关键修复：动画完成后，检查是否需要清理battleAnimationData
+        // 只有第一个玩家负责清理
+        if (data.players[0].name === currentPlayer.value.name) {
+          console.log('[PlayerMode] 第一个玩家负责清理动画数据')
+
+          // 等待一段时间确保第二个玩家也看完了动画
+          await new Promise(resolve => setTimeout(resolve, 2000))
+
+          const latestRoomData = await getRoomData(currentRoomId.value)
+          if (latestRoomData && latestRoomData.gameState.battleAnimationData) {
+            // 清理旧的动画数据
+            delete latestRoomData.gameState.battleAnimationData
+            console.log('[PlayerMode] 已清理battleAnimationData')
+
+            // 关键修复Bug2：清理specialEventThisRound，避免下一回合重复显示
+            delete latestRoomData.gameState.specialEventThisRound
+            console.log('[PlayerMode] 已清理specialEventThisRound')
+
+            // 清理疲劳记录，避免下一回合重复显示
+            if (latestRoomData.gameState.fatigueThisRound) {
+              delete latestRoomData.gameState.fatigueThisRound
+              console.log('[PlayerMode] 已清理fatigueThisRound')
             }
 
-            // 返回部署页面
-            console.log('[PlayerMode] 返回city-deployment')
-            currentStep.value = 'city-deployment'
+            // 重置battleProcessed，准备下一回合
+            latestRoomData.gameState.battleProcessed = false
+            console.log('[PlayerMode] 已重置battleProcessed为false')
+
+            // 关键修复：在清理数据的同时，回合数+1
+            // 这样下一次战斗时，battleAnimationData.round 和 currentRound 会匹配
+            latestRoomData.gameState.currentRound++
+            console.log('[PlayerMode] 回合数+1，当前回合:', latestRoomData.gameState.currentRound)
+
+            await saveRoomData(currentRoomId.value, latestRoomData)
+            console.log('[PlayerMode] 数据清理完成，准备进入下一回合')
           }
-        }, 3000)  // 3秒延迟，让玩家查看日志
+        }
+
+        // 等待一小段时间让玩家查看结果
+        await new Promise(resolve => setTimeout(resolve, 1000))
+
+        // 检查游戏是否结束
+        if (data.gameState.gameOver) {
+          console.log('[PlayerMode] 游戏结束，获胜者:', data.gameState.winner)
+          showVictory.value = true
+          return
+        }
+
+        // 切换到部署界面
+        console.log('[PlayerMode] 自动进入下一回合部署')
+        currentStep.value = 'city-deployment'
       }
     }
   })
+}
+
+/**
+ * 尝试获取战斗锁（使用Firebase事务）
+ * @param {string} roomId - 房间ID
+ * @returns {Promise<boolean>} - 是否成功获取锁
+ */
+async function tryAcquireBattleLock(roomId) {
+  try {
+    const { getDatabase, ref: dbRef, runTransaction } = await import('firebase/database')
+    const db = getDatabase()
+    const battleProcessedRef = dbRef(db, `rooms/${roomId}/gameState/battleProcessed`)
+
+    const result = await runTransaction(battleProcessedRef, (currentValue) => {
+      // 如果已经是true，中止事务
+      if (currentValue === true) {
+        return undefined  // 中止事务
+      }
+
+      // 否则设置为true
+      return true
+    })
+
+    // 如果事务提交成功，说明我们获取了锁
+    return result.committed
+  } catch (error) {
+    console.error('[PlayerMode] 获取战斗锁失败:', error)
+    return false
+  }
+}
+
+/**
+ * 战斗动画完成处理
+ */
+function handleBattleAnimationComplete() {
+  console.log('[PlayerMode] 战斗动画播放完成')
+  showBattleAnimation.value = false
+  battleAnimationData.value = null
+
+  // 动画完成后，继续原有的逻辑（显示日志一段时间后进入下一回合）
+  // 这里不需要额外处理，监听器会自动检测battleProcessed并切换界面
 }
 
 /**
@@ -1098,42 +2046,266 @@ function startRoomDataListener() {
  * 参考 citycard_web.html 完整战斗流程
  */
 async function processBattle(roomData) {
+  // 诊断日志：记录processBattle调用
+  const battleCallId = Date.now()
+  console.log(`[PlayerMode] ===== processBattle 被调用 (ID: ${battleCallId}) =====`)
+  console.log('[PlayerMode] 调用者:', new Error().stack.split('\n')[2])
+  console.log('[PlayerMode] 当前回合:', roomData.gameState.currentRound)
+  console.log('[PlayerMode] battleProcessed当前值:', roomData.gameState.battleProcessed)
+  console.log('[PlayerMode] 战斗前玩家金币:', roomData.players.map(p => ({ name: p.name, gold: p.gold })))
+
+  // 诊断：显示战斗前的streak状态
+  console.log('[PlayerMode] ===== 战斗前streak状态 =====')
+  roomData.players.forEach(player => {
+    console.log(`[PlayerMode] ${player.name} 的streaks:`, player.streaks || '(未定义)')
+    const gamePlayer = gameStore.players.find(p => p.name === player.name)
+    if (gamePlayer) {
+      console.log(`[PlayerMode] ${player.name} gameStore中的streaks:`, gamePlayer.streaks || '(未定义)')
+    }
+  })
+  console.log('[PlayerMode] ======================================')
+
   console.log('[PlayerMode] 开始处理战斗')
+
+  // 防止重复处理：如果战斗已经处理过，直接返回
+  if (roomData.gameState.battleProcessed) {
+    console.log(`[PlayerMode] 战斗已处理过 (battleCallId: ${battleCallId})，跳过重复处理`)
+    return
+  }
+
+  // 关键修复：先准备动画数据，然后和battleProcessed=true一起保存
+  // 这样监听器检测到battleProcessed时，battleAnimationData也已经存在
+  console.log('[PlayerMode] 先准备动画数据，稍后和battleProcessed一起保存')
+
+  // 诊断：验证早期保存后roomData.gameState.knownCities的状态
+  console.log('[PlayerMode] ===== 战斗前数据验证 =====')
+  console.log('[PlayerMode] roomData.gameState.knownCities存在:', !!roomData.gameState?.knownCities)
+  console.log('[PlayerMode] roomData.gameState.knownCities内容:', JSON.stringify(roomData.gameState?.knownCities, null, 2))
+  console.log('[PlayerMode] ========================================')
+
+  // ===== 战斗前数据验证 =====
+  console.log('[PlayerMode] ===== 战斗前数据验证 =====')
+  roomData.players.forEach(player => {
+    console.log(`[PlayerMode] ${player.name} cities:`, Object.values(player.cities).map(c => c.name))
+    const state = roomData.gameState.playerStates[player.name]
+    if (state && state.currentBattleCities) {
+      state.currentBattleCities.forEach(card => {
+        const city = player.cities[card.cityName]
+        console.log(`[PlayerMode] ${player.name} 出战城市 cityName=${card.cityName}, actualName=${city?.name}`)
+      })
+    }
+  })
 
   // 初始化战斗日志数组（如果还没有）
   if (!roomData.gameState.battleLogs) {
     roomData.gameState.battleLogs = []
   }
 
-  // 清空gameStore的日志，准备接收新的战斗日志
-  gameStore.clearLogs()
+  // 不清空日志，保留历史记录（像HTML版本一样累积）
+  // 注释掉：gameStore.clearLogs()
+  console.log(`[PlayerMode] 当前已有${gameStore.logs.length}条历史日志，继续追加新日志`)
 
   const mode = roomData.mode || '2P'
   console.log(`[PlayerMode] 当前游戏模式: ${mode}`)
 
   // ========== 疲劳减半：在战斗前检测之前执行 ==========
   // 关键：按照用户需求，疲劳减半必须在同省规则检查之前执行
+
+  // 关键修复Bug1: 在调用applyFatigueReduction之前，先将gameStore中的streaks同步到roomData.players
+  // 因为applyFatigueReduction读取的是传入的players参数的streaks
+  console.log('[PlayerMode] ===== 战斗前同步streaks到roomData.players =====')
+  roomData.players.forEach(player => {
+    const gamePlayer = gameStore.players.find(p => p.name === player.name)
+    if (gamePlayer && gamePlayer.streaks) {
+      player.streaks = { ...gamePlayer.streaks }
+      console.log(`[PlayerMode] 同步${player.name}的streaks到roomData:`, player.streaks)
+    } else if (!player.streaks) {
+      player.streaks = {}
+      console.log(`[PlayerMode] 初始化${player.name}的streaks为空对象`)
+    }
+  })
+  console.log('[PlayerMode] ==========================================')
+
   const { applyFatigueReduction } = await import('../../composables/game/fatigueSystem.js')
   applyFatigueReduction(gameStore, roomData.gameState, roomData.players, mode)
 
   // ========== 战斗前检测（参考 citycard_web.html lines 3946-4510） ==========
   const { executePreBattleChecks } = await import('../../composables/game/preBattleChecks.js')
 
-  const shouldSkipBattle = executePreBattleChecks(
-    gameStore,
-    roomData.gameState,
-    roomData.players,
-    mode
-  )
+  // 执行战斗前检测（会清空出战城市如果触发特殊事件，但不跳过战斗）
+  executePreBattleChecks(gameStore, roomData.gameState, roomData.players, mode)
 
-  if (shouldSkipBattle) {
-    console.log('[PlayerMode] 战斗前检测触发撤退，跳过战斗')
-    // 将日志复制到roomData
-    roomData.gameState.battleLogs = [...gameStore.logs]
-    roomData.gameState.battleProcessed = true
-    await saveRoomData(currentRoomId.value, roomData)
-    return
+  // 关键修复：同步specialEventThisRound到gameStore，供战斗计算使用
+  if (roomData.gameState.specialEventThisRound) {
+    gameStore.specialEventThisRound = roomData.gameState.specialEventThisRound
+    console.log('[PlayerMode] ✅ 已同步specialEventThisRound到gameStore:', gameStore.specialEventThisRound)
+  } else {
+    // 清除上一回合的特殊事件
+    if (gameStore.specialEventThisRound) {
+      delete gameStore.specialEventThisRound
+      console.log('[PlayerMode] 已清除gameStore.specialEventThisRound')
+    }
   }
+
+  // 关键修复Issue #3：立即同步roomData到gameStore，确保城市转移（省会归顺）被反映
+  // executePreBattleChecks可能会转移城市（从防守方到攻击方），这些修改必须同步到gameStore
+  console.log('[PlayerMode] executePreBattleChecks执行完毕，立即同步roomData到gameStore')
+  console.log('[PlayerMode] 同步前gameStore.players数量:', gameStore.players.map(p => ({ name: p.name, cities: Object.keys(p.cities).length })))
+  syncRoomDataToGameStore(roomData)
+  console.log('[PlayerMode] 同步后gameStore.players数量:', gameStore.players.map(p => ({ name: p.name, cities: Object.keys(p.cities).length })))
+
+  // 关键修复Issue #1：立即将 gameStore.knownCities 同步回 roomData，确保归顺时标记的已知城市被保存
+  // executePreBattleChecks 中调用了 setCityKnown()，这些修改需要立即同步到 roomData
+  console.log('[PlayerMode] ===== executePreBattleChecks后立即同步knownCities =====')
+  if (!roomData.gameState.knownCities) {
+    roomData.gameState.knownCities = {}
+  }
+  Object.keys(gameStore.knownCities).forEach(observer => {
+    if (!roomData.gameState.knownCities[observer]) {
+      roomData.gameState.knownCities[observer] = {}
+    }
+    Object.keys(gameStore.knownCities[observer]).forEach(owner => {
+      roomData.gameState.knownCities[observer][owner] = [...gameStore.knownCities[observer][owner]]
+      console.log(`[PlayerMode] 预先同步knownCities: knownCities[${observer}][${owner}] = [${roomData.gameState.knownCities[observer][owner].join(', ')}]`)
+    })
+  })
+  console.log('[PlayerMode] knownCities已预先同步到roomData:', JSON.stringify(roomData.gameState.knownCities, null, 2))
+
+  // 关键修复Bug2（疲劳）：同步streaks到roomData
+  // executePreBattleChecks中可能修改了gameStore.players[].streaks（城市转移时），需要同步到roomData
+  console.log('[PlayerMode] ===== 同步streaks到roomData =====')
+  roomData.players.forEach((roomPlayer, idx) => {
+    const gamePlayer = gameStore.players.find(p => p.name === roomPlayer.name)
+    if (gamePlayer && gamePlayer.streaks) {
+      roomPlayer.streaks = { ...gamePlayer.streaks }
+      console.log(`[PlayerMode] 同步${roomPlayer.name}的streaks:`, roomPlayer.streaks)
+    }
+  })
+  console.log('[PlayerMode] ==========================================')
+
+  // ========== 准备战斗动画数据（在战斗前检测之后） ==========
+  // 关键修复：必须在executePreBattleChecks之后准备，这样才能读取到specialEventThisRound
+  const { prepareBattleAnimationData, updateBattleResults } = await import('../../composables/game/battleAnimationData.js')
+
+  console.log('[PlayerMode] 准备战斗动画数据（在战斗前检测之后）')
+
+  // 关键修复：添加try-catch捕获可能的异常
+  try {
+    battleAnimationData.value = prepareBattleAnimationData(roomData, gameStore)
+    console.log('[PlayerMode] 战斗动画数据已准备:', battleAnimationData.value)
+    console.log('[PlayerMode] 特殊事件:', battleAnimationData.value?.specialEvent)
+
+    // 验证动画数据的有效性
+    if (!battleAnimationData.value) {
+      console.error('[PlayerMode] ❌ prepareBattleAnimationData返回null！')
+      console.error('[PlayerMode] roomData.mode:', roomData.mode)
+      console.error('[PlayerMode] players.length:', roomData.players?.length)
+      console.error('[PlayerMode] playerStates存在:', !!roomData.gameState?.playerStates)
+      throw new Error('prepareBattleAnimationData返回null')
+    }
+
+    if (!battleAnimationData.value.player1 || !battleAnimationData.value.player2) {
+      console.error('[PlayerMode] ❌ battleAnimationData缺少player1或player2！')
+      throw new Error('battleAnimationData数据不完整')
+    }
+  } catch (error) {
+    console.error('[PlayerMode] ❌ 准备战斗动画数据时出错:', error)
+    console.error('[PlayerMode] 错误堆栈:', error.stack)
+    console.error('[PlayerMode] roomData:', JSON.stringify(roomData, null, 2))
+
+    // 标记战斗失败，避免卡住
+    roomData.gameState.battleProcessed = true
+    roomData.gameState.battleError = error.message
+    await saveRoomData(currentRoomId.value, roomData)
+
+    throw error // 重新抛出异常，让外层捕获
+  }
+
+  // 关键修复：移除"跳过战斗"逻辑
+  // 用户反馈：晕头转向、同省撤退和归顺并没有跳过战斗，只是双方无伤不攻击而已
+  // 这些都是正常的回合，金币+3会由正常战斗流程处理（useGameLogic.js中的battle2P/3P/2v2函数）
+  // executePreBattleChecks()现在永远返回false，shouldSkipBattle永远为false
+  // 即使城市被清空，战斗仍会继续，只是攻击力为0，不造成伤害
+  console.log('[PlayerMode] 战斗前检测完成，继续正常战斗流程（即使触发特殊事件也不跳过）')
+
+  // ========== 标记出战城市为已知（双方互相知道对方出战的城市） ==========
+  // 关键修复：必须在战斗计算之前标记，因为战斗函数会清空currentBattleCities
+  // 参考 citycard_web.html lines 42982-42988
+  console.log('[PlayerMode] ===== 开始标记knownCities =====')
+  console.log('[PlayerMode] 标记前 roomData.gameState.knownCities:', roomData.gameState.knownCities)
+
+  if (!roomData.gameState.knownCities) {
+    roomData.gameState.knownCities = {}
+    console.log('[PlayerMode] 初始化 knownCities 为空对象')
+  }
+
+  // 关键修复：使用前缀防止Firebase将纯数字玩家名转换为数组索引
+  // Firebase会将 {"123": {...}, "456": {...}} 转换为稀疏数组，导致大量null
+  function _prefixPlayer(name) {
+    return 'p_' + name
+  }
+
+  // 2P模式
+  console.log('[PlayerMode] 检查2P模式条件: mode=', mode, 'players.length=', roomData.players.length)
+  if (mode === '2P' && roomData.players.length === 2) {
+    const player0 = roomData.players[0]
+    const player1 = roomData.players[1]
+    const state0 = roomData.gameState.playerStates[player0.name]
+    const state1 = roomData.gameState.playerStates[player1.name]
+
+    console.log('[PlayerMode] ===== 标记已知城市 =====')
+    console.log('[PlayerMode] player0:', player0.name, 'cities:', Object.values(player0.cities).map(c => c.name))
+    console.log('[PlayerMode] player1:', player1.name, 'cities:', Object.values(player1.cities).map(c => c.name))
+
+    if (state0 && state1) {
+      // player0的出战城市被player1知道
+      console.log('[PlayerMode] player0出战城市:', state0.currentBattleCities?.map(c => c.cityName))
+      const observer1Key = _prefixPlayer(player1.name)
+      const owner0Key = _prefixPlayer(player0.name)
+
+      state0.currentBattleCities?.forEach(card => {
+        const cityName = card.cityName
+        console.log(`[PlayerMode] player1知道player0的城市: cityName=${cityName}`)
+
+        if (!roomData.gameState.knownCities[observer1Key]) {
+          roomData.gameState.knownCities[observer1Key] = {}
+        }
+        if (!roomData.gameState.knownCities[observer1Key][owner0Key]) {
+          roomData.gameState.knownCities[observer1Key][owner0Key] = []
+        }
+        if (!roomData.gameState.knownCities[observer1Key][owner0Key].includes(cityName)) {
+          roomData.gameState.knownCities[observer1Key][owner0Key].push(cityName)
+        }
+      })
+
+      // player1的出战城市被player0知道
+      console.log('[PlayerMode] player1出战城市:', state1.currentBattleCities?.map(c => c.cityName))
+      const observer0Key = _prefixPlayer(player0.name)
+      const owner1Key = _prefixPlayer(player1.name)
+
+      state1.currentBattleCities?.forEach(card => {
+        const cityName = card.cityName
+        console.log(`[PlayerMode] player0知道player1的城市: cityName=${cityName}`)
+
+        if (!roomData.gameState.knownCities[observer0Key]) {
+          roomData.gameState.knownCities[observer0Key] = {}
+        }
+        if (!roomData.gameState.knownCities[observer0Key][owner1Key]) {
+          roomData.gameState.knownCities[observer0Key][owner1Key] = []
+        }
+        if (!roomData.gameState.knownCities[observer0Key][owner1Key].includes(cityName)) {
+          roomData.gameState.knownCities[observer0Key][owner1Key].push(cityName)
+        }
+      })
+
+      console.log('[PlayerMode] 最终knownCities:', JSON.stringify(roomData.gameState.knownCities, null, 2))
+    }
+  }
+
+  console.log('[PlayerMode] ===== knownCities标记完成 =====')
+  console.log('[PlayerMode] 标记后 roomData.gameState.knownCities存在:', !!roomData.gameState.knownCities)
+  console.log('[PlayerMode] 标记后 knownCities内容:', JSON.stringify(roomData.gameState.knownCities, null, 2))
+  console.log('[PlayerMode] ==========================================')
 
   // ========== 执行战斗计算 ==========
   if (mode === '3P' || mode === '3p') {
@@ -1144,19 +2316,92 @@ async function processBattle(roomData) {
     gameLogic.battle2P(roomData.players, roomData.gameState)
   }
 
+  // 同步knownCities到gameStore
+  console.log('[PlayerMode] ===== 同步knownCities到gameStore =====')
+  console.log('[PlayerMode] roomData.gameState.knownCities:', JSON.stringify(roomData.gameState.knownCities, null, 2))
+  if (roomData.gameState.knownCities) {
+    Object.keys(roomData.gameState.knownCities).forEach(observer => {
+      if (!gameStore.knownCities[observer]) {
+        gameStore.knownCities[observer] = {}
+      }
+      Object.keys(roomData.gameState.knownCities[observer]).forEach(owner => {
+        gameStore.knownCities[observer][owner] = [...roomData.gameState.knownCities[observer][owner]]
+        console.log(`[PlayerMode] 同步: knownCities[${observer}][${owner}] = [${gameStore.knownCities[observer][owner].join(', ')}]`)
+      })
+    })
+  }
+  console.log('[PlayerMode] gameStore.knownCities同步完成:', JSON.stringify(gameStore.knownCities, null, 2))
+
+  // 关键修复：执行战斗计算（会调用setCityKnown标记出战城市）
+  // 这样gameStore.knownCities会被更新
+
+  // 关键修复：战斗后将gameStore.knownCities同步回roomData.gameState.knownCities
+  // 确保所有玩家通过Firebase看到已知城市
+  if (!roomData.gameState.knownCities) {
+    roomData.gameState.knownCities = {}
+  }
+
+  console.log('[PlayerMode] ===== 同步gameStore.knownCities回roomData =====')
+  Object.keys(gameStore.knownCities).forEach(observer => {
+    if (!roomData.gameState.knownCities[observer]) {
+      roomData.gameState.knownCities[observer] = {}
+    }
+    Object.keys(gameStore.knownCities[observer]).forEach(owner => {
+      roomData.gameState.knownCities[observer][owner] = [...gameStore.knownCities[observer][owner]]
+      console.log(`[PlayerMode] 反向同步: knownCities[${observer}][${owner}] = [${roomData.gameState.knownCities[observer][owner].join(', ')}]`)
+    })
+  })
+  console.log('[PlayerMode] knownCities已同步回roomData:', JSON.stringify(roomData.gameState.knownCities, null, 2))
+  console.log('[PlayerMode] ==========================================')
+
+
+  // ========== 更新战斗结果并保存到Firebase ==========
+  if (battleAnimationData.value) {
+    console.log('[PlayerMode] ===== 保存战斗动画数据到Firebase =====')
+    console.log('[PlayerMode] battleAnimationData.value存在:', !!battleAnimationData.value)
+    console.log('[PlayerMode] battleAnimationData.value.round:', battleAnimationData.value.round)
+    console.log('[PlayerMode] battleAnimationData.value.player1:', battleAnimationData.value.player1?.name)
+    console.log('[PlayerMode] battleAnimationData.value.player2:', battleAnimationData.value.player2?.name)
+
+    // 更新战斗结果数据
+    updateBattleResults(battleAnimationData.value, roomData)
+    console.log('[PlayerMode] 战斗结果已更新到动画数据:', battleAnimationData.value.battleResults)
+
+    // 关键修复：确保动画数据包含正确的回合数
+    battleAnimationData.value.round = roomData.gameState.currentRound
+    console.log('[PlayerMode] 动画数据回合设置为:', battleAnimationData.value.round)
+
+    // 关键修复：将对象转换为纯JSON，避免Firebase序列化错误
+    // 使用JSON.parse(JSON.stringify())移除Proxy、函数等不可序列化的内容
+    try {
+      const plainBattleData = JSON.parse(JSON.stringify(battleAnimationData.value))
+      roomData.gameState.battleAnimationData = plainBattleData
+      console.log('[PlayerMode] 战斗动画数据已转换为纯JSON并保存到roomData.gameState.battleAnimationData')
+      console.log('[PlayerMode] 验证: roomData.gameState.battleAnimationData存在:', !!roomData.gameState.battleAnimationData)
+      console.log('[PlayerMode] 验证: roomData.gameState.battleAnimationData.round:', roomData.gameState.battleAnimationData.round)
+      console.log('[PlayerMode] 验证: 数据大小（字节）:', JSON.stringify(plainBattleData).length)
+    } catch (serializeError) {
+      console.error('[PlayerMode] ❌ JSON序列化失败:', serializeError)
+      console.error('[PlayerMode] battleAnimationData结构:', battleAnimationData.value)
+      throw new Error(`battleAnimationData序列化失败: ${serializeError.message}`)
+    }
+    console.log('[PlayerMode] ===========================================')
+  } else {
+    console.error('[PlayerMode] ❌ battleAnimationData.value为null，无法保存！')
+  }
+
   // ========== 战斗后处理（参考 citycard_web.html lines 10036-10071） ==========
   // 检查城市阵亡和步步高升召唤
   for (const player of roomData.players) {
-    for (let cityIdx = 0; cityIdx < player.cities.length; cityIdx++) {
-      const city = player.cities[cityIdx]
+    Object.entries(player.cities).forEach(([cityName, city]) => {
       if (city.currentHp <= 0 && city.isAlive !== false) {
         // 城市阵亡
         city.isAlive = false
 
         // 触发步步高升召唤
-        gameStore.handleBuBuGaoShengSummon(player, cityIdx, city)
+        gameStore.handleBuBuGaoShengSummon(player, cityName, city)
       }
-    }
+    })
 
     // 检查中心城市阵亡和生于紫室继承
     gameStore.checkCenterDeathAndPurpleChamberInheritance(player)
@@ -1166,7 +2411,7 @@ async function processBattle(roomData) {
   roomData.gameState.battleLogs = [...gameStore.logs]
 
   // 关键修复：将gameStore.playerStates同步回roomData.gameState.playerStates
-  // 这样needsRosterRefill等状态才能保存到Firebase
+  // 这样游戏状态才能保存到Firebase
   if (gameStore.playerStates) {
     if (!roomData.gameState.playerStates) {
       roomData.gameState.playerStates = {}
@@ -1179,6 +2424,15 @@ async function processBattle(roomData) {
   roomData.gameState.battleProcessed = true
   console.log('[PlayerMode] 战斗计算完成，标记battleProcessed=true')
 
+  // 同步疲劳数据（streaks）到roomData
+  roomData.players.forEach((roomPlayer, idx) => {
+    const gamePlayer = gameStore.players[idx]
+    if (gamePlayer && gamePlayer.streaks) {
+      roomPlayer.streaks = { ...gamePlayer.streaks }
+      console.log(`[PlayerMode] 同步${roomPlayer.name}的疲劳数据:`, roomPlayer.streaks)
+    }
+  })
+
   // 检查游戏是否结束
   if (gameLogic.isGameOver.value) {
     console.log('[PlayerMode] 游戏结束')
@@ -1190,9 +2444,97 @@ async function processBattle(roomData) {
     return
   }
 
-  // 保存战斗结果（不立即准备下一回合，让玩家查看日志）
+  // 关键修复：不要在这里执行currentRound++
+  // 回合数应该在动画完成、清理数据后才增加
+  // 否则会导致 battleAnimationData.round 和 currentRound 不匹配
+  console.log('[PlayerMode] 战斗完成，当前回合:', roomData.gameState.currentRound)
+
+  // 注意：金币增加已由 useGameLogic.js 的 processNewRound() 函数处理
+  // 该函数在 battle2P/battle3P/battle2v2 中被调用
+  // 不需要在此处重复增加金币，否则会导致双倍增加
+  console.log(`[PlayerMode] 金币已由 battle 函数处理`)
+
+  // 关键修复：先同步 roomData 到 gameStore，确保 gameStore 有最新的战斗后数据
+  console.log('[PlayerMode] 战斗后同步 roomData 到 gameStore')
+  syncRoomDataToGameStore(roomData)
+  console.log('[PlayerMode] 同步完成，gameStore.players 已更新')
+
+  // 关键修复：调用 updateRoundStates() 处理金币贷款扣除等回合状态更新
+  console.log('[PlayerMode] 调用 gameStore.updateRoundStates() 处理回合状态更新')
+  gameStore.updateRoundStates()
+  console.log('[PlayerMode] gameStore.updateRoundStates() 调用完成')
+
+  // 关键修复：将 gameStore 中更新后的玩家数据同步回 roomData
+  console.log('[PlayerMode] 同步 gameStore 玩家数据到 roomData')
+  roomData.players.forEach((roomPlayer, idx) => {
+    const gamePlayer = gameStore.players.find(p => p.name === roomPlayer.name)
+    if (gamePlayer) {
+      // 同步金币（金币贷款扣除后的值）
+      roomPlayer.gold = gamePlayer.gold
+      console.log(`[PlayerMode] 同步 ${roomPlayer.name} 的金币: ${roomPlayer.gold}`)
+
+      // 同步城市HP和存活状态 - 保持对象结构
+      roomPlayer.cities = {}
+      Object.entries(gamePlayer.cities).forEach(([cityName, city]) => {
+        roomPlayer.cities[cityName] = {
+          ...city,
+          currentHp: city.currentHp,
+          isAlive: city.isAlive !== false
+        }
+      })
+    }
+  })
+
+  // 清空所有玩家的部署状态
+  Object.keys(roomData.gameState.playerStates).forEach(playerName => {
+    roomData.gameState.playerStates[playerName].currentBattleCities = []
+    roomData.gameState.playerStates[playerName].battleGoldSkill = null
+    roomData.gameState.playerStates[playerName].activatedCitySkills = {}
+  })
+
+  // 关键诊断：保存前最后验证knownCities
+  console.log('[PlayerMode] ===== 保存前最后验证 =====')
+  console.log('[PlayerMode] roomData.gameState存在:', !!roomData.gameState)
+  console.log('[PlayerMode] roomData.gameState.knownCities存在:', !!roomData.gameState?.knownCities)
+  console.log('[PlayerMode] 保存前knownCities内容:', JSON.stringify(roomData.gameState?.knownCities, null, 2))
+  console.log('[PlayerMode] roomData.gameState的所有keys:', roomData.gameState ? Object.keys(roomData.gameState) : 'undefined')
+  console.log('[PlayerMode] roomData.gameState.battleAnimationData存在:', !!roomData.gameState?.battleAnimationData)
+  console.log('[PlayerMode] ========================================')
+
+  // 关键修复：在最后保存前设置battleProcessed=true
+  // 确保battleAnimationData和battleProcessed同时出现在Firebase
+  roomData.gameState.battleProcessed = true
+  console.log('[PlayerMode] 已设置battleProcessed=true，准备保存')
+
+  // 注意：不在这里清理fatigueThisRound，因为动画还需要这个数据
+  // 清理会在动画完成后的清理阶段进行（见监听器中的清理逻辑）
+
+  // 保存战斗结果（battleAnimationData和battleProcessed同时保存）
+  console.log('[PlayerMode] ===== 准备保存到Firebase =====')
+  console.log('[PlayerMode] roomData.gameState.battleProcessed:', roomData.gameState.battleProcessed)
+  console.log('[PlayerMode] roomData.gameState.battleAnimationData存在:', !!roomData.gameState.battleAnimationData)
+  console.log('[PlayerMode] roomData.gameState.currentRound:', roomData.gameState.currentRound)
+
   await saveRoomData(currentRoomId.value, roomData)
-  console.log('[PlayerMode] 战斗数据已保存到房间，包含日志和needsRosterRefill标志')
+
+  console.log('[PlayerMode] ===== Firebase保存完成 =====')
+  console.log('[PlayerMode] 战斗数据已保存到Firebase，回合数:', roomData.gameState.currentRound)
+
+  // 关键诊断：保存后立即读取验证
+  const verifyData = await getRoomData(currentRoomId.value)
+  if (verifyData && verifyData.gameState) {
+    console.log('[PlayerMode] ===== 验证Firebase数据 =====')
+    console.log('[PlayerMode] 验证: battleProcessed=', verifyData.gameState.battleProcessed)
+    console.log('[PlayerMode] 验证: battleAnimationData存在=', !!verifyData.gameState.battleAnimationData)
+    if (verifyData.gameState.battleAnimationData) {
+      console.log('[PlayerMode] 验证: battleAnimationData.round=', verifyData.gameState.battleAnimationData.round)
+      console.log('[PlayerMode] 验证: battleAnimationData.player1=', verifyData.gameState.battleAnimationData.player1?.name)
+      console.log('[PlayerMode] 验证: battleAnimationData.player2=', verifyData.gameState.battleAnimationData.player2?.name)
+    } else {
+      console.error('[PlayerMode] ❌ 验证失败: battleAnimationData未保存到Firebase!')
+    }
+    console.log('[PlayerMode] ========================================')
+  }
 }
 
 /**
@@ -1205,115 +2547,6 @@ function restartGame() {
   currentRoomId.value = ''
   currentPlayer.value = null
   centerCityIndex.value = null
-  rosterCities.value = []
-}
-
-/**
- * 计算属性：是否需要补充预备城市
- */
-const needsRosterRefill = computed(() => {
-  if (!currentRoomId.value || !currentPlayer.value) {
-    console.log('[needsRosterRefill] 返回false - 缺少房间或玩家')
-    return false
-  }
-
-  // 从最新的房间数据中获取
-  const playerState = getPlayerState()
-  const needsRefill = playerState?.needsRosterRefill === true
-  console.log('[needsRosterRefill] 计算结果:', {
-    playerName: currentPlayer.value.name,
-    playerState: playerState,
-    needsRefill: needsRefill
-  })
-  return needsRefill
-})
-
-/**
- * 获取当前玩家状态
- */
-function getPlayerState() {
-  // 需要从最新的房间数据中获取，这里简化处理
-  // 实际应该从实时监听的roomData中获取
-  return gameStore.playerStates?.[currentPlayer.value?.name] || {}
-}
-
-/**
- * 处理补充预备城市确认
- */
-async function handleRosterRefill({ mode, cities }) {
-  console.log('[PlayerMode] 补充预备城市', { mode, cities })
-
-  if (!currentRoomId.value || !currentPlayer.value) {
-    console.error('[PlayerMode] 缺少房间或玩家信息')
-    return
-  }
-
-  const roomData = await getRoomData(currentRoomId.value)
-  if (!roomData) {
-    console.error('[PlayerMode] 无法获取房间数据')
-    return
-  }
-
-  const myPlayer = roomData.players.find(p => p.name === currentPlayer.value.name)
-  if (!myPlayer) {
-    console.error('[PlayerMode] 未找到当前玩家')
-    return
-  }
-
-  const myState = roomData.gameState.playerStates[myPlayer.name]
-  if (!myState) {
-    console.error('[PlayerMode] 未找到玩家状态')
-    return
-  }
-
-  if (mode === 'reselection') {
-    // 改弦更张：替换整个预备列表
-    myPlayer.roster = cities
-    myState.needsRosterRefill = false
-    myState.rosterRefillReason = null
-
-    await saveRoomData(currentRoomId.value, roomData)
-    console.log('[PlayerMode] 改弦更张成功，预备城市已更新')
-  } else {
-    // 普通补充：追加城市到预备列表
-    cities.forEach(idx => {
-      if (!myPlayer.roster.includes(idx)) {
-        myPlayer.roster.push(idx)
-      }
-    })
-
-    // 检查是否已补充满
-    const rosterLimit = (roomData.mode === '2v2') ? 4 : 5
-    if (myPlayer.roster.length >= rosterLimit) {
-      myState.needsRosterRefill = false
-      myState.rosterRefillReason = null
-    }
-
-    await saveRoomData(currentRoomId.value, roomData)
-    console.log('[PlayerMode] 预备城市补充成功')
-  }
-
-  // 同步到gameStore，确保needsRosterRefill计算属性更新
-  syncRoomDataToGameStore(roomData)
-
-  // 更新本地玩家数据（选择性更新，保留cities）
-  if (currentPlayer.value) {
-    console.log('[PlayerMode] handleRosterRefill - 选择性更新currentPlayer（保留cities）')
-    currentPlayer.value.roster = myPlayer.roster
-    currentPlayer.value.gold = myPlayer.gold
-    currentPlayer.value.ready = myPlayer.ready
-  } else {
-    // 如果currentPlayer不存在，则完全初始化
-    currentPlayer.value = myPlayer
-  }
-  rosterCities.value = myPlayer.roster  // 关键修复：同步更新本地rosterCities
-
-  console.log('[PlayerMode] 补充完成后的roster:', myPlayer.roster)
-  console.log('[PlayerMode] roster对应的城市:', myPlayer.roster.map(idx => myPlayer.cities[idx]?.name))
-
-  // 补充完成后，返回部署界面
-  console.log('[PlayerMode] 预备城市补充完成，返回部署界面')
-  currentStep.value = 'city-deployment'
 }
 </script>
 
@@ -1450,16 +2683,66 @@ async function handleRosterRefill({ mode, cities }) {
   background: #6b7280;
 }
 
-/* 游戏主界面布局（带固定日志面板） */
+/* 战斗等待界面 */
+.game-waiting-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 40px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+}
+
+.waiting-content {
+  max-width: 900px;
+  width: 100%;
+  text-align: center;
+}
+
+.waiting-icon {
+  font-size: 80px;
+  margin-bottom: 30px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+.waiting-content h3 {
+  font-size: 28px;
+  color: #60a5fa;
+  margin-bottom: 15px;
+  font-weight: 700;
+}
+
+.waiting-hint {
+  font-size: 16px;
+  color: #94a3b8;
+  margin-bottom: 30px;
+}
+
+/* 游戏主界面布局（带固定日志面板） - 已移除 */
 .game-with-log-layout {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr 500px;
   gap: 20px;
   height: 100vh;
   padding: 20px;
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   overflow: hidden;
   transition: grid-template-columns 0.3s ease;
+}
+
+.game-with-log-layout:has(.collapsed) {
+  grid-template-columns: 1fr 60px;
 }
 
 .game-main-area {
@@ -1472,12 +2755,8 @@ async function handleRosterRefill({ mode, cities }) {
 .game-log-area {
   height: 100%;
   overflow: hidden;
-  width: 500px;
-  transition: width 0.3s ease;
-}
-
-.game-log-area:has(.collapsed) {
-  width: 60px;
+  position: relative;
+  z-index: 50;
 }
 
 /* 自定义滚动条 */
@@ -1504,16 +2783,20 @@ async function handleRosterRefill({ mode, cities }) {
   .game-with-log-layout {
     grid-template-columns: 1fr 400px;
   }
+
+  .game-with-log-layout:has(.collapsed) {
+    grid-template-columns: 1fr 60px;
+  }
 }
 
 @media (max-width: 1024px) {
   .game-with-log-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: 1fr auto;
+    grid-template-rows: 1fr 300px;
   }
 
-  .game-log-area {
-    height: 300px;
+  .game-with-log-layout:has(.collapsed) {
+    grid-template-rows: 1fr 60px;
   }
 }
 
@@ -1521,10 +2804,157 @@ async function handleRosterRefill({ mode, cities }) {
   .game-with-log-layout {
     padding: 10px;
     gap: 10px;
+    grid-template-rows: 1fr 250px;
   }
 
-  .game-log-area {
-    height: 250px;
+  .game-with-log-layout:has(.collapsed) {
+    grid-template-rows: 1fr 60px;
+  }
+}
+
+/* 技能失败弹窗样式 */
+.skill-failure-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.skill-failure-content {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  border-radius: 20px;
+  padding: 0;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.3s ease-out;
+  border: 2px solid rgba(239, 68, 68, 0.3);
+  overflow: hidden;
+}
+
+.skill-failure-header {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.2);
+}
+
+.skill-failure-icon {
+  font-size: 48px;
+  line-height: 1;
+  animation: shake 0.5s ease-in-out;
+}
+
+.skill-failure-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: white;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.skill-failure-body {
+  padding: 32px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.skill-failure-skill,
+.skill-failure-reason {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skill-failure-skill:last-child,
+.skill-failure-reason:last-child {
+  margin-bottom: 0;
+}
+
+.skill-failure-skill .label,
+.skill-failure-reason .label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.skill-failure-skill .value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fbbf24;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.skill-failure-reason .value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fca5a5;
+  line-height: 1.6;
+  padding: 16px;
+  background: rgba(239, 68, 68, 0.1);
+  border-left: 4px solid #ef4444;
+  border-radius: 8px;
+}
+
+.skill-failure-footer {
+  padding: 24px 32px;
+  display: flex;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.skill-failure-btn {
+  padding: 14px 48px;
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.skill-failure-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+.skill-failure-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 </style>

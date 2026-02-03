@@ -2387,7 +2387,7 @@ const CITY_QUESTIONS = {
     '普通': [
       {
         question: '苏州以什么闻名于世？',
-        options: ['A. 皇家园林', 'B. 苏州园林', 'C. 自然景观', 'D. 人造公园'],
+        options: ['A. 皇家园林', 'B. 古典园林', 'C. 自然景观', 'D. 人造公园'],
         answer: 'B'
       },
       {

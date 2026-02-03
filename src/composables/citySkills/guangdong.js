@@ -30,7 +30,7 @@ export function handleGuangzhouSkill(attacker, defender, skillData, addPublicLog
   }
 
   // 筛选对方HP≤10000的城市
-  const eligibleCities = defender.cities.filter(city =>
+  const eligibleCities = Object.values(defender.cities).filter(city =>
     city.isAlive !== false && city.hp <= 10000
   )
 
@@ -41,7 +41,7 @@ export function handleGuangzhouSkill(attacker, defender, skillData, addPublicLog
 
   // 随机选择一座城市
   const targetCity = eligibleCities[Math.floor(Math.random() * eligibleCities.length)]
-  const targetIndex = defender.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   // 从对方移除城市
   const plunderedCity = {
@@ -54,8 +54,8 @@ export function handleGuangzhouSkill(attacker, defender, skillData, addPublicLog
   targetCity.currentHp = 0
   targetCity.hp = 0
 
-  // 加入己方阵营
-  attacker.cities.push(plunderedCity)
+  // 加入己方阵营（使用城市名称作为键）
+  attacker.cities[cityName] = plunderedCity
 
   // 扣除金币
   attacker.gold -= 1
@@ -138,7 +138,7 @@ export function handleShantouSkill(attacker, skillData, addPublicLog, gameStore)
           blue: 0,
           yellow: 0
         }
-        attacker.cities.push(newCity)
+        attacker.cities[newCity.name] = newCity
         cityData.isUsed = true
         summoned.push(cityName)
       }
@@ -167,13 +167,13 @@ export function handleFoshanSkill(attacker, skillData, addPublicLog, gameStore) 
   if (!foshanCity) return
 
   const foshanHp = getCurrentHp(foshanCity)
-  const cityIndex = getCityIndex(attacker, foshanCity)
+  const cityName = foshanCity.name
 
   // 设置条件伤害减免
   if (!gameStore.conditionalReduction) gameStore.conditionalReduction = {}
   if (!gameStore.conditionalReduction[attacker.name]) gameStore.conditionalReduction[attacker.name] = {}
 
-  gameStore.conditionalReduction[attacker.name][cityIndex] = {
+  gameStore.conditionalReduction[attacker.name][cityName] = {
     type: 'foshan',
     condition: 'attackerHpLower',  // 攻击者HP更低时触发
     threshold: foshanHp,
@@ -217,9 +217,9 @@ export function handleZhanjiangSkill(attacker, skillData, addPublicLog, gameStor
   if (eligibleCities.length > 0) {
     const sorted = sortCitiesByHp(eligibleCities)
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(attacker, targetCity)
+    const cityName = targetCity.name
 
-    addDelayedEffect(gameStore, attacker.name, cityIndex, {
+    addDelayedEffect(gameStore, attacker.name, cityName, {
       type: 'harbor',
       roundsLeft: 3,
       data: {
@@ -244,9 +244,9 @@ export function handleZhaoqingSkill(attacker, skillData, addPublicLog, gameStore
   if (aliveCities.length > 0) {
     const sorted = sortCitiesByHp(aliveCities)
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(attacker, targetCity)
+    const cityName = targetCity.name
 
-    addShield(gameStore, attacker.name, cityIndex, {
+    addShield(gameStore, attacker.name, cityName, {
       hp: 500,
       roundsLeft: 2,
       extra: { canConvertToPermanent: true }
@@ -270,10 +270,10 @@ export function handleJiangmenSkill(attacker, defender, skillData, addPublicLog,
   if (aliveCities.length > 0) {
     const sorted = sortCitiesByHp(aliveCities)
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(attacker, targetCity)
+    const cityName = targetCity.name
 
     // 1. 为目标城市添加10000HP护盾
-    addShield(gameStore, attacker.name, cityIndex, {
+    addShield(gameStore, attacker.name, cityName, {
       hp: 10000,
       roundsLeft: -1  // 永久护盾
     })
@@ -285,8 +285,8 @@ export function handleJiangmenSkill(attacker, defender, skillData, addPublicLog,
 
     // 3. 对敌方中心造成江门原HP的50%伤害
     const damage = Math.floor(jiangmenOldHp * 0.5)
-    if (defender && defender.centerIndex !== undefined) {
-      const centerCity = defender.cities[defender.centerIndex]
+    if (defender && defender.centerCityName) {
+      const centerCity = defender.cities[defender.centerCityName]
       if (centerCity) {
         damageCity(centerCity, damage)
       }
@@ -316,8 +316,8 @@ export function handleHuizhouSkill(attacker, skillData, addPublicLog, gameStore)
   const { oldMaxHp } = boostCityHp(huizhouCity, 1.5)
 
   // 2. 设置延迟回血标记
-  const cityIndex = getCityIndex(attacker, huizhouCity)
-  addDelayedEffect(gameStore, attacker.name, cityIndex, {
+  const cityName = huizhouCity.name
+  addDelayedEffect(gameStore, attacker.name, cityName, {
     type: 'daya_heal',
     roundsLeft: -1,  // 被动效果
     data: {
@@ -347,7 +347,7 @@ export function handleMeizhouSkill(attacker, skillData, addPublicLog, gameStore)
   let totalBonus = 0
   let hakkaCount = 0
 
-  attacker.cities.forEach(city => {
+  Object.values(attacker.cities).forEach(city => {
     if (city.isAlive !== false && hakkaCities.includes(city.name)) {
       totalBonus += getCurrentHp(city)
       hakkaCount++
@@ -356,13 +356,13 @@ export function handleMeizhouSkill(attacker, skillData, addPublicLog, gameStore)
 
   // 梅州市获得战力加成（临时增加HP）
   if (totalBonus > 0) {
-    const cityIndex = getCityIndex(attacker, meizhouCity)
+    const cityName = meizhouCity.name
 
     // 设置临时战力加成
     if (!gameStore.temporaryHpBonus) gameStore.temporaryHpBonus = {}
     if (!gameStore.temporaryHpBonus[attacker.name]) gameStore.temporaryHpBonus[attacker.name] = {}
 
-    gameStore.temporaryHpBonus[attacker.name][cityIndex] = {
+    gameStore.temporaryHpBonus[attacker.name][cityName] = {
       bonus: totalBonus,
       roundsLeft: 1,
       appliedRound: gameStore.currentRound
@@ -399,12 +399,12 @@ export function handleShanweiSkill(attacker, skillData, addPublicLog, gameStore)
  */
 export function handleHeyuanSkill(attacker, defender, skillData, addPublicLog, gameStore) {
   const heyuanCity = findCity(attacker, '河源市')
-  if (heyuanCity && defender.centerIndex !== undefined) {
+  if (heyuanCity && defender.centerCityName) {
     // 扣除河源市100HP
     damageCity(heyuanCity, 100)
 
     // 对对方中心造成1000伤害
-    const centerCity = defender.cities[defender.centerIndex]
+    const centerCity = defender.cities[defender.centerCityName]
     if (centerCity) {
       damageCity(centerCity, 1000)
       addPublicLog(`${attacker.name}的${skillData.cityName}激活"万绿水城"，消耗100HP对${defender.name}的首都造成1000伤害！`)
@@ -426,13 +426,13 @@ export function handleYangjiangSkill(attacker, skillData, addPublicLog, gameStor
     const targetCity = sorted.find(city => !city.name.includes('省会') && !city.name.includes('首府'))
 
     if (targetCity) {
-      const cityIndex = getCityIndex(attacker, targetCity)
+      const cityName = targetCity.name
 
       // 设置归顺免疫标记
       if (!gameStore.allegianceImmunity) gameStore.allegianceImmunity = {}
       if (!gameStore.allegianceImmunity[attacker.name]) gameStore.allegianceImmunity[attacker.name] = {}
 
-      gameStore.allegianceImmunity[attacker.name][cityIndex] = {
+      gameStore.allegianceImmunity[attacker.name][cityName] = {
         permanent: true,
         appliedRound: gameStore.currentRound
       }
@@ -452,13 +452,13 @@ export function handleQingyuanSkill(attacker, skillData, addPublicLog, gameStore
   const qingyuanCity = findCity(attacker, '清远市')
   if (!qingyuanCity) return
 
-  const cityIndex = getCityIndex(attacker, qingyuanCity)
+  const cityName = qingyuanCity.name
 
   // 设置复活标记
   if (!gameStore.reviveOnDeath) gameStore.reviveOnDeath = {}
   if (!gameStore.reviveOnDeath[attacker.name]) gameStore.reviveOnDeath[attacker.name] = {}
 
-  gameStore.reviveOnDeath[attacker.name][cityIndex] = {
+  gameStore.reviveOnDeath[attacker.name][cityName] = {
     active: true,
     fullHeal: true,
     usedOnce: false,
@@ -504,7 +504,7 @@ export function handleDongguanSkill(attacker, skillData, addPublicLog, gameStore
     yellow: 0
   }
 
-  attacker.cities.push(newCity)
+  attacker.cities[cityData.name] = newCity
   cityData.isUsed = true
 
   addPublicLog(`${attacker.name}的${skillData.cityName}激活"世界工厂"，召唤${newCity.name}（HP${cityData.hp}）加入己方！`)
@@ -519,13 +519,13 @@ export function handleZhongshanSkill(attacker, defender, skillData, addPublicLog
   const zhongshanCity = findCity(attacker, '中山市')
   if (!zhongshanCity) return
 
-  const cityIndex = getCityIndex(attacker, zhongshanCity)
+  const cityName = zhongshanCity.name
 
   // 设置阵亡触发效果
   if (!gameStore.onDeathEffects) gameStore.onDeathEffects = {}
   if (!gameStore.onDeathEffects[attacker.name]) gameStore.onDeathEffects[attacker.name] = {}
 
-  gameStore.onDeathEffects[attacker.name][cityIndex] = {
+  gameStore.onDeathEffects[attacker.name][cityName] = {
     type: 'zhongshan',
     targetOpponent: defender.name,
     condition: 'hpBelow2000',
@@ -546,8 +546,8 @@ export function handleChaozhouSkill(attacker, skillData, addPublicLog, gameStore
 
   // 为所有存活城市添加护盾
   aliveCities.forEach(city => {
-    const cityIndex = getCityIndex(attacker, city)
-    addShield(gameStore, attacker.name, cityIndex, {
+    const cityName = city.name
+    addShield(gameStore, attacker.name, cityName, {
       hp: 300,
       roundsLeft: 3
     })
@@ -583,13 +583,13 @@ export function handleYunfuSkill(attacker, skillData, addPublicLog, gameStore) {
     // 选择HP最高的城市
     const sorted = sortCitiesByHp(aliveCities).reverse()
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(attacker, targetCity)
+    const cityName = targetCity.name
 
     // 设置临时攻击力加成
     if (!gameStore.temporaryAttackBoost) gameStore.temporaryAttackBoost = {}
     if (!gameStore.temporaryAttackBoost[attacker.name]) gameStore.temporaryAttackBoost[attacker.name] = {}
 
-    gameStore.temporaryAttackBoost[attacker.name][cityIndex] = {
+    gameStore.temporaryAttackBoost[attacker.name][cityName] = {
       bonus: 3000,
       roundsLeft: 3,
       appliedRound: gameStore.currentRound

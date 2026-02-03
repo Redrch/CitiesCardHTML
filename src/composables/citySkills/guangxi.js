@@ -12,7 +12,6 @@ import {
   healCity,
   damageCity,
   findCity,
-  getCityIndex,
   summonCity
 } from './skillHelpers'
 
@@ -100,8 +99,8 @@ export function handleGuilinSkill(attacker, skillData, addPublicLog, gameStore, 
     if (!gameStore.skillRefresh) gameStore.skillRefresh = {}
     if (!gameStore.skillRefresh[attacker.name]) gameStore.skillRefresh[attacker.name] = {}
 
-    const cityIndex = getCityIndex(attacker, targetCity)
-    gameStore.skillRefresh[attacker.name][cityIndex] = {
+    const cityName = targetCity.name
+    gameStore.skillRefresh[attacker.name][cityName] = {
       refreshed: true,
       appliedRound: gameStore.currentRound
     }
@@ -155,7 +154,7 @@ export function handleBeihaiSkill(attacker, skillData, addPublicLog, gameStore) 
         const enemyFangcheng = findCity(player, '防城港市')
         if (enemyFangcheng) {
           // 从敌方移除
-          const enemyIndex = getCityIndex(player, enemyFangcheng)
+          const enemyName = enemyFangcheng.name || enemyFangcheng
           enemyFangcheng.isAlive = false
           enemyFangcheng.currentHp = 0
 
@@ -171,7 +170,7 @@ export function handleBeihaiSkill(attacker, skillData, addPublicLog, gameStore) 
             blue: 0,
             yellow: 0
           }
-          attacker.cities.push(newCity)
+          attacker.cities[newCity.name] = newCity
 
           addPublicLog(`${attacker.name}的${skillData.cityName}激活"湾海双子"，防城港市从${player.name}归顺己方！`)
           foundInEnemy = true
@@ -206,11 +205,11 @@ export function handleFangchenggangSkill(attacker, skillData, addPublicLog, game
   }
 
   // 设置下回合失去600HP
-  const fangchenggangIndex = getCityIndex(attacker, '防城港市')
+  const fangchenggangName = '防城港市'.name || '防城港市'
   if (!gameStore.delayedDamage) gameStore.delayedDamage = {}
   if (!gameStore.delayedDamage[attacker.name]) gameStore.delayedDamage[attacker.name] = {}
 
-  gameStore.delayedDamage[attacker.name][fangchenggangIndex] = {
+  gameStore.delayedDamage[attacker.name][fangchenggangName] = {
     damage: 600,
     triggerRound: gameStore.currentRound + 1,
     appliedRound: gameStore.currentRound
@@ -253,13 +252,13 @@ export function handleBaiseSkill(attacker, skillData, addPublicLog, gameStore) {
     return
   }
 
-  const baiseIndex = getCityIndex(attacker, baiseCity)
+  const baiseName = baiseCity.name || baiseCity
 
   // 设置伤害吸收转化为HP
   if (!gameStore.damageAbsorb) gameStore.damageAbsorb = {}
   if (!gameStore.damageAbsorb[attacker.name]) gameStore.damageAbsorb[attacker.name] = {}
 
-  gameStore.damageAbsorb[attacker.name][baiseIndex] = {
+  gameStore.damageAbsorb[attacker.name][baiseName] = {
     active: true,
     absorbCap: 9000,
     absorbedAmount: 0,
@@ -285,13 +284,13 @@ export function handleHezhouSkill(attacker, skillData, addPublicLog, gameStore) 
     return
   }
 
-  const hezhouIndex = getCityIndex(attacker, hezhouCity)
+  const hezhouName = hezhouCity.name || hezhouCity
 
   // 设置三省通衢标记
   if (!gameStore.threeProvincesBridge) gameStore.threeProvincesBridge = {}
   if (!gameStore.threeProvincesBridge[attacker.name]) gameStore.threeProvincesBridge[attacker.name] = {}
 
-  gameStore.threeProvincesBridge[attacker.name][hezhouIndex] = {
+  gameStore.threeProvincesBridge[attacker.name][hezhouName] = {
     active: true,
     provinces: ['湖南省', '广西壮族自治区', '广东省'],
     appliedRound: gameStore.currentRound
@@ -347,10 +346,10 @@ export function handleLaibinSkill(attacker, defender, skillData, addPublicLog, g
   // 筛选对方符合条件的城市（非中心且HP<9000）
   const eligibleCities = []
   if (defender && defender.cities) {
-    defender.cities.forEach((city, index) => {
+    Object.values(defender.cities).forEach((city, index) => {
       if (city.isAlive !== false &&
           getCurrentHp(city) > 0 &&
-          index !== defender.centerIndex &&
+          index !== defender.centerCityName &&
           city.hp < 9000) {
         eligibleCities.push({ city, index })
       }
@@ -391,13 +390,13 @@ export function handleChongzuoSkill(attacker, skillData, addPublicLog, gameStore
     return
   }
 
-  const chongzuoIndex = getCityIndex(attacker, chongzuoCity)
+  const chongzuoName = chongzuoCity.name || chongzuoCity
 
   // 设置友谊关被动效果标记
   if (!gameStore.friendshipGate) gameStore.friendshipGate = {}
   if (!gameStore.friendshipGate[attacker.name]) gameStore.friendshipGate[attacker.name] = {}
 
-  gameStore.friendshipGate[attacker.name][chongzuoIndex] = {
+  gameStore.friendshipGate[attacker.name][chongzuoName] = {
     active: true,
     bonusHp: 1000,
     appliedRound: gameStore.currentRound

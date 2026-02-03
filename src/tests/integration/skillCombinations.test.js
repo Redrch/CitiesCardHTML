@@ -279,7 +279,7 @@ describe('技能组合集成测试', () => {
     })
   })
 
-  describe('城市侦探 + 提灯定损 组合', () => {
+  describe('城市侦探 + 一落千丈 组合', () => {
     it('先侦查城市信息，再根据HP差造成精准伤害', () => {
       const targetCityIdx = 1
       const targetCity = player2.cities[targetCityIdx]
@@ -297,7 +297,7 @@ describe('技能组合集成测试', () => {
       // 降低城市HP
       targetCity.currentHp = 15000
 
-      // 使用提灯定损（传递city对象，会将HP降至1/3）
+      // 使用一落千丈（传递city对象，会将HP降至1/3）
       const tdds = nonBattleSkills.executeTiDengDingSun(player1, player2, targetCity)
       expect(tdds.success).toBe(true)
       // HP应该降至1/3

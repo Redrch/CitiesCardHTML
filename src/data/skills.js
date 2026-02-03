@@ -6,8 +6,6 @@
 // 全局技能金币映射表（用于事半功倍和解除封锁）
 export const SKILL_COST_MAP = {
   // 战斗金币技能
-  '无知无畏': 2,
-  '先声夺人': 1,
   '擒贼擒王': 3,
   '草木皆兵': 3,
   '越战越勇': 3,
@@ -18,8 +16,6 @@ export const SKILL_COST_MAP = {
   '料事如神': 6,
   '暗度陈仓': 6,
   '同归于尽': 7,
-  '声东击西': 7,
-  '连续打击': 7,
   '御驾亲征': 8,
   '狂暴模式': 9,
   '以逸待劳': 9,
@@ -38,6 +34,10 @@ export const SKILL_COST_MAP = {
   '合纵连横': 7,
 
   // 非战斗金币技能
+  '先声夺人': 1,
+  '声东击西': 7,
+  '连续打击': 7,
+  '无知无畏': 2,
   '金币贷款': 1,
   '定海神针': 1,
   '焕然一新': 2,
@@ -78,9 +78,9 @@ export const SKILL_COST_MAP = {
   '城市预言': 6,
   '倒反天罡': 7,
   '解除封锁': 5,
-  '提灯定损': 7,
+  '一落千丈': 7,
   '好高骛远': 7,
-  '目不转睛': 7,
+  '寸步难行': 7,
   '数位反转': 7,
   '波涛汹涌': 8,
   '狂轰滥炸': 8,
@@ -132,7 +132,7 @@ export const SKILL_RESTRICTIONS = {
   '金币贷款': { cooldown: 0, limit: 1 },
   '金融危机': { cooldown: 0, limit: 1 },
   '城市侦探': { cooldown: 0, limit: 2 },
-  '定海神针': { cooldown: 1, limit: 3 },
+  '定海神针': { cooldown: 1, limit: 0 }, // 无次数限制，只有冷却1回合
   '无知无畏': { cooldown: 3, limit: 2 },
   '焕然一新': { cooldown: 0, limit: 2 },
   '按兵不动': { cooldown: 3, limit: 3 },
@@ -159,8 +159,8 @@ export const SKILL_RESTRICTIONS = {
   '博学多才': { cooldown: 0, limit: 2 },
   '天灾人祸': { cooldown: 0, limit: 1 },
   '好高骛远': { cooldown: 0, limit: 3 },
-  '提灯定损': { cooldown: 5, limit: 0 }, // 无次数限制，只有冷却
-  '目不转睛': { cooldown: 5, limit: 3 },
+  '一落千丈': { cooldown: 5, limit: 0 }, // 无次数限制，只有冷却
+  '寸步难行': { cooldown: 8, limit: 3 },
   '欲擒故纵': { cooldown: 0, limit: 2 },
   '避而不见': { cooldown: 3, limit: 2 },
   '万箭齐发': { cooldown: 3, limit: 0 }, // 无次数限制，只有冷却
@@ -238,7 +238,7 @@ export const JIANBUKECUI_BLOCKED_SKILLS = [
   '釜底抽薪',
   '劫富济贫',
   '天灾人祸',
-  '提灯定损',
+  '一落千丈',
   '连续打击',
   '倒反天罡',
   '数位反转',
@@ -284,8 +284,6 @@ export const JIANBUKECUI_BLOCKED_SKILLS = [
 
 // 战斗金币技能列表
 export const BATTLE_SKILLS = [
-  '无知无畏',
-  '先声夺人',
   '擒贼擒王',
   '草木皆兵',
   '越战越勇',
@@ -296,8 +294,6 @@ export const BATTLE_SKILLS = [
   '料事如神',
   '暗度陈仓',
   '同归于尽',
-  '声东击西',
-  '连续打击',
   '御驾亲征',
   '狂暴模式',
   '以逸待劳',
@@ -317,6 +313,10 @@ export const BATTLE_SKILLS = [
 
 // 非战斗金币技能列表
 export const NON_BATTLE_SKILLS = [
+  '先声夺人',
+  '声东击西',
+  '连续打击',
+  '无知无畏',
   '金币贷款',
   '定海神针',
   '焕然一新',
@@ -357,9 +357,9 @@ export const NON_BATTLE_SKILLS = [
   '城市预言',
   '倒反天罡',
   '解除封锁',
-  '提灯定损',
+  '一落千丈',
   '好高骛远',
-  '目不转睛',
+  '寸步难行',
   '数位反转',
   '波涛汹涌',
   '狂轰滥炸',

@@ -2,7 +2,6 @@
   <div
     v-if="modelValue"
     class="modal-backdrop"
-    @click.self="close"
   >
     <div class="modal-content">
       <div class="modal-header">
@@ -51,7 +50,6 @@
     <div
       v-if="quizActive"
       class="quiz-modal"
-      @click.self="closeQuiz"
     >
       <div class="quiz-content">
         <div v-if="!quizFinished">

@@ -72,12 +72,12 @@ export function handleLinzhiSkill(attacker, defender, skillData, addPublicLog, g
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityIndex = defender.cities.indexOf(targetCity)
+  const cityName = defender.cities.indexOf(targetCity)
 
   if (!gameStore.battleBanned) gameStore.battleBanned = {}
   if (!gameStore.battleBanned[defender.name]) gameStore.battleBanned[defender.name] = {}
 
-  gameStore.battleBanned[defender.name][cityIndex] = {
+  gameStore.battleBanned[defender.name][cityName] = {
     active: true,
     roundsLeft: 2,
     appliedRound: gameStore.currentRound

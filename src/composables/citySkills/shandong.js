@@ -12,7 +12,6 @@ import {
   damageCity,
   addDelayedEffect,
   banCity,
-  getCityIndex
 } from './skillHelpers'
 import { handleZhenjiangSkill } from './jiangsu'
 
@@ -38,8 +37,8 @@ export function handleJinanSkill(attacker, defender, defenderCities, skillData, 
   })
 
   // 溢出伤害的40%打在对方首都上
-  if (totalOverflow > 0 && defender.centerIndex !== undefined) {
-    const centerCity = defender.cities[defender.centerIndex]
+  if (totalOverflow > 0 && defender.centerCityName) {
+    const centerCity = defender.cities[defender.centerCityName]
     if (centerCity) {
       const overflowDamage = Math.floor(totalOverflow * 0.4)
       damageCity(centerCity, overflowDamage)
@@ -137,14 +136,14 @@ export function handleDongyingSkill(attacker, skillData, addPublicLog, gameStore
  * @param {Object} skillData - 技能数据
  * @param {Function} addPublicLog - 添加日志函数
  * @param {Object} gameStore - 游戏store
- * @param {Array} selectedCityIndices - 可选，玩家选择的城市索引数组
+ * @param {Array} selectedCityNames - 可选，玩家选择的城市索引数组
  */
-export function handleJiningSkill(attacker, skillData, addPublicLog, gameStore, selectedCityIndices = null) {
+export function handleJiningSkill(attacker, skillData, addPublicLog, gameStore, selectedCityNames = null) {
   let citiesToHeal
 
-  if (selectedCityIndices && Array.isArray(selectedCityIndices)) {
+  if (selectedCityNames && Array.isArray(selectedCityNames)) {
     // 使用玩家选择的城市
-    citiesToHeal = selectedCityIndices.map(idx => attacker.cities[idx]).filter(Boolean)
+    citiesToHeal = selectedCityNames.map(name => attacker.cities[name]).filter(Boolean)
   } else {
     // 默认行为：自动选择前2个存活城市
     const aliveCities = getAliveCities(attacker)
@@ -170,9 +169,9 @@ export function handleYantaiSkill(attacker, skillData, addPublicLog, gameStore) 
   if (eligibleCities.length > 0) {
     const sorted = sortCitiesByHp(eligibleCities)
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(attacker, targetCity)
+    const cityName = targetCity.name
 
-    addDelayedEffect(gameStore, attacker.name, cityIndex, {
+    addDelayedEffect(gameStore, attacker.name, cityName, {
       type: 'penglai',
       roundsLeft: 2,
       data: {
@@ -196,9 +195,9 @@ export function handleWeihaiSkill(attacker, skillData, addPublicLog, gameStore) 
   if (eligibleCities.length > 0) {
     const sorted = sortCitiesByHp(eligibleCities)
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(attacker, targetCity)
+    const cityName = targetCity.name
 
-    banCity(gameStore, attacker.name, cityIndex, 2, {
+    banCity(gameStore, attacker.name, cityName, 2, {
       fullHealOnReturn: true,
       originalHp: getCurrentHp(targetCity)
     })
@@ -232,9 +231,9 @@ export function handleHezeSkill(attacker, skillData, addPublicLog, gameStore) {
   if (eligibleCities.length > 0) {
     const sorted = sortCitiesByHp(eligibleCities)
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(attacker, targetCity)
+    const cityName = targetCity.name
 
-    banCity(gameStore, attacker.name, cityIndex, 2, {
+    banCity(gameStore, attacker.name, cityName, 2, {
       fullHealOnReturn: true,
       originalHp: getCurrentHp(targetCity)
     })
@@ -254,13 +253,13 @@ export function handleZaozhuangSkill(attacker, skillData, addPublicLog, gameStor
   if (eligibleCities.length > 0) {
     const sorted = sortCitiesByHp(eligibleCities)
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(attacker, targetCity)
+    const cityName = targetCity.name
 
     // 设置永久攻击力增加50%
     if (!gameStore.permanentModifiers) gameStore.permanentModifiers = {}
     if (!gameStore.permanentModifiers[attacker.name]) gameStore.permanentModifiers[attacker.name] = {}
 
-    gameStore.permanentModifiers[attacker.name][cityIndex] = {
+    gameStore.permanentModifiers[attacker.name][cityName] = {
       attackMultiplier: 1.5,
       type: 'taierzhuang',
       appliedRound: gameStore.currentRound
@@ -278,7 +277,7 @@ export function handleZaozhuangSkill(attacker, skillData, addPublicLog, gameStor
 export function handleWeifangSkill(attacker, defender, skillData, addPublicLog, gameStore) {
   // 获取对方未知城市
   const unknownCities = []
-  defender.cities.forEach((city, index) => {
+  Object.values(defender.cities).forEach((city, index) => {
     if (city.isAlive !== false) {
       const isKnown = gameStore.knownCities?.[attacker.name]?.[defender.name]?.[index]
       if (!isKnown) {
@@ -327,13 +326,13 @@ export function handleTaianSkill(attacker, defender, skillData, addPublicLog, ga
     // 选择对方HP最高的城市
     const sorted = sortCitiesByHp(aliveCities).reverse()
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(defender, targetCity)
+    const cityName = targetCity.name
 
     // 禁止出战3回合，强制出战HP减半
     if (!gameStore.bannedCities) gameStore.bannedCities = {}
     if (!gameStore.bannedCities[defender.name]) gameStore.bannedCities[defender.name] = {}
 
-    gameStore.bannedCities[defender.name][cityIndex] = {
+    gameStore.bannedCities[defender.name][cityName] = {
       roundsLeft: 3,
       halfHpIfForced: true,
       appliedRound: gameStore.currentRound
@@ -349,7 +348,7 @@ export function handleTaianSkill(attacker, defender, skillData, addPublicLog, ga
  * 限1次，假扮为HP为10000以上的某一城市并出战，当战力达到原日照市战力及以下时公布真实身份并自毁
  */
 export function handleRizhaoSkill(attacker, skillData, addPublicLog, gameStore) {
-  const rizhaoCity = attacker.cities.find(city => city.name === '日照市')
+  const rizhaoCity = Object.values(attacker.cities).find(city => city.name === '日照市')
   if (!rizhaoCity) return
 
   const originalHp = getCurrentHp(rizhaoCity)
@@ -373,8 +372,8 @@ export function handleRizhaoSkill(attacker, skillData, addPublicLog, gameStore) 
   if (!gameStore.disguisedCities) gameStore.disguisedCities = {}
   if (!gameStore.disguisedCities[attacker.name]) gameStore.disguisedCities[attacker.name] = {}
 
-  const cityIndex = getCityIndex(attacker, rizhaoCity)
-  gameStore.disguisedCities[attacker.name][cityIndex] = {
+  const cityName = rizhaoCity.name
+  gameStore.disguisedCities[attacker.name][cityName] = {
     originalCity: '日照市',
     disguisedAs: disguiseCity.name,
     disguisedHp: disguiseCity.hp,
@@ -387,8 +386,8 @@ export function handleRizhaoSkill(attacker, skillData, addPublicLog, gameStore) 
   // 清除日照市的已知状态
   if (gameStore.knownCities) {
     Object.keys(gameStore.knownCities).forEach(playerName => {
-      if (gameStore.knownCities[playerName]?.[attacker.name]?.[cityIndex]) {
-        delete gameStore.knownCities[playerName][attacker.name][cityIndex]
+      if (gameStore.knownCities[playerName]?.[attacker.name]?.[cityName]) {
+        delete gameStore.knownCities[playerName][attacker.name][cityName]
       }
     })
   }

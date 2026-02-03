@@ -7,21 +7,20 @@
 import {
   getAliveCities,
   getCurrentHp,
-  getCityIndex
 } from './skillHelpers'
 
 /**
  * 石家庄市 - 安济桥
  * 冷却1回合，出牌阶段，选择两个己方城市，交换城市专属技能
  */
-export function handleShijiazhuangSkill(player, skillData, addPublicLog, gameStore, cityIndex1 = null, cityIndex2 = null) {
-  if (cityIndex1 === null || cityIndex2 === null || cityIndex1 === cityIndex2) {
+export function handleShijiazhuangSkill(player, skillData, addPublicLog, gameStore, cityName1 = null, cityName2 = null) {
+  if (cityName1 === null || cityName2 === null || cityName1 === cityName2) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"安济桥"，需要选择两座不同的城市！`)
     return
   }
 
-  const city1 = player.cities[cityIndex1]
-  const city2 = player.cities[cityIndex2]
+  const city1 = player.cities[cityName1]
+  const city2 = player.cities[cityName2]
 
   if (!city1 || !city2) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"安济桥"，城市无效！`)
@@ -34,9 +33,9 @@ export function handleShijiazhuangSkill(player, skillData, addPublicLog, gameSto
   if (!gameStore.skillSwap[player.name]) gameStore.skillSwap[player.name] = {}
 
   // 记录交换（city1获得city2的技能，city2获得city1的技能）
-  const temp = gameStore.skillSwap[player.name][cityIndex1] || city1.name
-  gameStore.skillSwap[player.name][cityIndex1] = gameStore.skillSwap[player.name][cityIndex2] || city2.name
-  gameStore.skillSwap[player.name][cityIndex2] = temp
+  const temp = gameStore.skillSwap[player.name][cityName1] || city1.name
+  gameStore.skillSwap[player.name][cityName1] = gameStore.skillSwap[player.name][cityName2] || city2.name
+  gameStore.skillSwap[player.name][cityName2] = temp
 
   addPublicLog(`${player.name}的${skillData.cityName}激活"安济桥"，${city1.name}和${city2.name}交换了城市专属技能！`)
 
@@ -56,19 +55,19 @@ export function handleShijiazhuangSkill(player, skillData, addPublicLog, gameSto
  * 中心城市和该城市始终处于"钢铁城市"状态，己方"钢铁城市"数量上限+2
  */
 export function handleTangshanSkill(player, skillData, addPublicLog, gameStore) {
-  const tangshanIndex = getCityIndex(player, skillData.cityName)
-  const centerIndex = player.centerIndex || 0
+  const tangshanName = skillData.cityName.name || skillData.cityName
+  const centerCityName = player.centerCityName || 0
 
   // 初始化钢铁城市状态
   if (!gameStore.ironCities) gameStore.ironCities = {}
   if (!gameStore.ironCities[player.name]) gameStore.ironCities[player.name] = {}
 
   // 唐山市和中心城市永久钢铁
-  gameStore.ironCities[player.name][tangshanIndex] = {
+  gameStore.ironCities[player.name][tangshanName] = {
     roundsLeft: -1,  // -1表示永久
     permanent: true
   }
-  gameStore.ironCities[player.name][centerIndex] = {
+  gameStore.ironCities[player.name][centerCityName] = {
     roundsLeft: -1,
     permanent: true
   }
@@ -77,7 +76,7 @@ export function handleTangshanSkill(player, skillData, addPublicLog, gameStore) 
   if (!gameStore.ironCityLimit) gameStore.ironCityLimit = {}
   gameStore.ironCityLimit[player.name] = (gameStore.ironCityLimit[player.name] || 0) + 2
 
-  addPublicLog(`${player.name}的${skillData.cityName}激活"钢铁之城"，${skillData.cityName}和中心城市${player.cities[centerIndex].name}获得永久钢铁状态！钢铁城市上限+2！`)
+  addPublicLog(`${player.name}的${skillData.cityName}激活"钢铁之城"，${skillData.cityName}和中心城市${player.cities[centerCityName].name}获得永久钢铁状态！钢铁城市上限+2！`)
   gameStore.recordSkillUsage(player.name, skillData.cityName)
 }
 
@@ -92,14 +91,14 @@ export function handleQinhuangdaoSkill(player, skillData, addPublicLog, gameStor
 
   // 获取东北三省城市
   const dongbeiProvinces = ['辽宁省', '吉林省', '黑龙江省']
-  const dongbeiCities = player.cities.filter(city => {
+  const dongbeiCities = Object.values(player.cities).filter(city => {
     // 需要根据城市数据库查询省份
     return city.province && dongbeiProvinces.includes(city.province)
   })
 
   dongbeiCities.forEach(city => {
-    const cityIndex = getCityIndex(player, city.name)
-    gameStore.damageReduction[player.name][cityIndex] = {
+    const cityName = city.name.name || city.name
+    gameStore.damageReduction[player.name][cityName] = {
       percentage: 0.75,  // 减免75%
       permanent: true,
       source: '山海关'
@@ -114,21 +113,21 @@ export function handleQinhuangdaoSkill(player, skillData, addPublicLog, gameStor
  * 邯郸市 - 邯郸学步
  * 限1次，选定一个己方城市HP变为与该城市相同
  */
-export function handleHandanSkill(player, skillData, addPublicLog, gameStore, selectedCityIndex = null) {
-  const handanIndex = getCityIndex(player, skillData.cityName)
-  const handanCity = player.cities[handanIndex]
+export function handleHandanSkill(player, skillData, addPublicLog, gameStore, selectedCityName = null) {
+  const handanName = skillData.cityName.name || skillData.cityName
+  const handanCity = player.cities[handanName]
 
   if (!handanCity || handanCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"邯郸学步"，城市已阵亡！`)
     return
   }
 
-  if (selectedCityIndex === null || selectedCityIndex === handanIndex) {
+  if (selectedCityName === null || selectedCityName === handanName) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"邯郸学步"，需要选择另一座城市！`)
     return
   }
 
-  const targetCity = player.cities[selectedCityIndex]
+  const targetCity = player.cities[selectedCityName]
   if (!targetCity || targetCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"邯郸学步"，目标城市无效！`)
     return
@@ -199,8 +198,8 @@ export function handleChengdeSkill(player, skillData, addPublicLog, gameStore) {
  * 觉醒技，若己方有至少两个城市的HP大于该城市的20倍，获得技能：若这些城市的HP减少n，该城市的HP增加[n/5]
  */
 export function handleLangfangSkill(player, skillData, addPublicLog, gameStore) {
-  const langfangIndex = getCityIndex(player, skillData.cityName)
-  const langfangCity = player.cities[langfangIndex]
+  const langfangName = skillData.cityName.name || skillData.cityName
+  const langfangCity = player.cities[langfangName]
 
   if (!langfangCity || langfangCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"夹缝求生"，城市已阵亡！`)
@@ -209,7 +208,7 @@ export function handleLangfangSkill(player, skillData, addPublicLog, gameStore) 
 
   // 检查觉醒条件
   const langfangHp = getCurrentHp(langfangCity)
-  const bigCities = player.cities.filter(city => {
+  const bigCities = Object.values(player.cities).filter(city => {
     return city.name !== skillData.cityName && getCurrentHp(city) > langfangHp * 20
   })
 
@@ -223,8 +222,8 @@ export function handleLangfangSkill(player, skillData, addPublicLog, gameStore) 
 
   gameStore.langfangAwaken[player.name] = {
     active: true,
-    cityIndex: langfangIndex,
-    bigCityIndices: bigCities.map(city => getCityIndex(player, city.name)),
+    cityName: langfangName,
+    bigCityIndices: bigCities.map(city => getCityName(player, city.name)),
     appliedRound: gameStore.currentRound
   }
 
@@ -262,9 +261,9 @@ export function handleXionganSkill(player, skillData, addPublicLog, gameStore) {
   }
 
   // 检查是否处于未知状态
-  const xionganIndex = getCityIndex(player, skillData.cityName)
+  const xionganName = skillData.cityName.name || skillData.cityName
   const isUnknown = !gameStore.knownCities || Object.values(gameStore.knownCities).every(playerKnown => {
-    return !playerKnown[player.name] || !playerKnown[player.name].has(xionganIndex)
+    return !playerKnown[player.name] || !playerKnown[player.name].has(xionganName)
   })
 
   if (!isUnknown) {
@@ -273,7 +272,7 @@ export function handleXionganSkill(player, skillData, addPublicLog, gameStore) {
   }
 
   // 召唤北京市
-  const existingBeijing = player.cities.find(c => c.name === '北京市')
+  const existingBeijing = Object.values(player.cities).find(c => c.name === '北京市')
   if (existingBeijing) {
     addPublicLog(`${player.name}的${skillData.cityName}激活"千年大计"，但己方已有北京市！`)
   } else {

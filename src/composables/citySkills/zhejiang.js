@@ -14,7 +14,6 @@ import {
   addShield,
   banCity,
   addDelayedEffect,
-  getCityIndex
 } from './skillHelpers'
 
 /**
@@ -59,9 +58,9 @@ export function handleLishuiSkill(attacker, skillData, addPublicLog, gameStore) 
   if (aliveCities.length > 0) {
     const sorted = sortCitiesByHp(aliveCities)
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(attacker, targetCity)
+    const cityName = targetCity.name
 
-    addShield(gameStore, attacker.name, cityIndex, {
+    addShield(gameStore, attacker.name, cityName, {
       hp: 2000,
       roundsLeft: 2
     })
@@ -78,14 +77,14 @@ export function handleLishuiSkill(attacker, skillData, addPublicLog, gameStore) 
  * @param {Object} skillData - 技能数据
  * @param {Function} addPublicLog - 添加日志函数
  * @param {Object} gameStore - 游戏store
- * @param {Array} selectedCityIndices - 可选，玩家选择的城市索引数组
+ * @param {Array} selectedCityNames - 可选，玩家选择的城市索引数组
  */
-export function handleZhoushanSkill(attacker, skillData, addPublicLog, gameStore, selectedCityIndices = null) {
+export function handleZhoushanSkill(attacker, skillData, addPublicLog, gameStore, selectedCityNames = null) {
   let citiesToBoost
 
-  if (selectedCityIndices && Array.isArray(selectedCityIndices)) {
+  if (selectedCityNames && Array.isArray(selectedCityNames)) {
     // 使用玩家选择的城市
-    citiesToBoost = selectedCityIndices.map(idx => attacker.cities[idx]).filter(Boolean)
+    citiesToBoost = selectedCityNames.map(name => attacker.cities[name]).filter(Boolean)
   } else {
     // 默认行为：自动选择前3个符合条件的城市（HP≤20000）
     const eligibleCities = getEligibleCitiesByHp(attacker, 20000)
@@ -111,10 +110,10 @@ export function handleHangzhouSkill(attacker, skillData, addPublicLog, gameStore
   if (eligibleCities.length > 0) {
     const sorted = sortCitiesByHp(eligibleCities)
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(attacker, targetCity)
+    const cityName = targetCity.name
 
     // 使用延迟效果系统
-    addDelayedEffect(gameStore, attacker.name, cityIndex, {
+    addDelayedEffect(gameStore, attacker.name, cityName, {
       type: 'xihu',
       roundsLeft: 3,
       data: {
@@ -179,7 +178,7 @@ export function handleJiaxingSkill(attacker, skillData, addPublicLog, gameStore)
   if (eligibleCities.length > 0) {
     const sorted = sortCitiesByHp(eligibleCities)
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(attacker, targetCity)
+    const cityName = targetCity.name
 
     // HP增加20%
     boostCityHp(targetCity, 1.2)
@@ -188,7 +187,7 @@ export function handleJiaxingSkill(attacker, skillData, addPublicLog, gameStore)
     if (!gameStore.permanentModifiers) gameStore.permanentModifiers = {}
     if (!gameStore.permanentModifiers[attacker.name]) gameStore.permanentModifiers[attacker.name] = {}
 
-    gameStore.permanentModifiers[attacker.name][cityIndex] = {
+    gameStore.permanentModifiers[attacker.name][cityName] = {
       attackMultiplier: 2,
       type: 'nanhu',
       appliedRound: gameStore.currentRound
@@ -241,12 +240,12 @@ export function handleQuzhouSkill(attacker, defender, defenderCities, skillData,
       if (targetCity.hp !== undefined) targetCity.hp = newHp
 
       // 获取城市索引并禁止出战2回合
-      const cityIndex = getCityIndex(defender, targetCity)
-      if (cityIndex !== -1) {
+      const cityName = targetCity.name
+      if (cityName !== -1) {
         if (!gameStore.bannedCities) gameStore.bannedCities = {}
         if (!gameStore.bannedCities[defender.name]) gameStore.bannedCities[defender.name] = {}
 
-        gameStore.bannedCities[defender.name][cityIndex] = {
+        gameStore.bannedCities[defender.name][cityName] = {
           roundsLeft: 2,
           halfHpIfForced: true,  // 强制出战则HP减半
           appliedRound: gameStore.currentRound
@@ -270,10 +269,10 @@ export function handleTaizhouSkill(attacker, skillData, addPublicLog, gameStore)
   if (eligibleCities.length > 0) {
     const sorted = sortCitiesByHp(eligibleCities)
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(attacker, targetCity)
+    const cityName = targetCity.name
 
     // 使用禁止出战系统，2回合后满血复活
-    banCity(gameStore, attacker.name, cityIndex, 2, {
+    banCity(gameStore, attacker.name, cityName, 2, {
       fullHealOnReturn: true,
       originalHp: getCurrentHp(targetCity)
     })

@@ -24,18 +24,18 @@
     <!-- 城市展示区 -->
     <div v-if="!hideOpponentCities || isCurrentPlayer" class="player-panel__cities">
       <CityCard
-        v-for="(city, index) in player.cities"
-        :key="index"
+        v-for="(city, cityName) in player.cities"
+        :key="cityName"
         :city="city"
-        :has-protection="hasProtection(index)"
-        :protection-rounds="getProtectionRounds(index)"
+        :has-protection="hasProtection(cityName)"
+        :protection-rounds="getProtectionRounds(cityName)"
         :modifiers="getCityModifiers(city)"
         :show-actions="isCurrentPlayer && showCityActions"
-        @click="$emit('city-click', index)"
+        @click="$emit('city-click', cityName)"
         @skill-click="handleSkillClick"
       >
         <template #actions>
-          <slot name="city-actions" :city="city" :index="index"></slot>
+          <slot name="city-actions" :city="city" :cityName="cityName"></slot>
         </template>
       </CityCard>
     </div>
@@ -43,14 +43,14 @@
     <!-- 对手城市展示区（仅显示已知城市） -->
     <div v-else-if="hideOpponentCities && !isCurrentPlayer" class="player-panel__cities">
       <CityCard
-        v-for="(city, index) in player.cities"
-        :key="index"
-        :city="isKnownCity(index) ? city : { name: '未知城市', hp: 0, currentHp: 0, isUnknown: true }"
-        :has-protection="isKnownCity(index) && hasProtection(index)"
-        :protection-rounds="isKnownCity(index) ? getProtectionRounds(index) : 0"
-        :modifiers="isKnownCity(index) ? getCityModifiers(city) : []"
+        v-for="(city, cityName) in player.cities"
+        :key="cityName"
+        :city="isKnownCity(cityName) ? city : { name: '未知城市', hp: 0, currentHp: 0, isUnknown: true }"
+        :has-protection="isKnownCity(cityName) && hasProtection(cityName)"
+        :protection-rounds="isKnownCity(cityName) ? getProtectionRounds(cityName) : 0"
+        :modifiers="isKnownCity(cityName) ? getCityModifiers(city) : []"
         :show-actions="false"
-        :class="{ 'city-unknown': !isKnownCity(index) }"
+        :class="{ 'city-unknown': !isKnownCity(cityName) }"
         @skill-click="handleSkillClick"
       />
     </div>
@@ -182,7 +182,7 @@ const centerCityInfo = computed(() => {
     return '隐藏'
   }
 
-  const centerCity = props.player.cities[props.player.centerIndex || 0]
+  const centerCity = props.player.cities[props.player.centerCityName]
   if (!centerCity) return '未知'
 
   const currentHp = centerCity.currentHp !== undefined ? centerCity.currentHp : centerCity.hp
@@ -199,14 +199,14 @@ const opponentKnownCities = computed(() => {
   const knownCities = []
 
   opponents.forEach(opponent => {
-    opponent.cities.forEach((city, index) => {
+    Object.entries(opponent.cities).forEach(([cityName, city]) => {
       // 检查该城市对当前玩家是否已知
-      const isKnown = gameStore.knownCities?.[opponent.name]?.[props.player.name]?.includes(index)
+      const isKnown = gameStore.knownCities?.[opponent.name]?.[props.player.name]?.includes(cityName)
       if (isKnown) {
         knownCities.push({
           ...city,
           ownerName: opponent.name,
-          originalIndex: index
+          cityName: cityName
         })
       }
     })
@@ -266,10 +266,10 @@ const opponentCityFilter = computed(() => {
 
 /**
  * 检查城市是否为已知城市
- * @param {number} cityIndex - 城市索引
+ * @param {string} cityName - 城市名称
  * @returns {boolean} 是否已知
  */
-function isKnownCity(cityIndex) {
+function isKnownCity(cityName) {
   // 如果是当前玩家，所有城市都已知
   if (props.isCurrentPlayer) return true
 
@@ -280,22 +280,19 @@ function isKnownCity(cityIndex) {
   const currentPlayerName = gameStore.currentPlayer
   if (!currentPlayerName) return false
 
-  // 检查knownCities中是否包含此城市
-  // knownCities结构: knownCities[owner][observer] = [cityIndices]
-  // props.player.name是城市的拥有者，currentPlayerName是观察者
-  const knownCities = gameStore.knownCities?.[props.player.name]?.[currentPlayerName]
-  if (!knownCities) return false
-
-  return knownCities.includes(cityIndex)
+  // 检查城市是否为已知城市
+  // knownCities结构: knownCities[拥有者][观察者] = Set(城市名称)
+  const knownSet = gameStore.knownCities?.[props.player.name]?.[currentPlayerName]
+  return knownSet && knownSet.has(cityName)
 }
 
-function hasProtection(cityIndex) {
-  return gameStore.protections?.[props.player.name]?.[cityIndex] > 0 ||
-         gameStore.ironCities?.[props.player.name]?.[cityIndex]
+function hasProtection(cityName) {
+  return gameStore.protections?.[props.player.name]?.[cityName] > 0 ||
+         gameStore.ironCities?.[props.player.name]?.[cityName]
 }
 
-function getProtectionRounds(cityIndex) {
-  return gameStore.protections?.[props.player.name]?.[cityIndex] || 0
+function getProtectionRounds(cityName) {
+  return gameStore.protections?.[props.player.name]?.[cityName] || 0
 }
 
 function getCityModifiers(city) {

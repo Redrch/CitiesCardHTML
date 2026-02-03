@@ -13,17 +13,17 @@
         <label>选择预备城市（可多选）：</label>
         <div class="city-grid">
           <div
-            v-for="({ city, idx }, i) in allAliveCities"
-            :key="idx"
+            v-for="({ city, cityName }, i) in allAliveCities"
+            :key="cityName"
             :class="['city-option', {
-              selected: selectedCities.includes(idx),
-              center: idx === centerIndex
+              selected: selectedCities.includes(cityName),
+              center: cityName === centerCityName
             }]"
-            @click="toggleCity(idx)"
+            @click="toggleCity(cityName)"
           >
             <div class="city-name">
               {{ city.name }}
-              <span v-if="idx === centerIndex" class="center-badge">⭐中心</span>
+              <span v-if="cityName === centerCityName" class="center-badge">⭐中心</span>
             </div>
             <div class="city-hp">HP: {{ Math.floor(city.currentHp || city.hp) }}</div>
           </div>
@@ -46,10 +46,10 @@
         <label>选择要补充的城市（可多选）：</label>
         <div class="city-grid">
           <div
-            v-for="({ city, idx }, i) in availableCities"
-            :key="idx"
-            :class="['city-option', { selected: selectedCities.includes(idx) }]"
-            @click="toggleCity(idx)"
+            v-for="({ city, cityName }, i) in availableCities"
+            :key="cityName"
+            :class="['city-option', { selected: selectedCities.includes(cityName) }]"
+            @click="toggleCity(cityName)"
           >
             <div class="city-name">{{ city.name }}</div>
             <div class="city-hp">HP: {{ Math.floor(city.currentHp || city.hp) }}</div>
@@ -103,14 +103,14 @@ const rosterLimit = computed(() => {
   return props.gameMode === '2v2' ? 4 : 5
 })
 
-// 当前预备城市数量（只计算存活的城市）
+  // 当前预备城市数量（只计算存活的城市）
 const currentRosterCount = computed(() => {
   if (!props.player.roster) return 0
 
   // 过滤掉已阵亡的城市
-  const aliveRoster = props.player.roster.filter(idx => {
-    const city = props.player.cities[idx]
-    const isDead = props.playerState.deadCities?.includes(idx)
+  const aliveRoster = props.player.roster.filter(cityName => {
+    const city = props.player.cities[cityName]
+    const isDead = props.playerState.deadCities?.includes(cityName)
     const currentHp = city?.currentHp !== undefined ? city.currentHp : city?.hp
     return !isDead && currentHp > 0
   })
@@ -123,19 +123,19 @@ const neededCount = computed(() => {
   return rosterLimit.value - currentRosterCount.value
 })
 
-// 中心城市索引
-const centerIndex = computed(() => {
-  return props.player.centerIndex !== undefined ? props.player.centerIndex : 0
+// 中心城市名称
+const centerCityName = computed(() => {
+  return props.player.centerCityName
 })
 
 // 所有存活城市（用于改弦更张）
 const allAliveCities = computed(() => {
   if (!props.player.cities) return []
 
-  return props.player.cities
-    .map((city, idx) => ({ city, idx }))
-    .filter(({ city, idx }) => {
-      const isDead = props.playerState.deadCities?.includes(idx)
+  return Object.entries(props.player.cities)
+    .map(([cityName, city]) => ({ city, cityName }))
+    .filter(({ city, cityName }) => {
+      const isDead = props.playerState.deadCities?.includes(cityName)
       return !isDead && (city.currentHp || city.hp) > 0
     })
 })
@@ -144,22 +144,22 @@ const allAliveCities = computed(() => {
 const availableCities = computed(() => {
   if (!props.player.cities) return []
 
-  return props.player.cities
-    .map((city, idx) => ({ city, idx }))
-    .filter(({ city, idx }) => {
-      const isDead = props.playerState.deadCities?.includes(idx)
-      const isInRoster = props.player.roster?.includes(idx)
+  return Object.entries(props.player.cities)
+    .map(([cityName, city]) => ({ city, cityName }))
+    .filter(({ city, cityName }) => {
+      const isDead = props.playerState.deadCities?.includes(cityName)
+      const isInRoster = props.player.roster?.includes(cityName)
       return !isDead && !isInRoster && (city.currentHp || city.hp) > 0
     })
 })
 
 // 切换城市选择
-function toggleCity(idx) {
-  const index = selectedCities.value.indexOf(idx)
+function toggleCity(cityName) {
+  const index = selectedCities.value.indexOf(cityName)
   if (index > -1) {
     selectedCities.value.splice(index, 1)
   } else {
-    selectedCities.value.push(idx)
+    selectedCities.value.push(cityName)
   }
 }
 
@@ -180,7 +180,7 @@ function confirmRefill() {
       return
     }
 
-    if (!selectedCities.value.includes(centerIndex.value)) {
+    if (!selectedCities.value.includes(centerCityName.value)) {
       showNotification('中心城市必须包含在预备城市中！', 'error')
       return
     }

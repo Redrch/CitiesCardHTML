@@ -14,19 +14,19 @@
  *
  * @param {Object} params - 技能参数
  * @param {Object} params.caster - 施法者玩家对象
- * @param {number} params.cityIdx - 要保护的城市索引
+ * @param {string} params.cityName - 要保护的城市名称
  * @param {Object} params.gameStore - 游戏状态存储
  * @param {string} params.gameMode - 游戏模式 ('2P', '3P', '2v2')
  * @returns {Object} { success: boolean, message: string }
  */
 export function executeCityProtectionCore(params) {
-  const { caster, cityIdx, gameStore, gameMode } = params
+  const { caster, cityName, gameStore, gameMode } = params
 
   // 前置检查1：游戏模式检查
   const is2pOr2v2 = gameMode === '2P' || gameMode === '2v2'
-  const centerIdx = is2pOr2v2 ? caster.centerIndex : -1
+  const centerCityName = caster.centerCityName
 
-  if (is2pOr2v2 && cityIdx === centerIdx) {
+  if (is2pOr2v2 && cityName === centerCityName) {
     return {
       success: false,
       message: '二人/2v2模式下不能对中心城市进行保护'
@@ -34,7 +34,7 @@ export function executeCityProtectionCore(params) {
   }
 
   // 前置检查2：城市有效性
-  const city = caster.cities[cityIdx]
+  const city = caster.cities[cityName]
   if (!city) {
     return { success: false, message: '城市不存在' }
   }
@@ -57,7 +57,7 @@ export function executeCityProtectionCore(params) {
   }
 
   // 设置保护（重置为10轮，不叠加）
-  gameStore.protections[caster.name][cityIdx] = 10
+  gameStore.protections[caster.name][cityName] = 10
 
   gameStore.addLog(
     `(城市保护) ${caster.name} 对 ${city.name} 启用保护（10轮）`
@@ -78,21 +78,21 @@ export function executeCityProtectionCore(params) {
  *
  * @param {Object} params - 技能参数
  * @param {Object} params.caster - 施法者玩家对象
- * @param {number} params.cityIdx - 要设置的城市索引
+ * @param {string} params.cityName - 要设置的城市名称
  * @param {Object} params.gameStore - 游戏状态存储
  * @returns {Object} { success: boolean, message: string }
  */
 export function executeIronCityCore(params) {
-  const { caster, cityIdx, gameStore } = params
+  const { caster, cityName, gameStore } = params
 
   // 前置检查1：城市有效性
-  const city = caster.cities[cityIdx]
+  const city = caster.cities[cityName]
   if (!city) {
     return { success: false, message: '城市不存在' }
   }
 
   // 前置检查2：检查是否已经是钢铁城市
-  if (gameStore.ironCities[caster.name] && gameStore.ironCities[caster.name][cityIdx]) {
+  if (gameStore.ironCities[caster.name] && gameStore.ironCities[caster.name][cityName]) {
     return {
       success: false,
       message: '该城市已经是钢铁城市'
@@ -117,7 +117,7 @@ export function executeIronCityCore(params) {
   }
 
   // 设置为钢铁城市（永久有效）
-  gameStore.ironCities[caster.name][cityIdx] = true
+  gameStore.ironCities[caster.name][cityName] = true
 
   gameStore.addLog(
     `(钢铁城市) ${caster.name} 将 ${city.name} 设为钢铁城市（永久免疫特定技能）`
@@ -137,14 +137,14 @@ export function executeIronCityCore(params) {
  *
  * @param {Object} params - 技能参数
  * @param {Object} params.caster - 施法者玩家对象
- * @param {number} params.casterCityIdx - 施法者选择的城市索引
+ * @param {string} params.casterCityName - 施法者选择的城市名称
  * @param {Object} params.target - 目标玩家对象
- * @param {number} params.targetCityIdx - 目标玩家选择的城市索引
+ * @param {string} params.targetCityName - 目标玩家选择的城市名称
  * @param {Object} params.gameStore - 游戏状态存储
  * @returns {Object} { success: boolean, message: string }
  */
 export function executePreemptiveStrikeCore(params) {
-  const { caster, casterCityIdx, target, targetCityIdx, gameStore } = params
+  const { caster, casterCityName, target, targetCityName, gameStore } = params
 
   // 前置检查1：检查是否有待处理的先声夺人请求
   if (gameStore.pendingPreemptiveStrike) {
@@ -166,26 +166,28 @@ export function executePreemptiveStrikeCore(params) {
   // 前置检查3：构建可交换城市池（排除：谨慎交换集合、阵亡、中心城市、定海神针、钢铁城市、保护）
   function getEligibleCities(player) {
     const eligible = []
-    player.cities.forEach((city, idx) => {
+    Object.keys(player.cities).forEach(cityName => {
+      const city = player.cities[cityName]
+
       // 已阵亡不参与
       if (city.isAlive === false) return
 
       // 谨慎交换集合不参与
-      if (gameStore.isInCautiousSet(player.name, idx)) return
+      if (gameStore.isInCautiousSet(player.name, cityName)) return
 
       // 中心城市不参与
-      if (city.isCenter) return
+      if (cityName === player.centerCityName) return
 
       // 定海神针不参与
-      if (gameStore.anchored[player.name] && gameStore.anchored[player.name][idx]) return
+      if (gameStore.anchored[player.name] && gameStore.anchored[player.name][cityName]) return
 
       // 钢铁城市不参与
-      if (gameStore.hasIronShield(player.name, idx)) return
+      if (gameStore.hasIronShield(player.name, cityName)) return
 
       // 被保护不参与
-      if (gameStore.hasProtection(player.name, idx)) return
+      if (gameStore.hasProtection(player.name, cityName)) return
 
-      eligible.push(idx)
+      eligible.push(cityName)
     })
     return eligible
   }
@@ -201,14 +203,14 @@ export function executePreemptiveStrikeCore(params) {
     }
   }
 
-  // 前置检查5：验证选择的城市索引有效性
-  if (!eligibleCaster.includes(casterCityIdx)) {
+  // 前置检查5：验证选择的城市名称有效性
+  if (!eligibleCaster.includes(casterCityName)) {
     return {
       success: false,
       message: '发起者选择的城市不可交换'
     }
   }
-  if (!eligibleTarget.includes(targetCityIdx)) {
+  if (!eligibleTarget.includes(targetCityName)) {
     return {
       success: false,
       message: '目标玩家选择的城市不可交换'
@@ -218,33 +220,35 @@ export function executePreemptiveStrikeCore(params) {
   // 执行技能效果
   caster.gold -= cost
 
-  const casterCity = caster.cities[casterCityIdx]
-  const targetCity = target.cities[targetCityIdx]
+  const casterCity = caster.cities[casterCityName]
+  const targetCity = target.cities[targetCityName]
 
-  // 执行城市交换
-  const temp = caster.cities[casterCityIdx]
-  caster.cities[casterCityIdx] = target.cities[targetCityIdx]
-  target.cities[targetCityIdx] = temp
+  // 执行城市交换（对象结构：交换键值对）
+  const temp = caster.cities[casterCityName]
+  caster.cities[casterCityName] = target.cities[targetCityName]
+  target.cities[targetCityName] = temp
 
-  // 同步交换initialCities中的数据（保持原始HP跟随城市移动）
-  if (gameStore.initialCities[caster.name] && gameStore.initialCities[target.name]) {
-    const tempInitial = gameStore.initialCities[caster.name][casterCityIdx]
-    gameStore.initialCities[caster.name][casterCityIdx] =
-      gameStore.initialCities[target.name][targetCityIdx]
-    gameStore.initialCities[target.name][targetCityIdx] = tempInitial
+  // 交换 initialCities 记录（按城市名称）
+  if (gameStore.initialCities) {
+    if (!gameStore.initialCities[caster.name]) gameStore.initialCities[caster.name] = {}
+    if (!gameStore.initialCities[target.name]) gameStore.initialCities[target.name] = {}
+
+    const tempInitial = gameStore.initialCities[caster.name][casterCityName]
+    gameStore.initialCities[caster.name][casterCityName] = gameStore.initialCities[target.name][targetCityName]
+    gameStore.initialCities[target.name][targetCityName] = tempInitial
   }
 
   // 清除被交换城市的狐假虎威伪装状态
   if (gameStore.disguisedCities[caster.name]) {
-    delete gameStore.disguisedCities[caster.name][casterCityIdx]
+    delete gameStore.disguisedCities[caster.name][casterCityName]
   }
   if (gameStore.disguisedCities[target.name]) {
-    delete gameStore.disguisedCities[target.name][targetCityIdx]
+    delete gameStore.disguisedCities[target.name][targetCityName]
   }
 
   // 标记城市为已知
-  gameStore.setCityKnown(caster.name, casterCityIdx, target.name)
-  gameStore.setCityKnown(target.name, targetCityIdx, caster.name)
+  gameStore.setCityKnown(caster.name, casterCityName, target.name)
+  gameStore.setCityKnown(target.name, targetCityName, caster.name)
 
   gameStore.addLog(
     `${caster.name}对${target.name}使用先声夺人，交换了${casterCity.name}和${targetCity.name}`
@@ -265,15 +269,15 @@ export function executePreemptiveStrikeCore(params) {
  *
  * @param {Object} params - 技能参数
  * @param {Object} params.caster - 施法者玩家对象
- * @param {number} params.cityIdx - 要治疗的城市索引
+ * @param {string} params.cityName - 要治疗的城市名称
  * @param {Object} params.gameStore - 游戏状态存储
  * @returns {Object} { success: boolean, message: string }
  */
 export function executeQuickHealCore(params) {
-  const { caster, cityIdx, gameStore } = params
+  const { caster, cityName, gameStore } = params
 
   // 前置检查1：城市有效性
-  const city = caster.cities[cityIdx]
+  const city = caster.cities[cityName]
   if (!city) {
     return { success: false, message: '城市不存在' }
   }

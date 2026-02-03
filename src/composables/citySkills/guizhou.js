@@ -44,7 +44,7 @@ export function handleLiupanshuiSkill(attacker, defender, skillData, addPublicLo
     '南宁市', '桂林市', '北海市', '昆明市', '西双版纳州', '三亚市'
   ]
 
-  const eligibleCities = defender.cities.filter(city =>
+  const eligibleCities = Object.values(defender.cities).filter(city =>
     city.isAlive !== false &&
     getCurrentHp(city) < 20000 &&
     southernCities.includes(city.name)
@@ -64,7 +64,7 @@ export function handleLiupanshuiSkill(attacker, defender, skillData, addPublicLo
     city.hp = 0
 
     const surrenderedCity = { ...city, currentHp: cityHp, hp: cityHp, isAlive: true }
-    attacker.cities.push(surrenderedCity)
+    attacker.cities[surrenderedCity.name] = surrenderedCity
     surrenderedCount++
   })
 
@@ -100,12 +100,12 @@ export function handleTongrenSkill(attacker, skillData, addPublicLog, gameStore)
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityIndex = attacker.cities.indexOf(targetCity)
+  const cityName = attacker.cities.indexOf(targetCity)
 
   if (!gameStore.cityProtection) gameStore.cityProtection = {}
   if (!gameStore.cityProtection[attacker.name]) gameStore.cityProtection[attacker.name] = {}
 
-  gameStore.cityProtection[attacker.name][cityIndex] = {
+  gameStore.cityProtection[attacker.name][cityName] = {
     active: true,
     noCost: true,
     protected: true
@@ -141,13 +141,13 @@ export function handleBijieSkill(attacker, defender, skillData, addPublicLog, ga
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityIndex = attacker.cities.indexOf(targetCity)
+  const cityName = attacker.cities.indexOf(targetCity)
 
   if (!gameStore.azaleaStacks) gameStore.azaleaStacks = {}
   if (!gameStore.azaleaStacks[attacker.name]) gameStore.azaleaStacks[attacker.name] = {}
 
-  if (!gameStore.azaleaStacks[attacker.name][cityIndex]) {
-    gameStore.azaleaStacks[attacker.name][cityIndex] = {
+  if (!gameStore.azaleaStacks[attacker.name][cityName]) {
+    gameStore.azaleaStacks[attacker.name][cityName] = {
       active: true,
       stacks: 0,
       maxStacks: 5,
@@ -156,8 +156,8 @@ export function handleBijieSkill(attacker, defender, skillData, addPublicLog, ga
     }
   }
 
-  gameStore.azaleaStacks[attacker.name][cityIndex].stacks += 1
-  const currentStacks = gameStore.azaleaStacks[attacker.name][cityIndex].stacks
+  gameStore.azaleaStacks[attacker.name][cityName].stacks += 1
+  const currentStacks = gameStore.azaleaStacks[attacker.name][cityName].stacks
 
   if (currentStacks >= 5) {
     // 触发伤害
@@ -169,7 +169,7 @@ export function handleBijieSkill(attacker, defender, skillData, addPublicLog, ga
     })
 
     addPublicLog(`${attacker.name}的${skillData.cityName}激活"百里杜鹃"，${targetCity.name}的杜鹃花叠满5层，对${defender.name}所有城市造成${damage}伤害！`)
-    gameStore.azaleaStacks[attacker.name][cityIndex].stacks = 0
+    gameStore.azaleaStacks[attacker.name][cityName].stacks = 0
   } else {
     addPublicLog(`${attacker.name}的${skillData.cityName}激活"百里杜鹃"，${targetCity.name}获得杜鹃花（${currentStacks}/5层）！`)
   }
@@ -183,15 +183,15 @@ export function handleBijieSkill(attacker, defender, skillData, addPublicLog, ga
  */
 export function handleAnshunSkill(attacker, skillData, addPublicLog, gameStore) {
   // 被动技能：记录河水token
-  const cityIndex = attacker.cities.findIndex(c => c.name === skillData.cityName)
+  const cityName = skillData.cityName
 
   if (!gameStore.waterfallTokens) gameStore.waterfallTokens = {}
   if (!gameStore.waterfallTokens[attacker.name]) {
     gameStore.waterfallTokens[attacker.name] = {}
   }
 
-  if (!gameStore.waterfallTokens[attacker.name][cityIndex]) {
-    gameStore.waterfallTokens[attacker.name][cityIndex] = {
+  if (!gameStore.waterfallTokens[attacker.name][cityName]) {
+    gameStore.waterfallTokens[attacker.name][cityName] = {
       active: true,
       tokens: 5,
       damageBoostPerToken: 0.5,

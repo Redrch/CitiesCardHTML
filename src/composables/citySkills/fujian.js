@@ -6,7 +6,6 @@
 import {
   getAliveCities,
   getCurrentHp,
-  getCityIndex
 } from './skillHelpers'
 
 /**
@@ -15,8 +14,8 @@ import {
  * 每降低10%时额外获得3金币，最多降低25%（橙卡最多10%）
  */
 export function handleFuzhouSkill(player, skillData, addPublicLog, gameStore) {
-  const fuzhouIndex = getCityIndex(player, skillData.cityName)
-  const fuzhouCity = player.cities[fuzhouIndex]
+  const fuzhouName = skillData.cityName.name || skillData.cityName
+  const fuzhouCity = player.cities[fuzhouName]
 
   if (!fuzhouCity || fuzhouCity.isAlive === false) {
     return  // 技能效果在福州市阵亡后失效
@@ -62,11 +61,11 @@ export function handlePutianSkill(player, skillData, addPublicLog, gameStore) {
  * 且出战前泉州市为未知状态，己方每使用三次免费技能后使用一次城市专属技能，效果增加50%
  */
 export function handleQuanzhouSkill(player, skillData, addPublicLog, gameStore) {
-  const quanzhouIndex = getCityIndex(player, skillData.cityName)
+  const quanzhouName = skillData.cityName.name || skillData.cityName
 
   // 检查泉州市是否为未知状态
   const isUnknown = !gameStore.knownCities || Object.values(gameStore.knownCities).every(playerKnown => {
-    return !playerKnown[player.name] || !playerKnown[player.name].has(quanzhouIndex)
+    return !playerKnown[player.name] || !playerKnown[player.name].has(quanzhouName)
   })
 
   if (!isUnknown) {
@@ -98,8 +97,8 @@ export function handleQuanzhouSkill(player, skillData, addPublicLog, gameStore) 
  * 且当对方城市在任意三个不同任意回合伤害均大于厦门初始HP，则厦门再一次获得该技能效果（被动触发）
  */
 export function handleXiamenSkill(player, skillData, addPublicLog, gameStore) {
-  const xiamenIndex = getCityIndex(player, skillData.cityName)
-  const xiamenCity = player.cities[xiamenIndex]
+  const xiamenName = skillData.cityName.name || skillData.cityName
+  const xiamenCity = player.cities[xiamenName]
 
   if (!xiamenCity || xiamenCity.isAlive === false) {
     return
@@ -130,8 +129,8 @@ export function handleXiamenSkill(player, skillData, addPublicLog, gameStore) {
  * 己方可以选择一次在释放金币技能时将其效果翻倍（只增强效果不增加目标数）
  */
 export function handleZhangzhouSkill(player, skillData, addPublicLog, gameStore) {
-  const zhangzhouIndex = getCityIndex(player, skillData.cityName)
-  const zhangzhouCity = player.cities[zhangzhouIndex]
+  const zhangzhouName = skillData.cityName.name || skillData.cityName
+  const zhangzhouCity = player.cities[zhangzhouName]
 
   if (!zhangzhouCity || zhangzhouCity.isAlive === false) {
     return
@@ -164,8 +163,8 @@ export function handleZhangzhouSkill(player, skillData, addPublicLog, gameStore)
  * 第五次使用金币技能过后，随机获得一个8金币以下的金币技能，三回合内可以使用
  */
 export function handleLongyanSkill(player, skillData, addPublicLog, gameStore) {
-  const longyanIndex = getCityIndex(player, skillData.cityName)
-  const longyanCity = player.cities[longyanIndex]
+  const longyanName = skillData.cityName.name || skillData.cityName
+  const longyanCity = player.cities[longyanName]
 
   if (!longyanCity || longyanCity.isAlive === false) {
     return
@@ -195,10 +194,10 @@ export function handleLongyanSkill(player, skillData, addPublicLog, gameStore) {
  * 每次己方使用任意技能之后，增加5%的伤害降幅，最多25%，每三回合可以触发一次
  */
 export function handleSanmingSkill(player, skillData, addPublicLog, gameStore) {
-  const sanmingIndex = getCityIndex(player, skillData.cityName)
+  const sanmingName = skillData.cityName.name || skillData.cityName
 
   // 检查三明市是否在战斗预备城市中
-  const isInRoster = player.roster && player.roster.includes(sanmingIndex)
+  const isInRoster = player.roster && player.roster.includes(sanmingName)
 
   if (!isInRoster) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"闽人之源"，三明市不在战斗预备城市中！`)
@@ -229,8 +228,8 @@ export function handleSanmingSkill(player, skillData, addPublicLog, gameStore) {
  * 南平市在场时，己方6金币及以下的技能花费减半（向上取整），冷却2回合
  */
 export function handleNanpingSkill(player, skillData, addPublicLog, gameStore) {
-  const nanpingIndex = getCityIndex(player, skillData.cityName)
-  const nanpingCity = player.cities[nanpingIndex]
+  const nanpingName = skillData.cityName.name || skillData.cityName
+  const nanpingCity = player.cities[nanpingName]
 
   if (!nanpingCity || nanpingCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"武夷山水"，南平市已阵亡！`)
@@ -268,8 +267,8 @@ export function handleNanpingSkill(player, skillData, addPublicLog, gameStore) {
  * 恢复类技能：城市医疗，草船借箭，士气大振
  */
 export function handleNingdeSkill(player, skillData, addPublicLog, gameStore) {
-  const ningdeIndex = getCityIndex(player, skillData.cityName)
-  const ningdeCity = player.cities[ningdeIndex]
+  const ningdeName = skillData.cityName.name || skillData.cityName
+  const ningdeCity = player.cities[ningdeName]
 
   if (!ningdeCity || ningdeCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"福鼎肉片"，宁德市已阵亡！`)

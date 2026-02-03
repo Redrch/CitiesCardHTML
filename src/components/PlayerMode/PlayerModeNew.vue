@@ -137,7 +137,7 @@
           <div class="stat-item">
             <span class="stat-label">存活城市</span>
             <span class="stat-value">
-              {{ gameLogic.winner.value?.cities?.filter(c => c.isAlive).length || 0 }}
+              {{ gameLogic.winner.value?.cities ? Object.values(gameLogic.winner.value.cities).filter(c => c.isAlive).length : 0 }}
             </span>
           </div>
         </div>

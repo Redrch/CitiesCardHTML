@@ -21,8 +21,7 @@ export function summonCity(player, cityName, gameStore, addPublicLog) {
   }
 
   // 检查是否已经拥有该城市
-  const existingCity = player.cities.find(c => c.name === cityName)
-  if (existingCity) {
+  if (player.cities[cityName]) {
     addPublicLog(`召唤失败：${player.name}已经拥有${cityName}！`)
     return false
   }
@@ -39,8 +38,8 @@ export function summonCity(player, cityName, gameStore, addPublicLog) {
     province: province ? province.name : '未知省份'
   }
 
-  // 添加到玩家城市列表
-  player.cities.push(newCity)
+  // 添加到玩家城市对象（使用城市名称作为键）
+  player.cities[cityName] = newCity
 
   addPublicLog(`${player.name}召唤了${cityName}！`)
   return true
@@ -50,7 +49,7 @@ export function summonCity(player, cityName, gameStore, addPublicLog) {
  * 获取存活的城市列表
  */
 export function getAliveCities(player) {
-  return player.cities.filter(c => {
+  return Object.values(player.cities).filter(c => {
     const hp = c.currentHp !== undefined ? c.currentHp : c.hp
     return c.isAlive !== false && hp > 0
   })
@@ -60,7 +59,7 @@ export function getAliveCities(player) {
  * 获取符合HP条件的城市列表
  */
 export function getEligibleCitiesByHp(player, maxHp = Infinity, minHp = 0) {
-  return player.cities.filter(c => {
+  return Object.values(player.cities).filter(c => {
     const hp = c.currentHp !== undefined ? c.currentHp : c.hp
     return c.isAlive !== false && hp > 0 && c.hp >= minHp && c.hp <= maxHp
   })
@@ -95,11 +94,11 @@ export function initShieldSystem(gameStore) {
 /**
  * 为城市添加护盾
  */
-export function addShield(gameStore, playerName, cityIndex, shieldConfig) {
+export function addShield(gameStore, playerName, cityName, shieldConfig) {
   const shields = initShieldSystem(gameStore)
   if (!shields[playerName]) shields[playerName] = {}
 
-  shields[playerName][cityIndex] = {
+  shields[playerName][cityName] = {
     hp: shieldConfig.hp,
     maxHp: shieldConfig.hp,
     roundsLeft: shieldConfig.roundsLeft || -1,
@@ -140,11 +139,11 @@ export function initBannedCitiesSystem(gameStore) {
 /**
  * 禁止城市出战
  */
-export function banCity(gameStore, playerName, cityIndex, rounds, options = {}) {
+export function banCity(gameStore, playerName, cityName, rounds, options = {}) {
   const bannedCities = initBannedCitiesSystem(gameStore)
   if (!bannedCities[playerName]) bannedCities[playerName] = {}
 
-  bannedCities[playerName][cityIndex] = {
+  bannedCities[playerName][cityName] = {
     roundsLeft: rounds,
     fullHealOnReturn: options.fullHealOnReturn || false,
     originalHp: options.originalHp || 0
@@ -162,11 +161,11 @@ export function initDelayedEffectsSystem(gameStore) {
 /**
  * 添加延迟效果
  */
-export function addDelayedEffect(gameStore, playerName, cityIndex, effectConfig) {
+export function addDelayedEffect(gameStore, playerName, cityName, effectConfig) {
   const effects = initDelayedEffectsSystem(gameStore)
   if (!effects[playerName]) effects[playerName] = {}
 
-  effects[playerName][cityIndex] = {
+  effects[playerName][cityName] = {
     type: effectConfig.type,
     effectRoundsLeft: effectConfig.roundsLeft,
     effectData: {
@@ -236,25 +235,41 @@ export function increaseMaxHp(city, increaseAmount) {
 
 /**
  * 查找特定城市
+ * @param {Object} player - 玩家对象
+ * @param {string} cityName - 城市名称
+ * @returns {Object|null} 城市对象或null
  */
 export function findCity(player, cityName) {
-  return player.cities.find(c => c.name === cityName)
+  return player.cities[cityName] || null
 }
 
 /**
- * 获取城市在数组中的索引
+ * 获取城市名称（兼容函数，用于替代getCityIndex）
  * @param {Object} player - 玩家对象
  * @param {Object|string} cityOrName - 城市对象或城市名称
- * @returns {number} 城市索引，如果未找到则返回-1
+ * @returns {string|null} 城市名称，如果未找到则返回null
+ */
+export function getCityName(player, cityOrName) {
+  if (typeof cityOrName === 'string') {
+    // 如果传入的是城市名称字符串，直接返回
+    return player.cities[cityOrName] ? cityOrName : null
+  } else if (cityOrName && cityOrName.name) {
+    // 如果传入的是城市对象，返回其名称
+    return cityOrName.name
+  }
+  return null
+}
+
+/**
+ * 获取城市索引（已废弃，仅为向后兼容保留）
+ * @deprecated 请使用 getCityName 或直接使用城市名称
+ * @param {Object} player - 玩家对象
+ * @param {Object|string} cityOrName - 城市对象或城市名称
+ * @returns {string|null} 城市名称
  */
 export function getCityIndex(player, cityOrName) {
-  if (typeof cityOrName === 'string') {
-    // 如果传入的是城市名称字符串，按名称查找
-    return player.cities.findIndex(c => c.name === cityOrName)
-  } else {
-    // 如果传入的是城市对象，使用indexOf
-    return player.cities.indexOf(cityOrName)
-  }
+  console.warn('[skillHelpers] getCityIndex已废弃，请改用getCityName或直接使用城市名称')
+  return getCityName(player, cityOrName)
 }
 
 /**

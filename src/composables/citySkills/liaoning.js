@@ -33,8 +33,8 @@ export function handleShenyangSkill(attacker, skillData, addPublicLog, gameStore
   if (!gameStore.deathImmunity) gameStore.deathImmunity = {}
   if (!gameStore.deathImmunity[attacker.name]) gameStore.deathImmunity[attacker.name] = {}
 
-  const centerIndex = attacker.centerIndex ?? 0
-  gameStore.deathImmunity[attacker.name][centerIndex] = {
+  const centerCityName = attacker.centerCityName ?? 0
+  gameStore.deathImmunity[attacker.name][centerCityName] = {
     active: true,
     count: 1
   }
@@ -53,13 +53,13 @@ export function handleDalianSkill(attacker, skillData, addPublicLog, gameStore) 
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityIndex = attacker.cities.indexOf(targetCity)
+  const cityName = attacker.cities.indexOf(targetCity)
 
   // 设置反弹效果
   if (!gameStore.reflectDamage) gameStore.reflectDamage = {}
   if (!gameStore.reflectDamage[attacker.name]) gameStore.reflectDamage[attacker.name] = {}
 
-  gameStore.reflectDamage[attacker.name][cityIndex] = {
+  gameStore.reflectDamage[attacker.name][cityName] = {
     active: true,
     chance: 0.5,
     multiplier: 0.5,
@@ -76,8 +76,8 @@ export function handleDalianSkill(attacker, skillData, addPublicLog, gameStore) 
  * 限2次，给己方中心城市附加一个持续3回合的钢铁护盾，护盾可吸收3000点伤害
  */
 export function handleAnshanSkill(attacker, skillData, addPublicLog, gameStore) {
-  const centerIndex = attacker.centerIndex ?? 0
-  const centerCity = attacker.cities[centerIndex]
+  const centerCityName = attacker.centerCityName ?? 0
+  const centerCity = attacker.cities[centerCityName]
 
   addShield(centerCity, 3000, 3)
 
@@ -92,7 +92,7 @@ export function handleAnshanSkill(attacker, skillData, addPublicLog, gameStore) 
 export function handleFushunSkill(attacker, skillData, addPublicLog, gameStore) {
   let healedCount = 0
 
-  attacker.cities.forEach(city => {
+  Object.values(attacker.cities).forEach(city => {
     if (city.isAlive !== false) {
       const maxHp = city.initialHp || city.hp
       const targetHp = Math.floor(maxHp * 0.5)
@@ -119,16 +119,16 @@ export function handleBenxiSkill(attacker, skillData, addPublicLog, gameStore) {
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityIndex = attacker.cities.indexOf(targetCity)
+  const cityName = attacker.cities.indexOf(targetCity)
 
   // 设置伤害减免
   if (!gameStore.damageReduction) gameStore.damageReduction = {}
   if (!gameStore.damageReduction[attacker.name]) gameStore.damageReduction[attacker.name] = {}
-  if (!gameStore.damageReduction[attacker.name][cityIndex]) {
-    gameStore.damageReduction[attacker.name][cityIndex] = {}
+  if (!gameStore.damageReduction[attacker.name][cityName]) {
+    gameStore.damageReduction[attacker.name][cityName] = {}
   }
 
-  gameStore.damageReduction[attacker.name][cityIndex].benxiCave = {
+  gameStore.damageReduction[attacker.name][cityName].benxiCave = {
     active: true,
     multiplier: 0.7,  // 减少30%伤害
     roundsLeft: 2,
@@ -166,13 +166,13 @@ export function handleJinzhouSkill(attacker, skillData, addPublicLog, gameStore)
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityIndex = attacker.cities.indexOf(targetCity)
+  const cityName = attacker.cities.indexOf(targetCity)
 
   // 设置出战回血效果
   if (!gameStore.battleHealing) gameStore.battleHealing = {}
   if (!gameStore.battleHealing[attacker.name]) gameStore.battleHealing[attacker.name] = {}
 
-  gameStore.battleHealing[attacker.name][cityIndex] = {
+  gameStore.battleHealing[attacker.name][cityName] = {
     active: true,
     amount: 1000,
     roundsLeft: 3,
@@ -201,7 +201,7 @@ export function handleYingkouSkill(attacker, defender, skillData, addPublicLog, 
 
   // 随机选择一座城市
   const targetCity = getRandomElement(aliveCities)
-  const cityIndex = defender.cities.indexOf(targetCity)
+  const cityName = defender.cities.indexOf(targetCity)
 
   // 检查是否为沿海城市
   if (coastalCities.includes(targetCity.name)) {
@@ -213,7 +213,7 @@ export function handleYingkouSkill(attacker, defender, skillData, addPublicLog, 
   if (!gameStore.bayuTrap) gameStore.bayuTrap = {}
   if (!gameStore.bayuTrap[defender.name]) gameStore.bayuTrap[defender.name] = {}
 
-  gameStore.bayuTrap[defender.name][cityIndex] = {
+  gameStore.bayuTrap[defender.name][cityName] = {
     active: true,
     appliedRound: gameStore.currentRound
   }
@@ -231,13 +231,13 @@ export function handleFuxinSkill(attacker, skillData, addPublicLog, gameStore) {
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityIndex = attacker.cities.indexOf(targetCity)
+  const cityName = attacker.cities.indexOf(targetCity)
 
   // 设置攻击力削弱效果
   if (!gameStore.counterWeaken) gameStore.counterWeaken = {}
   if (!gameStore.counterWeaken[attacker.name]) gameStore.counterWeaken[attacker.name] = {}
 
-  gameStore.counterWeaken[attacker.name][cityIndex] = {
+  gameStore.counterWeaken[attacker.name][cityName] = {
     active: true,
     chance: 0.4,
     multiplier: 0.8,  // 降低20%攻击力
@@ -279,13 +279,13 @@ export function handlePanjinSkill(attacker, skillData, addPublicLog, gameStore) 
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityIndex = attacker.cities.indexOf(targetCity)
+  const cityName = attacker.cities.indexOf(targetCity)
 
   // 设置中毒反击效果
   if (!gameStore.poisonCounter) gameStore.poisonCounter = {}
   if (!gameStore.poisonCounter[attacker.name]) gameStore.poisonCounter[attacker.name] = {}
 
-  gameStore.poisonCounter[attacker.name][cityIndex] = {
+  gameStore.poisonCounter[attacker.name][cityName] = {
     active: true,
     chance: 0.3,
     damage: 500,
@@ -371,8 +371,8 @@ export function handleHuludaoSkill(attacker, defender, skillData, addPublicLog, 
   if (!gameStore.seaWaves[defender.name]) gameStore.seaWaves[defender.name] = {}
 
   targets.forEach(city => {
-    const cityIndex = defender.cities.indexOf(city)
-    gameStore.seaWaves[defender.name][cityIndex] = {
+    const cityName = defender.cities.indexOf(city)
+    gameStore.seaWaves[defender.name][cityName] = {
       active: true,
       damage: 500,
       roundsLeft: 5,

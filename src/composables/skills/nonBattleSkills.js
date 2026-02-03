@@ -11,6 +11,78 @@ import { useGameStore } from '../../stores/gameStore'
 import { checkAndDeductGold } from '../../constants/skillCosts'
 import { addSkillUsageLog, addSkillEffectLog } from '../game/logUtils'
 
+/**
+ * 交换两个城市的状态（基于cityName）
+ * 注意：由于gameStore所有状态都使用cityName作为键，
+ * 城市交换时，状态会自动跟随城市名称，无需手动交换状态
+ *
+ * 只需要处理特殊情况：
+ * - attract, subCenters, purpleChamber 存储的是单个cityName值，需要更新
+ * - cautiousExchange, cautionSet 是Set集合，需要更新城市名称
+ */
+function swapCityStates(gameStore, player1Name, city1Name, player2Name, city2Name) {
+  console.log('[先声夺人] 交换城市状态（基于cityName）')
+  console.log(`[先声夺人] ${player1Name}:${city1Name} ⇄ ${player2Name}:${city2Name}`)
+
+  // 特殊处理：吸引攻击（attract）- 存储单个cityName
+  if (gameStore.attract[player1Name] === city1Name) {
+    gameStore.attract[player1Name] = city2Name
+    console.log(`[先声夺人] 更新吸引攻击: ${player1Name} ${city1Name} -> ${city2Name}`)
+  }
+  if (gameStore.attract[player2Name] === city2Name) {
+    gameStore.attract[player2Name] = city1Name
+    console.log(`[先声夺人] 更新吸引攻击: ${player2Name} ${city2Name} -> ${city1Name}`)
+  }
+
+  // 特殊处理：副中心制（subCenters）- 存储单个cityName
+  if (gameStore.subCenters[player1Name] === city1Name) {
+    gameStore.subCenters[player1Name] = city2Name
+    console.log(`[先声夺人] 更新副中心: ${player1Name} ${city1Name} -> ${city2Name}`)
+  }
+  if (gameStore.subCenters[player2Name] === city2Name) {
+    gameStore.subCenters[player2Name] = city1Name
+    console.log(`[先声夺人] 更新副中心: ${player2Name} ${city2Name} -> ${city1Name}`)
+  }
+
+  // 特殊处理：生于紫室（purpleChamber）- 存储单个cityName
+  if (gameStore.purpleChamber[player1Name] === city1Name) {
+    gameStore.purpleChamber[player1Name] = city2Name
+    console.log(`[先声夺人] 更新生于紫室: ${player1Name} ${city1Name} -> ${city2Name}`)
+  }
+  if (gameStore.purpleChamber[player2Name] === city2Name) {
+    gameStore.purpleChamber[player2Name] = city1Name
+    console.log(`[先声夺人] 更新生于紫室: ${player2Name} ${city2Name} -> ${city1Name}`)
+  }
+
+  // 特殊处理：谨慎交换集合（cautiousExchange）- Set形式
+  if (gameStore.cautiousExchange[player1Name]?.has(city1Name)) {
+    gameStore.cautiousExchange[player1Name].delete(city1Name)
+    gameStore.cautiousExchange[player1Name].add(city2Name)
+    console.log(`[先声夺人] 更新cautiousExchange: ${player1Name} ${city1Name} -> ${city2Name}`)
+  }
+  if (gameStore.cautiousExchange[player2Name]?.has(city2Name)) {
+    gameStore.cautiousExchange[player2Name].delete(city2Name)
+    gameStore.cautiousExchange[player2Name].add(city1Name)
+    console.log(`[先声夺人] 更新cautiousExchange: ${player2Name} ${city2Name} -> ${city1Name}`)
+  }
+
+  // 特殊处理：cautionSet - Set形式
+  if (gameStore.cautionSet[player1Name]?.has(city1Name)) {
+    gameStore.cautionSet[player1Name].delete(city1Name)
+    gameStore.cautionSet[player1Name].add(city2Name)
+    console.log(`[先声夺人] 更新cautionSet: ${player1Name} ${city1Name} -> ${city2Name}`)
+  }
+  if (gameStore.cautionSet[player2Name]?.has(city2Name)) {
+    gameStore.cautionSet[player2Name].delete(city2Name)
+    gameStore.cautionSet[player2Name].add(city1Name)
+    console.log(`[先声夺人] 更新cautionSet: ${player2Name} ${city2Name} -> ${city1Name}`)
+  }
+
+  // 注意：其他所有状态（anchored, ironCities, protections等）都使用
+  // [playerName][cityName] 作为键，城市交换时会自动跟随城市名称，无需手动交换
+  console.log('[先声夺人] 城市状态交换完成（其他状态自动跟随cityName）')
+}
+
 export function useNonBattleSkills() {
   const gameStore = useGameStore()
 
@@ -132,27 +204,28 @@ export function useNonBattleSkills() {
 
     // 如果还有剩余伤害，对中心城市造成伤害
     if (actualDamage > 0) {
-      // 找到中心城市
-      const centerCity = target.cities.find(c => c.isCenter)
+      // 找到中心城市（使用centerIndex）
+      const centerCity = target.cities[target.centerIndex || 0]
       if (centerCity) {
         const currentHp = centerCity.currentHp || centerCity.hp
         centerCity.currentHp = Math.max(0, currentHp - actualDamage)
 
         if (centerCity.currentHp <= 0) {
           centerCity.isAlive = false
-          addSkillEffectLog(gameStore, `${target.name}的中心城市${centerCity.name}被摧毁`)
-        } else {
-          addSkillEffectLog(gameStore, `${target.name}的中心城市受到${actualDamage}点伤害`)
         }
       }
     }
+
+    // 获取目标中心城市剩余血量（用于日志）
+    const targetCenterCity = target.cities[target.centerIndex || 0]
+    const centerRemainingHp = targetCenterCity ? Math.floor(targetCenterCity.currentHp || 0) : 0
 
     // 双日志
     addSkillUsageLog(
       gameStore,
       caster.name,
       '无知无畏',
-      `用${lowestHpCity.name}${isCenterAttack ? '（中心城市，伤害×2）' : ''}使用无知无畏，对${target.name}造成${damage}伤害后自毁`,
+      `用${lowestHpCity.name}${isCenterAttack ? '（中心城市，伤害×2）' : ''}使用无知无畏，对${target.name}造成${damage}伤害后自毁，其中心剩余血量 ${centerRemainingHp}`,
       `你用${lowestHpCity.name}使用了无知无畏`
     )
 
@@ -174,9 +247,36 @@ export function useNonBattleSkills() {
       return { success: false, message: '城市已阵亡' }
     }
 
+    // 获取城市在caster.cities中的索引
+    const cityIdx = caster.cities.findIndex(c => c.name === selfCity.name)
+    if (cityIdx === -1) {
+      return { success: false, message: '未找到该城市' }
+    }
+
+    // 从initialCities获取真实的初始最大HP
+    // 修复Bug: 如果initialCities未初始化,使用城市的baseHp或hp作为备用
+    let maxHp = selfCity.hp
+    if (gameStore.initialCities[caster.name] && gameStore.initialCities[caster.name][cityIdx]) {
+      maxHp = gameStore.initialCities[caster.name][cityIdx].hp || gameStore.initialCities[caster.name][cityIdx].baseHp
+    } else if (selfCity.baseHp !== undefined) {
+      // 备用方案1: 使用baseHp
+      maxHp = selfCity.baseHp
+    } else if (selfCity.maxHp !== undefined) {
+      // 备用方案2: 使用maxHp字段
+      maxHp = selfCity.maxHp
+    }
+    // 如果以上都没有,使用selfCity.hp作为最后的备用
+
     // 检查是否已满血
-    const currentHp = selfCity.currentHp || selfCity.hp
-    if (currentHp >= selfCity.hp) {
+    const currentHp = selfCity.currentHp !== undefined ? selfCity.currentHp : selfCity.hp
+
+    console.log('[快速治疗] 城市:', selfCity.name)
+    console.log('[快速治疗] cityIdx:', cityIdx)
+    console.log('[快速治疗] currentHp:', currentHp, 'maxHp:', maxHp)
+    console.log('[快速治疗] selfCity.hp:', selfCity.hp)
+    console.log('[快速治疗] initialCities maxHp:', gameStore.initialCities[caster.name]?.[cityIdx]?.hp)
+
+    if (currentHp >= maxHp) {
       return { success: false, message: '城市已满血' }
     }
 
@@ -186,15 +286,15 @@ export function useNonBattleSkills() {
       return goldCheck
     }
 
-    const healed = selfCity.hp - currentHp
-    selfCity.currentHp = selfCity.hp
+    const healed = maxHp - currentHp
+    selfCity.currentHp = maxHp
 
     // 双日志
     addSkillUsageLog(
       gameStore,
       caster.name,
       '快速治疗',
-      `${caster.name} 对${selfCity.name}使用快速治疗，恢复${healed}HP`,
+      `${caster.name}使用了快速治疗`,
       `${caster.name}使用了快速治疗`
     )
 
@@ -680,16 +780,47 @@ export function useNonBattleSkills() {
       })
     }
 
-    // 重置双方出战状态和疲劳计数器
-    if (gameStore.fatigueStreaks[caster.name]) {
-      Object.keys(gameStore.fatigueStreaks[caster.name]).forEach(idx => {
-        gameStore.fatigueStreaks[caster.name][idx] = 0
-      })
+    // 交换疲劳计数器（fatigue streaks）- 跟随城市交换
+    for (let k = 0; k < minLen; k++) {
+      const casterIdx = normalCaster[k].idx
+      const targetIdx = normalTarget[k].idx
+
+      // 初始化streaks对象
+      if (!caster.streaks) caster.streaks = {}
+      if (!target.streaks) target.streaks = {}
+
+      // 交换fatigue streak值
+      const tempStreak = caster.streaks[casterIdx] || 0
+      caster.streaks[casterIdx] = target.streaks[targetIdx] || 0
+      target.streaks[targetIdx] = tempStreak
     }
-    if (gameStore.fatigueStreaks[target.name]) {
-      Object.keys(gameStore.fatigueStreaks[target.name]).forEach(idx => {
-        gameStore.fatigueStreaks[target.name][idx] = 0
-      })
+
+    // 交换拔旗易帜标记（changeFlagMark）- 跟随城市交换
+    for (let k = 0; k < minLen; k++) {
+      const casterIdx = normalCaster[k].idx
+      const targetIdx = normalTarget[k].idx
+
+      // 初始化changeFlagMark对象
+      if (!gameStore.changeFlagMark[caster.name]) gameStore.changeFlagMark[caster.name] = {}
+      if (!gameStore.changeFlagMark[target.name]) gameStore.changeFlagMark[target.name] = {}
+
+      // 交换changeFlagMark
+      const casterMark = gameStore.changeFlagMark[caster.name][casterIdx]
+      const targetMark = gameStore.changeFlagMark[target.name][targetIdx]
+
+      if (casterMark || targetMark) {
+        if (targetMark) {
+          gameStore.changeFlagMark[caster.name][casterIdx] = { ...targetMark }
+        } else {
+          delete gameStore.changeFlagMark[caster.name][casterIdx]
+        }
+
+        if (casterMark) {
+          gameStore.changeFlagMark[target.name][targetIdx] = { ...casterMark }
+        } else {
+          delete gameStore.changeFlagMark[target.name][targetIdx]
+        }
+      }
     }
 
     // 日志记录
@@ -731,7 +862,7 @@ export function useNonBattleSkills() {
    * 先声夺人 - 交换1张卡牌（冷却3回合，每局限2次）
    */
   function executeXianShengDuoRen(caster, target, params = {}) {
-    const { casterCityIdx, targetCityIdx } = params
+    const { casterCityName } = params
 
     // 前置检查0：检查使用次数（每局限2次）
     if (!gameStore.xianshengduorenUsageCount) {
@@ -757,55 +888,38 @@ export function useNonBattleSkills() {
       }
     }
 
-    // 前置检查1：检查是否有待处理的先声夺人请求（避免冲突）
-    if (gameStore.pendingPreemptiveStrike) {
+    // 前置检查1：必须提供casterCityName
+    if (!casterCityName) {
       return {
         success: false,
-        message: '当前有待处理的先声夺人请求，请先完成'
+        message: '未选择己方城市'
       }
     }
-
-    // 金币检查和扣除
-    const goldCheck = checkAndDeductGold('先声夺人', caster, gameStore)
-    if (!goldCheck.success) {
-      return goldCheck
-    }
-
-    // 增加使用次数
-    gameStore.xianshengduorenUsageCount[caster.name]++
-
-    // 设置冷却时间（3回合）
-    if (!gameStore.cooldowns) {
-      gameStore.cooldowns = {}
-    }
-    if (!gameStore.cooldowns[caster.name]) {
-      gameStore.cooldowns[caster.name] = {}
-    }
-    gameStore.cooldowns[caster.name]['先声夺人'] = 3
 
     // 前置检查2：构建可交换城市池（排除：谨慎交换集合、阵亡、中心城市、定海神针、钢铁城市、保护）
     function getEligibleCities(player) {
       const eligible = []
-      player.cities.forEach((city, idx) => {
+      // 关键修复：player.cities 是对象，使用 Object.entries 遍历
+      Object.entries(player.cities).forEach(([cityName, city]) => {
         // 已阵亡不参与
         if (city.isAlive === false) return
 
-        // 谨慎交换集合不参与
-        if (gameStore.isInCautiousSet(player.name, idx)) return
+        // 谨慎交换集合不参与（包括cautionSet和cautiousExchange）
+        if (gameStore.isInCautiousSet(player.name, cityName)) return
 
         // 中心城市不参与
         if (city.isCenter) return
 
         // 定海神针不参与
-        if (gameStore.anchored[player.name] && gameStore.anchored[player.name][idx]) return
+        if (gameStore.anchored[player.name] && gameStore.anchored[player.name][cityName]) return
 
         // 钢铁城市不参与
-        if (gameStore.hasIronShield(player.name, idx)) return
+        if (gameStore.hasIronShield(player.name, cityName)) return
 
         // 被保护不参与
-        if (gameStore.hasProtection(player.name, idx)) return
+        if (gameStore.hasProtection(player.name, cityName)) return
 
-        eligible.push(idx)
+        eligible.push(cityName)
       })
       return eligible
     }
@@ -821,73 +935,283 @@ export function useNonBattleSkills() {
       }
     }
 
-    // 确定要交换的城市索引
-    let selectedCasterIdx, selectedTargetIdx
-
-    if (casterCityIdx !== undefined && targetCityIdx !== undefined) {
-      // 使用指定的城市索引
-      selectedCasterIdx = casterCityIdx
-      selectedTargetIdx = targetCityIdx
-
-      // 验证城市索引有效性
-      if (!eligibleCaster.includes(selectedCasterIdx)) {
-        return {
-          success: false,
-          message: '发起者选择的城市不可交换'
-        }
+    // 前置检查4：验证casterCityName在可选范围内
+    if (!eligibleCaster.includes(casterCityName)) {
+      return {
+        success: false,
+        message: '选择的城市不可交换（可能在谨慎交换集合或其他限制）'
       }
-      if (!eligibleTarget.includes(selectedTargetIdx)) {
-        return {
-          success: false,
-          message: '目标玩家选择的城市不可交换'
-        }
-      }
-    } else {
-      // 随机选择城市（简化版）
-      selectedCasterIdx = eligibleCaster[Math.floor(Math.random() * eligibleCaster.length)]
-      selectedTargetIdx = eligibleTarget[Math.floor(Math.random() * eligibleTarget.length)]
     }
 
-    const casterCity = caster.cities[selectedCasterIdx]
-    const targetCity = target.cities[selectedTargetIdx]
-
-    // 执行城市交换
-    const temp = caster.cities[selectedCasterIdx]
-    caster.cities[selectedCasterIdx] = target.cities[selectedTargetIdx]
-    target.cities[selectedTargetIdx] = temp
-
-    // 同步交换initialCities中的数据（保持原始HP跟随城市移动）
-    if (gameStore.initialCities[caster.name] && gameStore.initialCities[target.name]) {
-      const tempInitial = gameStore.initialCities[caster.name][selectedCasterIdx]
-      gameStore.initialCities[caster.name][selectedCasterIdx] =
-        gameStore.initialCities[target.name][selectedTargetIdx]
-      gameStore.initialCities[target.name][selectedTargetIdx] = tempInitial
+    // 金币检查和扣除
+    const goldCheck = checkAndDeductGold('先声夺人', caster, gameStore)
+    if (!goldCheck.success) {
+      return goldCheck
     }
 
-    // 清除被交换城市的狐假虎威伪装状态
-    if (gameStore.disguisedCities[caster.name]) {
-      delete gameStore.disguisedCities[caster.name][selectedCasterIdx]
-    }
-    if (gameStore.disguisedCities[target.name]) {
-      delete gameStore.disguisedCities[target.name][selectedTargetIdx]
-    }
+    // 增加使用次数
+    gameStore.xianshengduorenUsageCount[caster.name]++
 
-    // 标记城市为已知
-    gameStore.setCityKnown(caster.name, selectedCasterIdx, target.name)
-    gameStore.setCityKnown(target.name, selectedTargetIdx, caster.name)
+    // 记录使用次数（用于UI显示）
+    gameStore.recordSkillUsage(caster.name, '先声夺人')
 
-    // 双日志
+    // 设置冷却时间（3回合）
+    if (!gameStore.cooldowns) {
+      gameStore.cooldowns = {}
+    }
+    if (!gameStore.cooldowns[caster.name]) {
+      gameStore.cooldowns[caster.name] = {}
+    }
+    gameStore.cooldowns[caster.name]['先声夺人'] = 3
+
+    // 创建待处理交换请求（使用cityName）
+    const swap = gameStore.createPendingSwap(caster.name, target.name, casterCityName)
+
+    console.log('[先声夺人] ===== 创建交换请求 =====')
+    console.log('[先声夺人] 返回的 swap:', swap)
+    console.log('[先声夺人] swap.initiatorCityName:', swap?.initiatorCityName)
+    console.log('[先声夺人] 可交换城市列表:')
+    console.log(`[先声夺人]   ${caster.name}: [${eligibleCaster.join(', ')}]`)
+    console.log(`[先声夺人]   ${target.name}: [${eligibleTarget.join(', ')}]`)
+    console.log('[先声夺人] ===============================')
+
+    // 双日志：记录技能使用和待处理状态
     addSkillUsageLog(
       gameStore,
       caster.name,
       '先声夺人',
-      `${caster.name}对${target.name}使用先声夺人，交换了${casterCity.name}和${targetCity.name}（冷却3回合，剩余${2 - gameStore.xianshengduorenUsageCount[caster.name]}次）`,
+      `${caster.name}使用了先声夺人，等待${target.name}选择交换城市`,
       `${caster.name}使用了先声夺人`
     )
 
+    console.log(`[先声夺人] ${caster.name} 发起请求 (剩余${2 - gameStore.xianshengduorenUsageCount[caster.name]}次)`)
+    console.log(`[先声夺人] 待处理请求ID: ${swap.id}`)
+    console.log(`[先声夺人] ${caster.name}选择: ${casterCityName}`)
+    console.log(`[先声夺人] 等待${target.name}响应...`)
+
     return {
       success: true,
-      message: `交换了${casterCity.name}和${targetCity.name}（剩余${2 - gameStore.xianshengduorenUsageCount[caster.name]}次）`
+      message: `等待${target.name}选择交换城市（剩余${2 - gameStore.xianshengduorenUsageCount[caster.name]}次）`,
+      pendingSwapId: swap.id,
+      isPending: true // 标记为待处理状态
+    }
+  }
+
+  /**
+   * 接受先声夺人交换（目标玩家响应）
+   */
+  function acceptPreemptiveStrike(swapId, targetCityIdx) {
+    // 关键修复：Pinia会自动解包ref，直接使用gameStore.pendingSwaps（不需要.value）
+    const swap = gameStore.pendingSwaps.find(s => s.id === swapId)
+    if (!swap || swap.status !== 'pending') {
+      return {
+        success: false,
+        message: '未找到待处理的交换请求或请求已失效'
+      }
+    }
+
+    const initiator = gameStore.players.find(p => p.name === swap.initiatorName)
+    const targetPlayer = gameStore.players.find(p => p.name === swap.targetName)
+
+    if (!initiator || !targetPlayer) {
+      return {
+        success: false,
+        message: '玩家数据异常'
+      }
+    }
+
+    // 验证targetCityIdx在可选范围内
+    function getEligibleCities(player) {
+      const eligible = []
+      player.cities.forEach((city, idx) => {
+        if (city.isAlive === false) return
+        if (gameStore.isInCautiousSet(player.name, idx)) return
+        if (city.isCenter) return
+        if (gameStore.anchored[player.name] && gameStore.anchored[player.name][idx]) return
+        if (gameStore.hasIronShield(player.name, idx)) return
+        if (gameStore.hasProtection(player.name, idx)) return
+        eligible.push(idx)
+      })
+      return eligible
+    }
+
+    const eligibleTarget = getEligibleCities(targetPlayer)
+    if (!eligibleTarget.includes(targetCityIdx)) {
+      return {
+        success: false,
+        message: '选择的城市不可交换'
+      }
+    }
+
+    // 执行交换
+    const initiatorCity = initiator.cities[swap.initiatorCityIdx]
+    const targetCity = targetPlayer.cities[targetCityIdx]
+
+    if (!initiatorCity || !targetCity) {
+      return {
+        success: false,
+        message: '城市数据异常'
+      }
+    }
+
+    // 执行交换（深拷贝交换，确保Vue响应式系统能检测到变化）
+    // 保存交换前的城市信息（用于日志）
+    const initiatorCityBeforeSwap = { ...initiatorCity }
+    const targetCityBeforeSwap = { ...targetCity }
+
+    // 方法1：深拷贝方式交换（推荐，确保Vue响应式）
+    // 先深拷贝两个城市对象
+    const tempInitiatorCity = JSON.parse(JSON.stringify(initiatorCity))
+    const tempTargetCity = JSON.parse(JSON.stringify(targetCity))
+
+    // 将目标城市的所有属性赋值给发起者城市的位置
+    Object.keys(tempTargetCity).forEach(key => {
+      initiator.cities[swap.initiatorCityIdx][key] = tempTargetCity[key]
+    })
+
+    // 将发起者城市的所有属性赋值给目标城市的位置
+    Object.keys(tempInitiatorCity).forEach(key => {
+      targetPlayer.cities[targetCityIdx][key] = tempInitiatorCity[key]
+    })
+
+    console.log('[先声夺人] 交换完成（深拷贝方式）')
+    console.log(`[先声夺人] 发起者 ${initiator.name}[${swap.initiatorCityIdx}]:`,
+      `${initiatorCityBeforeSwap.name} -> ${initiator.cities[swap.initiatorCityIdx].name}`)
+    console.log(`[先声夺人] 目标 ${targetPlayer.name}[${targetCityIdx}]:`,
+      `${targetCityBeforeSwap.name} -> ${targetPlayer.cities[targetCityIdx].name}`)
+
+    // 注意：initialCities 现在按城市名称追踪（[playerName][cityName]），无需交换
+    // 城市交换后，城市的初始HP记录会自动跟随城市名称
+    // 例如：东营市的初始HP存储在 initialCities[playerName]['东营市']
+    // 当东营市从玩家A移动到玩家B时，initialCities['玩家B']['东营市'] 会自动记录正确的初始HP
+    console.log('[先声夺人] initialCities 按城市名称追踪，无需交换')
+
+    // 交换疲劳streak值（存储在player.streaks[cityIdx]中）
+    if (!initiator.streaks) initiator.streaks = {}
+    if (!targetPlayer.streaks) targetPlayer.streaks = {}
+
+    const tempInitiatorStreak = initiator.streaks[swap.initiatorCityIdx] || 0
+    const tempTargetStreak = targetPlayer.streaks[targetCityIdx] || 0
+
+    initiator.streaks[swap.initiatorCityIdx] = tempTargetStreak
+    targetPlayer.streaks[targetCityIdx] = tempInitiatorStreak
+
+    console.log('[先声夺人] 疲劳streak交换:',
+      `${initiator.name}[${swap.initiatorCityIdx}]: ${tempInitiatorStreak} -> ${tempTargetStreak}`,
+      `${targetPlayer.name}[${targetCityIdx}]: ${tempTargetStreak} -> ${tempInitiatorStreak}`)
+
+    // 交换所有基于cityIdx的状态
+    // 这些状态应该跟随城市一起交换，而不是清除
+    swapCityIndexedStates(gameStore, initiator.name, swap.initiatorCityIdx, targetPlayer.name, targetCityIdx)
+
+    // 清除特殊状态（这些状态不应该跟随交换）
+    // 1. 伪装城市（狐假虎威）- 伪装是基于位置的，交换后应清除
+    let disguiseCleared = false
+    if (gameStore.disguisedCities[initiator.name] &&
+        gameStore.disguisedCities[initiator.name][swap.initiatorCityIdx]) {
+      delete gameStore.disguisedCities[initiator.name][swap.initiatorCityIdx]
+      disguiseCleared = true
+      console.log(`[先声夺人] 清除${initiator.name}的伪装状态`)
+    }
+    if (gameStore.disguisedCities[targetPlayer.name] &&
+        gameStore.disguisedCities[targetPlayer.name][targetCityIdx]) {
+      delete gameStore.disguisedCities[targetPlayer.name][targetCityIdx]
+      disguiseCleared = true
+      console.log(`[先声夺人] 清除${targetPlayer.name}的伪装状态`)
+    }
+
+    // 更新请求状态
+    gameStore.updatePendingSwapStatus(swapId, 'accepted', targetCityIdx)
+
+    // 双日志：记录交换完成（使用交换前的城市名称）
+    const initiatorCityName = initiatorCityBeforeSwap.name || `城市${swap.initiatorCityIdx + 1}`
+    const targetCityName = targetCityBeforeSwap.name || `城市${targetCityIdx + 1}`
+
+    // 构建详细的交换信息
+    const swapDetails = []
+    swapDetails.push(`城市: ${initiatorCityName}(HP${Math.floor(initiatorCityBeforeSwap.currentHp || initiatorCityBeforeSwap.hp)}) ⇄ ${targetCityName}(HP${Math.floor(targetCityBeforeSwap.currentHp || targetCityBeforeSwap.hp)})`)
+    swapDetails.push(`疲劳: streak ${tempInitiatorStreak} ⇄ ${tempTargetStreak}`)
+    if (disguiseCleared) {
+      swapDetails.push(`伪装状态已清除`)
+    }
+
+    addSkillEffectLog(
+      gameStore,
+      `(先声夺人) ${initiator.name}的${initiatorCityName} ⇄ ${targetPlayer.name}的${targetCityName}`
+    )
+
+    console.log(`[先声夺人] ===== 交换完成总结 =====`)
+    console.log(`[先声夺人] ${initiator.name}[${swap.initiatorCityIdx}] ⇄ ${targetPlayer.name}[${targetCityIdx}]`)
+    swapDetails.forEach(detail => console.log(`[先声夺人] - ${detail}`))
+    console.log(`[先声夺人] ============================`)
+
+    return {
+      success: true,
+      message: `交换成功：${initiatorCityName} ⇄ ${targetCityName}`
+    }
+  }
+
+  /**
+   * 拒绝先声夺人交换（目标玩家响应）- 需要花费11金币使用无懈可击技能
+   */
+  function rejectPreemptiveStrike(swapId) {
+    // 关键修复：Pinia会自动解包ref，直接使用gameStore.pendingSwaps（不需要.value）
+    const swap = gameStore.pendingSwaps.find(s => s.id === swapId)
+    if (!swap || swap.status !== 'pending') {
+      return {
+        success: false,
+        message: '未找到待处理的交换请求或请求已失效'
+      }
+    }
+
+    // 找到目标玩家（拒绝者）
+    const targetPlayer = gameStore.players.find(p => p.name === swap.targetName)
+    if (!targetPlayer) {
+      return {
+        success: false,
+        message: '玩家数据异常'
+      }
+    }
+
+    // 检查金币是否足够（需要11金币使用无懈可击）
+    if (targetPlayer.gold < 11) {
+      return {
+        success: false,
+        message: `拒绝交换需要使用无懈可击技能（花费11金币），当前金币不足（${targetPlayer.gold}/11）`
+      }
+    }
+
+    // 扣除金币
+    targetPlayer.gold -= 11
+    console.log(`[先声夺人] ${swap.targetName}使用无懈可击拒绝交换，花费11金币，剩余${targetPlayer.gold}金币`)
+
+    // 更新请求状态
+    gameStore.updatePendingSwapStatus(swapId, 'rejected')
+
+    // 关键修复：退还发起者的使用次数和清除冷却（因为交换被拒绝了）
+    if (gameStore.xianshengduorenUsageCount && gameStore.xianshengduorenUsageCount[swap.initiatorName]) {
+      gameStore.xianshengduorenUsageCount[swap.initiatorName]--
+      console.log(`[先声夺人] 退还${swap.initiatorName}的使用次数，剩余${2 - gameStore.xianshengduorenUsageCount[swap.initiatorName]}次`)
+    }
+
+    // 清除冷却时间
+    if (gameStore.cooldowns && gameStore.cooldowns[swap.initiatorName] &&
+        gameStore.cooldowns[swap.initiatorName]['先声夺人']) {
+      gameStore.cooldowns[swap.initiatorName]['先声夺人'] = 0
+      console.log(`[先声夺人] 清除${swap.initiatorName}的冷却时间`)
+    }
+
+    // 双日志：记录拒绝（使用无懈可击）
+    addSkillEffectLog(
+      gameStore,
+      `(先声夺人) ${swap.targetName}使用无懈可击拒绝了${swap.initiatorName}的交换请求（花费11金币）`
+    )
+
+    console.log(`[先声夺人] ${swap.targetName}拒绝了交换请求`)
+
+    return {
+      success: true,
+      message: `已使用无懈可击拒绝交换请求（花费11金币，剩余${targetPlayer.gold}金币）`
     }
   }
 
@@ -918,11 +1242,15 @@ export function useNonBattleSkills() {
     }
     gameStore.jinbidaikuanUsageCount[caster.name]++
 
+    // 记录使用次数（用于UI显示）
+    gameStore.recordSkillUsage(caster.name, '金币贷款')
+
     // 立即获得5金币（原版逻辑）
     caster.gold = Math.min(caster.gold + 5, 24)
 
     // 设置2回合冷却期（接下来2回合无法获得自动金币）
-    caster.loanCooldown = 2
+    // 使用gameStore.goldLoanRounds统一管理状态
+    gameStore.goldLoanRounds[caster.name] = 2
 
     // 双日志
     addSkillUsageLog(
@@ -940,25 +1268,11 @@ export function useNonBattleSkills() {
   }
 
   /**
-   * 定海神针 - 城市10回合不会被交换（冷却1回合，每局限3次）
+   * 定海神针 - 城市10回合不会被交换（冷却1回合）
    */
   function executeDingHaiShenZhen(caster, selfCity) {
     if (!selfCity) {
       return { success: false, message: '未选择城市' }
-    }
-
-    // 检查使用次数（每局限3次）
-    if (!gameStore.dinghaishenzhenUsageCount) {
-      gameStore.dinghaishenzhenUsageCount = {}
-    }
-    if (!gameStore.dinghaishenzhenUsageCount[caster.name]) {
-      gameStore.dinghaishenzhenUsageCount[caster.name] = 0
-    }
-    if (gameStore.dinghaishenzhenUsageCount[caster.name] >= 3) {
-      return {
-        success: false,
-        message: '定海神针每局最多使用3次'
-      }
     }
 
     // 检查冷却时间（1回合）
@@ -983,9 +1297,6 @@ export function useNonBattleSkills() {
       return goldCheck
     }
 
-    // 增加使用次数
-    gameStore.dinghaishenzhenUsageCount[caster.name]++
-
     // 设置冷却时间（1回合）
     if (!gameStore.cooldowns) {
       gameStore.cooldowns = {}
@@ -1006,13 +1317,13 @@ export function useNonBattleSkills() {
       gameStore,
       caster.name,
       '定海神针',
-      `${caster.name}对${selfCity.name}使用定海神针，10回合内不会被交换（冷却1回合，剩余${3 - gameStore.dinghaishenzhenUsageCount[caster.name]}次）`,
+      `${caster.name}对${selfCity.name}使用定海神针，10回合内不会被交换`,
       `${caster.name}使用了定海神针`
     )
 
     return {
       success: true,
-      message: `${selfCity.name}已固定位置，10回合内不会被交换（剩余${3 - gameStore.dinghaishenzhenUsageCount[caster.name]}次）`
+      message: `${selfCity.name}已固定位置，10回合内不会被交换`
     }
   }
 
@@ -1144,35 +1455,76 @@ export function useNonBattleSkills() {
 
   /**
    * 高级治疗 - 2个城市撤下，2回合后满血返回
+   * 注意：战斗预备城市（roster）概念已删除，现在只检查城市是否存活和受伤
    */
   function executeGaoJiZhiLiao(caster, cityIndices) {
     if (!cityIndices || cityIndices.length !== 2) {
       return { success: false, message: '需要选择2个城市' }
     }
 
-    // 筛选战斗预备且非满血的城市
+    // 筛选存活且非满血的城市
     const cities = cityIndices.map(idx => {
       const city = caster.cities[idx]
-      if (!city) return null
+      if (!city) {
+        console.log(`[高级治疗] 城市索引 ${idx} 不存在`)
+        return null
+      }
 
-      // 检查是否在roster中
-      const inRoster = gameStore.roster[caster.name] &&
-                       gameStore.roster[caster.name].includes(idx)
-
-      if (!inRoster) return null
-      if (city.isAlive === false) return null
+      // 检查城市是否存活
+      if (city.isAlive === false) {
+        console.log(`[高级治疗] ${city.name} 已死亡`)
+        return null
+      }
 
       // 检查是否非满血
       const currentHp = city.currentHp || city.hp
-      if (currentHp >= city.hp) return null
 
-      return { city, idx }
+      // 获取城市的初始HP（最大HP）
+      // 注意：initialCities 可能是数组结构或对象结构
+      let initialCity = null
+      let maxHp = city.hp
+
+      if (gameStore.initialCities[caster.name]) {
+        const initialData = gameStore.initialCities[caster.name]
+
+        // 检查是数组还是对象
+        if (Array.isArray(initialData)) {
+          // 数组结构：按索引查找
+          initialCity = initialData[idx]
+          console.log(`[高级治疗] 从数组结构获取 initialCity[${idx}]:`, initialCity)
+        } else {
+          // 对象结构：按城市名称查找
+          initialCity = initialData[city.name]
+          console.log(`[高级治疗] 从对象结构获取 initialCity['${city.name}']:`, initialCity)
+        }
+
+        if (initialCity) {
+          maxHp = initialCity.hp
+        }
+      }
+
+      console.log(`[高级治疗] ${city.name}:`)
+      console.log(`  - city.currentHp: ${city.currentHp}`)
+      console.log(`  - city.hp: ${city.hp}`)
+      console.log(`  - currentHp (computed): ${currentHp}`)
+      console.log(`  - maxHp (from initialCities): ${maxHp}`)
+      console.log(`  - initialCity:`, initialCity)
+      console.log(`  - 受伤: ${currentHp < maxHp}`)
+
+      if (currentHp >= maxHp) {
+        console.log(`[高级治疗] ${city.name} 满血，无法治疗`)
+        return null
+      }
+
+      return { city, idx, maxHp }
     }).filter(item => item !== null)
+
+    console.log(`[高级治疗] 筛选后的城市数量: ${cities.length}`)
 
     if (cities.length !== 2) {
       return {
         success: false,
-        message: '需要选择2个战斗预备且受伤的城市'
+        message: '需要选择2个存活且受伤的城市'
       }
     }
 
@@ -1182,21 +1534,16 @@ export function useNonBattleSkills() {
       return goldCheck
     }
 
-    // 从roster中移除这两个城市
-    cities.forEach(({ idx }) => {
-      const rosterIdx = gameStore.roster[caster.name].indexOf(idx)
-      if (rosterIdx > -1) {
-        gameStore.roster[caster.name].splice(rosterIdx, 1)
-      }
-    })
+    // 注意：roster系统已删除，城市不需要从roster中移除
+    // 城市通过bannedCities机制禁用2回合，通过isInHealing标记状态
 
     // 设置healing状态（2回合后返回）
-    cities.forEach(({ city, idx }) => {
+    cities.forEach(({ city, idx, maxHp }) => {
       city.modifiers = city.modifiers || []
       city.modifiers.push({
         type: 'healing',
         roundsLeft: 2,
-        returnHp: city.hp,  // 返回时恢复到满血
+        returnHp: maxHp,  // 返回时恢复到正确的满血值（从initialCities获取）
         originalIdx: idx
       })
 
@@ -1509,7 +1856,7 @@ export function useNonBattleSkills() {
   }
 
   /**
-   * 抛砖引玉 - 花费2金币，随机自毁己方一座2000以下HP城市，随机获得3-8金币，每局限1次
+   * 抛砖引玉 - 花费2金币，随机自毁己方一座2000以下HP城市，随机获得1-5金币，每局限1次
    */
   function executePaoZhuanYinYu(caster) {
     // 检查每局限1次
@@ -1560,13 +1907,16 @@ export function useNonBattleSkills() {
     }
     targetCity.isAlive = false
 
-    // 随机获得3-8金币
-    const goldGain = Math.floor(Math.random() * 6) + 3  // 3-8
+    // 随机获得1-5金币
+    const goldGain = Math.floor(Math.random() * 5) + 1  // 1-5
     const beforeGold = caster.gold
     caster.gold = Math.min(24, caster.gold + goldGain)
 
     // 标记已使用
     gameStore.paoZhuanYinYuUsed[caster.name] = true
+
+    // 记录使用次数（用于UI显示）
+    gameStore.recordSkillUsage(caster.name, '抛砖引玉')
 
     // 双日志
     addSkillUsageLog(
@@ -1675,9 +2025,9 @@ export function useNonBattleSkills() {
   }
 
   /**
-   * 提灯定损 - HP除以3
+   * 一落千丈 - 当前HP和初始HP都除以3
    */
-  function executeTiDengDingSun(caster, target, targetCity) {
+  function executeYiLuoQianZhang(caster, target, targetCity) {
     if (!targetCity) {
       return { success: false, message: '未选择目标城市' }
     }
@@ -1688,14 +2038,14 @@ export function useNonBattleSkills() {
     }
 
     // 检查坚不可摧护盾
-    if (gameStore.isBlockedByJianbukecui(target.name, caster.name, '提灯定损')) {
+    if (gameStore.isBlockedByJianbukecui(target.name, caster.name, '一落千丈')) {
       // 双日志
       addSkillUsageLog(
         gameStore,
         caster.name,
-        '提灯定损',
-        `${caster.name}使用提灯定损，但被${target.name}的坚不可摧护盾阻挡`,
-        `${caster.name}使用了提灯定损`
+        '一落千丈',
+        `${caster.name}使用一落千丈，但被${target.name}的坚不可摧护盾阻挡`,
+        `${caster.name}使用了一落千丈`
       )
       return {
         success: false,
@@ -1704,7 +2054,7 @@ export function useNonBattleSkills() {
     }
 
     // 金币检查和扣除
-    const goldCheck = checkAndDeductGold('提灯定损', caster, gameStore)
+    const goldCheck = checkAndDeductGold('一落千丈', caster, gameStore)
     if (!goldCheck.success) {
       return goldCheck
     }
@@ -1714,7 +2064,7 @@ export function useNonBattleSkills() {
 
     // 检查并消耗保护罩/钢铁护盾
     if (gameStore.consumeProtection(target.name, cityIdx)) {
-      addSkillEffectLog(gameStore, `提灯定损被${target.name}的${targetCity.name}护盾抵消`)
+      addSkillEffectLog(gameStore, `一落千丈被${target.name}的${targetCity.name}护盾抵消`)
       return {
         success: true,
         message: `效果被护盾抵消`
@@ -1722,11 +2072,14 @@ export function useNonBattleSkills() {
     }
 
     const currentHp = targetCity.currentHp || targetCity.hp
-    const newHp = Math.floor(currentHp / 3)
-    targetCity.currentHp = newHp
+    const newCurrentHp = Math.floor(currentHp / 3)
+    const newBaseHp = Math.floor(targetCity.hp / 3)
+
+    targetCity.currentHp = newCurrentHp
+    targetCity.hp = newBaseHp  // 同时修改初始HP
 
     // 检查是否阵亡
-    if (newHp <= 0) {
+    if (newCurrentHp <= 0) {
       targetCity.isAlive = false
 
       // 添加到deadCities列表
@@ -1741,29 +2094,29 @@ export function useNonBattleSkills() {
       addSkillUsageLog(
         gameStore,
         caster.name,
-        '提灯定损',
-        `${caster.name}对${target.name}的${targetCity.name}使用提灯定损，HP从${currentHp}降至${newHp}，城市阵亡`,
-        `${caster.name}使用了提灯定损`
+        '一落千丈',
+        `${caster.name}对${target.name}的${targetCity.name}使用一落千丈，当前HP从${currentHp}降至${newCurrentHp}，初始HP降至${newBaseHp}，城市阵亡`,
+        `${caster.name}使用了一落千丈`
       )
     } else {
       // 双日志
       addSkillUsageLog(
         gameStore,
         caster.name,
-        '提灯定损',
-        `${caster.name}对${target.name}的${targetCity.name}使用提灯定损，HP从${currentHp}降至${newHp}`,
-        `${caster.name}使用了提灯定损`
+        '一落千丈',
+        `${caster.name}对${target.name}的${targetCity.name}使用一落千丈，当前HP从${currentHp}降至${newCurrentHp}，初始HP降至${newBaseHp}`,
+        `${caster.name}使用了一落千丈`
       )
     }
 
     return {
       success: true,
-      message: `${targetCity.name}的HP降至${newHp}`
+      message: `${targetCity.name}的HP降至${newCurrentHp}`
     }
   }
 
   /**
-   * 连续打击 - 2个城市HP减半
+   * 连续打击 - 2个城市当前HP和初始HP都除以2
    */
   function executeLianXuDaJi(caster, target, cityIndices) {
     if (!cityIndices || cityIndices.length !== 2) {
@@ -1817,13 +2170,16 @@ export function useNonBattleSkills() {
         continue
       }
 
-      // 造成伤害
+      // 造成伤害：当前HP和初始HP都除以2
       const currentHp = city.currentHp || city.hp
-      const newHp = Math.floor(currentHp / 2)
-      city.currentHp = newHp
+      const newCurrentHp = Math.floor(currentHp / 2)
+      const newBaseHp = Math.floor(city.hp / 2)
+
+      city.currentHp = newCurrentHp
+      city.hp = newBaseHp  // 同时修改初始HP
 
       // 检查是否阵亡
-      if (newHp <= 0) {
+      if (newCurrentHp <= 0) {
         city.isAlive = false
 
         // 添加到deadCities列表
@@ -1848,7 +2204,7 @@ export function useNonBattleSkills() {
         gameStore,
         caster.name,
         '连续打击',
-        `${caster.name}对${target.name}的${affectedCities.join('、')}使用连续打击，HP减半`,
+        `${caster.name}对${target.name}的${affectedCities.join('、')}使用连续打击，当前HP和初始HP都除以2`,
         `${caster.name}使用了连续打击`
       )
     }
@@ -2754,6 +3110,86 @@ export function useNonBattleSkills() {
   }
 
   /**
+   * 改弦更张 - 撤回本回合出战部署
+   * 花费2金币
+   * 在己方确认出战后，对手确认出战前使用
+   * 撤回本回合出战城市和技能使用，允许重新部署
+   * 每局限2次
+   */
+  function executeGaiXianGengZhang(caster) {
+    // 检查每局限2次
+    if (!gameStore.gaixiangengzhangUsed) {
+      gameStore.gaixiangengzhangUsed = {}
+    }
+
+    const usedCount = gameStore.gaixiangengzhangUsed[caster.name] || 0
+    if (usedCount >= 2) {
+      return {
+        success: false,
+        message: '改弦更张每局只能使用2次，您已达到使用上限'
+      }
+    }
+
+    // 检查玩家状态：是否已经确认部署
+    const playerState = gameStore.playerStates[caster.name]
+    if (!playerState || !playerState.deploymentConfirmed) {
+      return {
+        success: false,
+        message: '只能在确认出战后使用改弦更张'
+      }
+    }
+
+    // 检查其他玩家是否还未确认（确保自己确认了但对手还没确认）
+    const otherPlayers = gameStore.players.filter(p => p.name !== caster.name)
+    const allOthersNotConfirmed = otherPlayers.every(p => {
+      const state = gameStore.playerStates[p.name]
+      return !state || !state.deploymentConfirmed
+    })
+
+    if (!allOthersNotConfirmed) {
+      return {
+        success: false,
+        message: '只能在对手确认出战前使用改弦更张'
+      }
+    }
+
+    // 金币检查和扣除
+    const goldCheck = checkAndDeductGold('改弦更张', caster, gameStore)
+    if (!goldCheck.success) {
+      return goldCheck
+    }
+
+    // 撤回部署：清除玩家状态
+    if (playerState) {
+      playerState.deploymentConfirmed = false
+      playerState.currentBattleCities = null
+      playerState.battleGoldSkill = null
+      playerState.activatedCitySkills = null
+    }
+
+    // 增加使用次数
+    gameStore.gaixiangengzhangUsed[caster.name] = usedCount + 1
+
+    // 记录使用次数（用于UI显示）
+    gameStore.recordSkillUsage(caster.name, '改弦更张')
+
+    // 双日志
+    addSkillUsageLog(
+      gameStore,
+      caster.name,
+      '改弦更张',
+      `${caster.name}使用改弦更张，撤回本回合出战部署，可以重新选择出战城市和技能`,
+      `${caster.name}使用了改弦更张`
+    )
+
+    return {
+      success: true,
+      message: '已撤回本回合部署，请重新选择出战城市和技能',
+      needsRedeployment: true  // 标记需要重新部署
+    }
+  }
+
+  /**
    * 连锁反应 - 造成2000伤害，若消灭则溅射1000→500
    */
   function executeLianSuoFanYing(caster, target, targetCity) {
@@ -2998,8 +3434,75 @@ export function useNonBattleSkills() {
 
     // 抢夺这些城市
     const capturedNames = []
+    const capturedIndices = targetCities.map(item => item.index).sort((a, b) => b - a) // 从大到小排序，方便从后往前删除
+
+    // 第一步：保存所有被抢夺城市的streak和changeFlagMark数据
+    const savedData = []
     for (const item of targetCities) {
-      const city = { ...item.city }
+      const savedStreak = (target.streaks && target.streaks[item.index]) || 0
+      const savedChangeFlagMark = (gameStore.changeFlagMark[target.name] && gameStore.changeFlagMark[target.name][item.index]) || null
+      savedData.push({
+        index: item.index,
+        city: { ...item.city },
+        streak: savedStreak,
+        changeFlagMark: savedChangeFlagMark
+      })
+    }
+
+    // 第二步：从target移除这些城市（从后往前删除，避免索引混乱）
+    for (const idx of capturedIndices) {
+      target.cities.splice(idx, 1)
+      if (gameStore.initialCities[target.name]) {
+        gameStore.initialCities[target.name].splice(idx, 1)
+      }
+    }
+
+    // 第三步：更新target的roster、streaks、changeFlagMark，修正所有索引
+    if (gameStore.roster[target.name]) {
+      gameStore.roster[target.name] = gameStore.roster[target.name]
+        .filter(idx => !capturedIndices.includes(idx))
+        .map(idx => {
+          let newIdx = idx
+          for (const capturedIdx of capturedIndices) {
+            if (idx > capturedIdx) newIdx--
+          }
+          return newIdx
+        })
+    }
+
+    if (target.streaks) {
+      const newStreaks = {}
+      Object.keys(target.streaks).forEach(idx => {
+        const numIdx = parseInt(idx)
+        if (!capturedIndices.includes(numIdx)) {
+          let newIdx = numIdx
+          for (const capturedIdx of capturedIndices) {
+            if (numIdx > capturedIdx) newIdx--
+          }
+          newStreaks[newIdx] = target.streaks[numIdx]
+        }
+      })
+      target.streaks = newStreaks
+    }
+
+    if (gameStore.changeFlagMark[target.name]) {
+      const newMarks = {}
+      Object.keys(gameStore.changeFlagMark[target.name]).forEach(idx => {
+        const numIdx = parseInt(idx)
+        if (!capturedIndices.includes(numIdx)) {
+          let newIdx = numIdx
+          for (const capturedIdx of capturedIndices) {
+            if (numIdx > capturedIdx) newIdx--
+          }
+          newMarks[newIdx] = gameStore.changeFlagMark[target.name][numIdx]
+        }
+      })
+      gameStore.changeFlagMark[target.name] = newMarks
+    }
+
+    // 第四步：将抢夺的城市添加到caster，并转移属性
+    for (const data of savedData) {
+      const city = data.city
       const newIdx = caster.cities.length
       caster.cities.push(city)
       capturedNames.push(city.name)
@@ -3008,32 +3511,22 @@ export function useNonBattleSkills() {
       if (!gameStore.initialCities[caster.name]) {
         gameStore.initialCities[caster.name] = []
       }
-      if (gameStore.initialCities[target.name] && gameStore.initialCities[target.name][item.index]) {
-        gameStore.initialCities[caster.name].push(gameStore.initialCities[target.name][item.index])
-      } else {
-        gameStore.initialCities[caster.name].push({ name: city.name, hp: city.hp })
+      gameStore.initialCities[caster.name].push({ name: city.name, hp: city.hp })
+
+      // 转移疲劳streak
+      if (!caster.streaks) caster.streaks = {}
+      caster.streaks[newIdx] = data.streak
+
+      // 转移changeFlagMark
+      if (data.changeFlagMark) {
+        if (!gameStore.changeFlagMark[caster.name]) gameStore.changeFlagMark[caster.name] = {}
+        gameStore.changeFlagMark[caster.name][newIdx] = { ...data.changeFlagMark }
       }
 
       // 标记城市为已知
       gameStore.setCityKnown(caster.name, newIdx, target.name)
 
-      // 将对手的城市标记为阵亡
-      target.cities[item.index].isAlive = false
-      target.cities[item.index].currentHp = 0
-
-      // 添加到deadCities列表
-      if (!gameStore.deadCities[target.name]) {
-        gameStore.deadCities[target.name] = []
-      }
-      if (!gameStore.deadCities[target.name].includes(item.index)) {
-        gameStore.deadCities[target.name].push(item.index)
-      }
-
-      // 清除技能等级
-      target.cities[item.index].red = 0
-      target.cities[item.index].green = 0
-      target.cities[item.index].blue = 0
-      target.cities[item.index].yellow = 0
+      // 注意：不再将对手的城市标记为阵亡，因为我们已经用splice删除了它们
     }
 
     // 如果caster城市数≤5，自动加入roster
@@ -3221,6 +3714,9 @@ export function useNonBattleSkills() {
     // 增加使用次数
     gameStore.jianbukecuiUsageCount[caster.name]++
 
+    // 记录使用次数（用于UI显示）
+    gameStore.recordSkillUsage(caster.name, '坚不可摧')
+
     // 设置冷却时间（5回合）
     if (!gameStore.cooldowns) {
       gameStore.cooldowns = {}
@@ -3310,6 +3806,9 @@ export function useNonBattleSkills() {
 
     // 增加使用次数
     gameStore.yihuajiemuUsageCount[caster.name]++
+
+    // 记录使用次数（用于UI显示）
+    gameStore.recordSkillUsage(caster.name, '移花接木')
 
     // 初始化stolenSkills结构（添加到gameStore状态中）
     if (!gameStore.stolenSkills) {
@@ -3581,6 +4080,35 @@ export function useNonBattleSkills() {
       const tempInitial = gameStore.initialCities[caster.name][myCityIdx]
       gameStore.initialCities[caster.name][myCityIdx] = gameStore.initialCities[target.name][oppCityIdx]
       gameStore.initialCities[target.name][oppCityIdx] = tempInitial
+    }
+
+    // 交换疲劳计数器（fatigue streaks）
+    if (!caster.streaks) caster.streaks = {}
+    if (!target.streaks) target.streaks = {}
+
+    const tempStreak = caster.streaks[myCityIdx] || 0
+    caster.streaks[myCityIdx] = target.streaks[oppCityIdx] || 0
+    target.streaks[oppCityIdx] = tempStreak
+
+    // 交换拔旗易帜标记（changeFlagMark）
+    if (!gameStore.changeFlagMark[caster.name]) gameStore.changeFlagMark[caster.name] = {}
+    if (!gameStore.changeFlagMark[target.name]) gameStore.changeFlagMark[target.name] = {}
+
+    const casterMark = gameStore.changeFlagMark[caster.name][myCityIdx]
+    const targetMark = gameStore.changeFlagMark[target.name][oppCityIdx]
+
+    if (casterMark || targetMark) {
+      if (targetMark) {
+        gameStore.changeFlagMark[caster.name][myCityIdx] = { ...targetMark }
+      } else {
+        delete gameStore.changeFlagMark[caster.name][myCityIdx]
+      }
+
+      if (casterMark) {
+        gameStore.changeFlagMark[target.name][oppCityIdx] = { ...casterMark }
+      } else {
+        delete gameStore.changeFlagMark[target.name][oppCityIdx]
+      }
     }
 
     // 标记城市为已知
@@ -4324,12 +4852,18 @@ export function useNonBattleSkills() {
         return { success: false, message: `存储库余额不足（当前${Math.floor(bankData.balance)}，需要${amount}）` }
       }
 
+      // 提取需要1金币
+      if (caster.gold < 1) {
+        return { success: false, message: '金币不足，提取需要1金币！' }
+      }
+      caster.gold -= 1
+
       // 提取指定HP
       selfCity.currentHp = (selfCity.currentHp || selfCity.hp) + amount
       bankData.balance -= amount
       bankData.hasWithdrawnThisRound = true
 
-      addSkillEffectLog(gameStore, `${caster.name}从存储库提取${amount}HP到${selfCity.name}，剩余余额：${Math.floor(bankData.balance)}`)
+      addSkillEffectLog(gameStore, `${caster.name}花费1金币从存储库提取${amount}HP到${selfCity.name}，剩余余额：${Math.floor(bankData.balance)}`)
 
       // 检查提取后余额是否低于2000（自动销毁）
       if (bankData.balance < 2000) {
@@ -4340,7 +4874,7 @@ export function useNonBattleSkills() {
 
       return {
         success: true,
-        message: `成功提取${amount}HP，存储库剩余：${Math.floor(bankData.balance)}`,
+        message: `成功提取${amount}HP（花费1金币），存储库剩余：${Math.floor(bankData.balance)}`,
         data: {
           withdrawn: amount,
           remaining: bankData.balance
@@ -4410,6 +4944,9 @@ export function useNonBattleSkills() {
 
     // 标记已使用
     gameStore.mirageUsageCount[caster.name] = true
+
+    // 记录使用次数（用于UI显示）
+    gameStore.recordSkillUsage(caster.name, '海市蜃楼')
 
     // 创建中心投影
     if (!gameStore.mirage) {
@@ -4588,8 +5125,18 @@ export function useNonBattleSkills() {
       return { success: false, message: '无法对HP为80000或100000的城市使用数位反转' }
     }
 
-    // 如果目标是对手城市，检查是否已知
-    if (targetPlayer.name !== caster.name) {
+    // 确定金币花费：对对手7金币，对己方10金币
+    const isOpponent = targetPlayer.name !== caster.name
+    const skillCost = isOpponent ? 7 : 10
+
+    // 如果目标是对手城市
+    if (isOpponent) {
+      // 检查是否为中心城市
+      if (targetCity.isCenter) {
+        return { success: false, message: '无法对对手中心城市使用数位反转' }
+      }
+
+      // 检查是否已知
       if (!gameStore.knownCities || !gameStore.knownCities[caster.name] ||
           !gameStore.knownCities[caster.name][targetPlayer.name] ||
           !gameStore.knownCities[caster.name][targetPlayer.name].includes(targetCityIdx)) {
@@ -4624,17 +5171,23 @@ export function useNonBattleSkills() {
       }
     }
 
-    // 金币检查和扣除
-    const goldCheck = checkAndDeductGold('数位反转', caster, gameStore)
-    if (!goldCheck.success) {
-      return goldCheck
+    // 金币检查和扣除（动态费用：对对手7金币，对己方10金币）
+    if (caster.gold < skillCost) {
+      return {
+        success: false,
+        message: `${caster.name} 金币不足（需要${skillCost}，当前${caster.gold}）`
+      }
     }
+    caster.gold -= skillCost
 
     // 增加使用次数
     if (!gameStore.shuweifanzhuanUsageCount[caster.name]) {
       gameStore.shuweifanzhuanUsageCount[caster.name] = 0
     }
     gameStore.shuweifanzhuanUsageCount[caster.name]++
+
+    // 记录使用次数（用于UI显示）
+    gameStore.recordSkillUsage(caster.name, '数位反转')
 
     // 反转HP数字（如果末位是0，反转后舍去 - parseInt自动处理前导0）
     const hpString = Math.floor(currentHp).toString()
@@ -4650,17 +5203,18 @@ export function useNonBattleSkills() {
     targetCity.currentHp = newHp
 
     // 双日志
+    const costMsg = isOpponent ? '花费7金币' : '花费10金币'
     addSkillUsageLog(
       gameStore,
       caster.name,
       '数位反转',
-      `${caster.name}对${targetPlayer.name}的${targetCity.name}使用了数位反转，HP从${Math.floor(currentHp)}变为${newHp}（每局限1次）`,
+      `${caster.name}对${targetPlayer.name}的${targetCity.name}使用了数位反转（${costMsg}），HP从${Math.floor(currentHp)}变为${newHp}（每局限1次）`,
       `${caster.name}使用了数位反转`
     )
 
     return {
       success: true,
-      message: `${targetCity.name}的HP已从${Math.floor(currentHp)}变为${newHp}`,
+      message: `${targetCity.name}的HP已从${Math.floor(currentHp)}变为${newHp}（花费${skillCost}金币）`,
       data: {
         oldHp: currentHp,
         newHp: newHp
@@ -4669,22 +5223,22 @@ export function useNonBattleSkills() {
   }
 
   /**
-   * 目不转睛 - 限制对手3回合内只能使用当机立断和无懈可击
+   * 寸步难行 - 限制对手3回合内只能使用当机立断和无懈可击
    */
-  function executeMuBuZhuanJing(caster, target) {
+  function executeChunBuNanXing(caster, target) {
     if (!target) {
       return { success: false, message: '未选择对手' }
     }
 
     // 检查坚不可摧护盾
-    if (gameStore.isBlockedByJianbukecui(target.name, caster.name, '目不转睛')) {
+    if (gameStore.isBlockedByJianbukecui(target.name, caster.name, '寸步难行')) {
       // 双日志
       addSkillUsageLog(
         gameStore,
         caster.name,
-        '目不转睛',
-        `${caster.name}使用目不转睛，但被${target.name}的坚不可摧护盾阻挡`,
-        `${caster.name}使用了目不转睛`
+        '寸步难行',
+        `${caster.name}使用寸步难行，但被${target.name}的坚不可摧护盾阻挡`,
+        `${caster.name}使用了寸步难行`
       )
       return {
         success: false,
@@ -4693,12 +5247,12 @@ export function useNonBattleSkills() {
     }
 
     // 金币检查和扣除
-    const goldCheck = checkAndDeductGold('目不转睛', caster, gameStore)
+    const goldCheck = checkAndDeductGold('寸步难行', caster, gameStore)
     if (!goldCheck.success) {
       return goldCheck
     }
 
-    // 初始化目不转睛状态
+    // 初始化寸步难行状态
     if (!gameStore.stareDown) {
       gameStore.stareDown = {}
     }
@@ -4712,9 +5266,9 @@ export function useNonBattleSkills() {
     addSkillUsageLog(
       gameStore,
       caster.name,
-      '了目不转睛',
-      `${caster.name}对${target.name}使用了目不转睛，${target.name}在接下来3回合内只能使用当机立断和无懈可击`,
-      `${caster.name}使用了了目不转睛`
+      '寸步难行',
+      `${caster.name}对${target.name}使用了寸步难行，${target.name}在接下来3回合内只能使用当机立断和无懈可击`,
+      `${caster.name}使用了寸步难行`
     )
 
     return {
@@ -5083,11 +5637,11 @@ export function useNonBattleSkills() {
       clearedEffects.push('电磁感应')
     }
 
-    // 3. 清除对方对我方使用的目不转睛
+    // 3. 清除对方对我方使用的寸步难行
     if (gameStore.stareDown && gameStore.stareDown[caster.name] &&
         gameStore.stareDown[caster.name].source === target.name) {
       delete gameStore.stareDown[caster.name]
-      clearedEffects.push('目不转睛')
+      clearedEffects.push('寸步难行')
     }
 
     // 4. 清除对方的定时爆破
@@ -5244,7 +5798,7 @@ export function useNonBattleSkills() {
       '借尸还魂': 4, '高级治疗': 4, '进制扭曲': 4, '整齐划一': 4, '苟延残喘': 4,
       '众志成城': 5, '清除加成': 5, '钢铁城市': 5, '时来运转': 5, '实力增强': 5, '城市试炼': 5, '人质交换': 5, '釜底抽薪': 5, '避而不见': 5, '劫富济贫': 5, '一触即发': 5, '技能保护': 5, '无中生有': 5, '代行省权': 5,
       '李代桃僵': 6, '天灾人祸': 6, '博学多才': 6, '城市预言': 6, '守望相助': 6, '血量存储': 6, '海市蜃楼': 6,
-      '提灯定损': 7, '好高骛远': 7, '目不转睛': 7, '连续打击': 7, '数位反转': 7, '倒反天罡': 7, '解除封锁': 7,
+      '一落千丈': 7, '好高骛远': 7, '寸步难行': 7, '连续打击': 7, '数位反转': 7, '倒反天罡': 7, '解除封锁': 7,
       '波涛汹涌': 8, '狂轰滥炸': 8, '横扫一空': 8, '万箭齐发': 8, '移花接木': 8, '连锁反应': 8, '招贤纳士': 8,
       '不露踪迹': 9, '降维打击': 9, '狐假虎威': 9, '过河拆桥': 9, '厚积薄发': 9,
       '深藏不露': 10, '定时爆破': 10,
@@ -5775,24 +6329,59 @@ export function useNonBattleSkills() {
     const stolenCity = { ...selected.city }
     const stolenCityName = stolenCity.name
     const stolenCityHp = stolenCity.currentHp || stolenCity.hp
+    const stolenCityIdx = selected.idx
+
+    // 保存原始疲劳streak和changeFlagMark数据（在移除之前）
+    const savedStreak = (target.streaks && target.streaks[stolenCityIdx]) || 0
+    const savedChangeFlagMark = (gameStore.changeFlagMark[target.name] && gameStore.changeFlagMark[target.name][stolenCityIdx]) || null
 
     // 从对手移除城市
-    target.cities.splice(selected.idx, 1)
+    target.cities.splice(stolenCityIdx, 1)
 
     // 同步移除initialCities
     if (gameStore.initialCities[target.name]) {
-      gameStore.initialCities[target.name].splice(selected.idx, 1)
+      gameStore.initialCities[target.name].splice(stolenCityIdx, 1)
     }
 
     // 更新对手的roster，修正索引
     if (gameStore.roster[target.name]) {
       gameStore.roster[target.name] = gameStore.roster[target.name]
-        .filter(idx => idx !== selected.idx)
-        .map(idx => idx > selected.idx ? idx - 1 : idx)
+        .filter(idx => idx !== stolenCityIdx)
+        .map(idx => idx > stolenCityIdx ? idx - 1 : idx)
+    }
+
+    // 更新对手的streaks，修正索引
+    if (target.streaks) {
+      const newStreaks = {}
+      Object.keys(target.streaks).forEach(idx => {
+        const numIdx = parseInt(idx)
+        if (numIdx < stolenCityIdx) {
+          newStreaks[numIdx] = target.streaks[numIdx]
+        } else if (numIdx > stolenCityIdx) {
+          newStreaks[numIdx - 1] = target.streaks[numIdx]
+        }
+        // numIdx === stolenCityIdx的情况被跳过（已被抢夺）
+      })
+      target.streaks = newStreaks
+    }
+
+    // 更新对手的changeFlagMark，修正索引
+    if (gameStore.changeFlagMark[target.name]) {
+      const newMarks = {}
+      Object.keys(gameStore.changeFlagMark[target.name]).forEach(idx => {
+        const numIdx = parseInt(idx)
+        if (numIdx < stolenCityIdx) {
+          newMarks[numIdx] = gameStore.changeFlagMark[target.name][numIdx]
+        } else if (numIdx > stolenCityIdx) {
+          newMarks[numIdx - 1] = gameStore.changeFlagMark[target.name][numIdx]
+        }
+        // numIdx === stolenCityIdx的情况被跳过（已被抢夺）
+      })
+      gameStore.changeFlagMark[target.name] = newMarks
     }
 
     // 更新centerIndex
-    if (target.centerIndex !== undefined && target.centerIndex > selected.idx) {
+    if (target.centerIndex !== undefined && target.centerIndex > stolenCityIdx) {
       target.centerIndex--
     }
 
@@ -5805,6 +6394,16 @@ export function useNonBattleSkills() {
       gameStore.initialCities[caster.name] = []
     }
     gameStore.initialCities[caster.name].push({ name: stolenCity.name, hp: stolenCity.baseHp || stolenCity.hp })
+
+    // 转移疲劳streak到新索引
+    if (!caster.streaks) caster.streaks = {}
+    caster.streaks[newIdx] = savedStreak
+
+    // 转移changeFlagMark到新索引
+    if (savedChangeFlagMark) {
+      if (!gameStore.changeFlagMark[caster.name]) gameStore.changeFlagMark[caster.name] = {}
+      gameStore.changeFlagMark[caster.name][newIdx] = { ...savedChangeFlagMark }
+    }
 
     // 如果总城市数量 <= 5，自动加入预备
     if (caster.cities.length <= 5) {
@@ -5924,6 +6523,10 @@ export function useNonBattleSkills() {
     const stolenCityName = stolenCity.name
     const stolenCityHp = stolenCity.currentHp || stolenCity.hp
 
+    // 保存原始疲劳streak和changeFlagMark数据（在移除之前）
+    const savedStreak = (target.streaks && target.streaks[cityIdx]) || 0
+    const savedChangeFlagMark = (gameStore.changeFlagMark[target.name] && gameStore.changeFlagMark[target.name][cityIdx]) || null
+
     // 从对手移除城市
     target.cities.splice(cityIdx, 1)
 
@@ -5937,6 +6540,36 @@ export function useNonBattleSkills() {
       gameStore.roster[target.name] = gameStore.roster[target.name]
         .filter(idx => idx !== cityIdx)
         .map(idx => idx > cityIdx ? idx - 1 : idx)
+    }
+
+    // 更新对手的streaks，修正索引
+    if (target.streaks) {
+      const newStreaks = {}
+      Object.keys(target.streaks).forEach(idx => {
+        const numIdx = parseInt(idx)
+        if (numIdx < cityIdx) {
+          newStreaks[numIdx] = target.streaks[numIdx]
+        } else if (numIdx > cityIdx) {
+          newStreaks[numIdx - 1] = target.streaks[numIdx]
+        }
+        // numIdx === cityIdx的情况被跳过（已被抢夺）
+      })
+      target.streaks = newStreaks
+    }
+
+    // 更新对手的changeFlagMark，修正索引
+    if (gameStore.changeFlagMark[target.name]) {
+      const newMarks = {}
+      Object.keys(gameStore.changeFlagMark[target.name]).forEach(idx => {
+        const numIdx = parseInt(idx)
+        if (numIdx < cityIdx) {
+          newMarks[numIdx] = gameStore.changeFlagMark[target.name][numIdx]
+        } else if (numIdx > cityIdx) {
+          newMarks[numIdx - 1] = gameStore.changeFlagMark[target.name][numIdx]
+        }
+        // numIdx === cityIdx的情况被跳过（已被抢夺）
+      })
+      gameStore.changeFlagMark[target.name] = newMarks
     }
 
     // 更新centerIndex
@@ -5953,6 +6586,16 @@ export function useNonBattleSkills() {
       gameStore.initialCities[caster.name] = []
     }
     gameStore.initialCities[caster.name].push({ name: stolenCity.name, hp: stolenCity.baseHp || stolenCity.hp })
+
+    // 转移疲劳streak到新索引
+    if (!caster.streaks) caster.streaks = {}
+    caster.streaks[newIdx] = savedStreak
+
+    // 转移changeFlagMark到新索引
+    if (savedChangeFlagMark) {
+      if (!gameStore.changeFlagMark[caster.name]) gameStore.changeFlagMark[caster.name] = {}
+      gameStore.changeFlagMark[caster.name][newIdx] = { ...savedChangeFlagMark }
+    }
 
     // 如果总城市数量 <= 5，自动加入预备
     if (caster.cities.length <= 5) {
@@ -7770,7 +8413,7 @@ export function useNonBattleSkills() {
     )
 
     // 记录技能使用追踪（用于冷却和次数限制）
-    gameStore.recordSkillUsageTracking(caster.name, '城市侦探')
+    gameStore.recordSkillUsage(caster.name, '城市侦探')
 
     // 记录技能使用（用于无懈可击拦截）
     gameStore.lastSkillUsed = {
@@ -7873,7 +8516,7 @@ export function useNonBattleSkills() {
     )
 
     // 记录技能使用追踪（用于次数限制）
-    gameStore.recordSkillUsageTracking(caster.name, '城市预言')
+    gameStore.recordSkillUsage(caster.name, '城市预言')
 
     return {
       success: true,
@@ -8071,7 +8714,7 @@ export function useNonBattleSkills() {
     )
 
     // 记录技能使用追踪（用于冷却和次数限制）
-    gameStore.recordSkillUsageTracking(caster.name, '明察秋毫')
+    gameStore.recordSkillUsage(caster.name, '明察秋毫')
 
     return {
       success: true,
@@ -8439,7 +9082,7 @@ export function useNonBattleSkills() {
       timestamp: Date.now()
     }
 
-    gameStore.recordSkillUsageTracking(caster.name, '四面楚歌')
+    gameStore.recordSkillUsage(caster.name, '四面楚歌')
 
     return {
       success: true,
@@ -8552,7 +9195,7 @@ export function useNonBattleSkills() {
       timestamp: Date.now()
     }
 
-    gameStore.recordSkillUsageTracking(caster.name, '博学多才')
+    gameStore.recordSkillUsage(caster.name, '博学多才')
 
     return {
       success: true,
@@ -8581,6 +9224,8 @@ export function useNonBattleSkills() {
     executeQingChuJiaCheng,
     executeShiLaiYunZhuan,
     executeXianShengDuoRen,
+    acceptPreemptiveStrike,      // 先声夺人：接受交换请求
+    rejectPreemptiveStrike,      // 先声夺人：拒绝交换请求
     executeJinBiDaiKuan,
     executeDingHaiShenZhen,
     executeHuanRanYiXin,
@@ -8592,7 +9237,7 @@ export function useNonBattleSkills() {
     executeHuJiaHuWei,
     executePaoZhuanYinYu,
     executeJinZhiNiuQu,
-    executeTiDengDingSun,
+    executeYiLuoQianZhang,
     executeLianXuDaJi,
     executeBoTaoXiongYong,
     executeKuangHongLanZha,
@@ -8603,6 +9248,7 @@ export function useNonBattleSkills() {
     executeDingShiBaoPo,
     executeYongJiuCuiHui,
     executeZhanLueZhuanYi,
+    executeGaiXianGengZhang,
     executeLianSuoFanYing,
     executeZhaoXianNaShi,
     executeWuXieKeJi,
@@ -8627,7 +9273,7 @@ export function useNonBattleSkills() {
     executeHaiShiShenLou,
     executeJieChuFengSuo,
     executeShuWeiFanZhuan,
-    executeMuBuZhuanJing,
+    executeChunBuNanXing,
     executeGuoHeChaiQiao,
     executeDianCiGanYing,
     // 第四批新增 - 状态控制类 (2024-12-28)

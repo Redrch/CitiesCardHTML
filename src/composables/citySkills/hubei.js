@@ -10,7 +10,6 @@ import {
   getCurrentHp,
   addShield,
   banCity,
-  getCityIndex
 } from './skillHelpers'
 import { handleZhenjiangSkill } from './jiangsu'
 
@@ -51,7 +50,7 @@ export function handleWuhanSkill(attacker, skillData, addPublicLog, gameStore) {
       yellow: 0
     }
 
-    attacker.cities.push(newCity)
+    attacker.cities[newCity.name] = newCity
     cityData.isUsed = true
 
     // 城市数≤5时自动加入roster
@@ -81,7 +80,7 @@ export function handleShiyanSkill(attacker, skillData, addPublicLog, gameStore) 
     appliedRound: gameStore.currentRound
   }
 
-  const centerCity = attacker.cities[attacker.centerIndex]
+  const centerCity = attacker.cities[attacker.centerCityName]
   addPublicLog(`${attacker.name}的${skillData.cityName}激活"武当山"，首都${centerCity?.name || '中心城市'}免除3回合的攻击！`)
   gameStore.recordSkillUsage(attacker.name, skillData.cityName)
 }
@@ -126,9 +125,9 @@ export function handleYichangSkill(attacker, skillData, addPublicLog, gameStore)
   if (aliveCities.length > 0) {
     const sorted = sortCitiesByHp(aliveCities)
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(attacker, targetCity)
+    const cityName = targetCity.name
 
-    addShield(gameStore, attacker.name, cityIndex, {
+    addShield(gameStore, attacker.name, cityName, {
       hp: 10000,
       roundsLeft: 5
     })
@@ -173,22 +172,22 @@ export function handleXianningSkill(attacker, defender, skillData, addPublicLog,
   const sorted = sortCitiesByHp(aliveCities).reverse()
   const city1 = sorted[0]
   const city2 = sorted[1]
-  const city1Index = getCityIndex(defender, city1)
-  const city2Index = getCityIndex(defender, city2)
+  const city1Index = getCityName(defender, city1)
+  const city2Index = getCityName(defender, city2)
 
   // 设置伤害共享状态
   if (!gameStore.damageShare) gameStore.damageShare = {}
   if (!gameStore.damageShare[defender.name]) gameStore.damageShare[defender.name] = {}
 
   gameStore.damageShare[defender.name][city1Index] = {
-    linkedCityIndex: city2Index,
+    linkedCityName: city2Index,
     shareRatio: 0.5,
     roundsLeft: 2,
     appliedRound: gameStore.currentRound
   }
 
   gameStore.damageShare[defender.name][city2Index] = {
-    linkedCityIndex: city1Index,
+    linkedCityName: city1Index,
     shareRatio: 0.5,
     roundsLeft: 2,
     appliedRound: gameStore.currentRound
@@ -240,9 +239,9 @@ export function handleTianmenSkill(attacker, skillData, addPublicLog, gameStore)
   if (eligibleCities.length > 0) {
     const sorted = sortCitiesByHp(eligibleCities)
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(attacker, targetCity)
+    const cityName = targetCity.name
 
-    banCity(gameStore, attacker.name, cityIndex, 2, {
+    banCity(gameStore, attacker.name, cityName, 2, {
       fullHealOnReturn: true,
       originalHp: getCurrentHp(targetCity)
     })
@@ -262,9 +261,9 @@ export function handleEnshiSkill(attacker, skillData, addPublicLog, gameStore) {
   if (aliveCities.length > 0) {
     const sorted = sortCitiesByHp(aliveCities)
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(attacker, targetCity)
+    const cityName = targetCity.name
 
-    addShield(gameStore, attacker.name, cityIndex, {
+    addShield(gameStore, attacker.name, cityName, {
       hp: 2000,
       roundsLeft: -1  // 永久护盾
     })
@@ -285,13 +284,13 @@ export function handleSuizhouSkill(attacker, skillData, addPublicLog, gameStore)
     // 选择HP最高的城市
     const sorted = sortCitiesByHp(aliveCities).reverse()
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(attacker, targetCity)
+    const cityName = targetCity.name
 
     // 设置临时攻击力翻倍
     if (!gameStore.temporaryAttackBoost) gameStore.temporaryAttackBoost = {}
     if (!gameStore.temporaryAttackBoost[attacker.name]) gameStore.temporaryAttackBoost[attacker.name] = {}
 
-    gameStore.temporaryAttackBoost[attacker.name][cityIndex] = {
+    gameStore.temporaryAttackBoost[attacker.name][cityName] = {
       multiplier: 2,
       roundsLeft: 2,
       appliedRound: gameStore.currentRound

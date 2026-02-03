@@ -7,14 +7,13 @@
 import {
   getAliveCities,
   getCurrentHp,
-  getCityIndex
 } from './skillHelpers'
 
 /**
  * 海口市 - 秀英炮台
  * 限2次，游戏开始5回合后对对方一座未知城市造成3000点伤害（冷却3回合）
  */
-export function handleHaikouSkill(player, skillData, addPublicLog, gameStore, targetPlayer = null, targetCityIndex = null) {
+export function handleHaikouSkill(player, skillData, addPublicLog, gameStore, targetPlayer = null, targetCityName = null) {
   // 检查游戏回合数
   if (gameStore.currentRound < 5) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"秀英炮台"，需要游戏开始5回合后！`)
@@ -30,12 +29,12 @@ export function handleHaikouSkill(player, skillData, addPublicLog, gameStore, ta
     return
   }
 
-  if (!targetPlayer || targetCityIndex === null) {
+  if (!targetPlayer || targetCityName === null) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"秀英炮台"，未指定目标！`)
     return
   }
 
-  const targetCity = targetPlayer.cities[targetCityIndex]
+  const targetCity = targetPlayer.cities[targetCityName]
   if (!targetCity || targetCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"秀英炮台"，目标城市无效或已阵亡！`)
     return
@@ -44,7 +43,7 @@ export function handleHaikouSkill(player, skillData, addPublicLog, gameStore, ta
   // 检查是否为未知城市（对己方来说）
   const isUnknown = !gameStore.knownCities || !gameStore.knownCities[player.name] ||
                     !gameStore.knownCities[player.name][targetPlayer.name] ||
-                    !gameStore.knownCities[player.name][targetPlayer.name].has(targetCityIndex)
+                    !gameStore.knownCities[player.name][targetPlayer.name].has(targetCityName)
 
   if (!isUnknown) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"秀英炮台"，目标城市不是未知城市！`)
@@ -84,7 +83,7 @@ export function handleHaikouSkill(player, skillData, addPublicLog, gameStore, ta
  * 三亚市 - 绚丽海滨
  * 限1次，己方3座城市HPx2（HP5000以下可使用）
  */
-export function handleSanyaSkill(player, skillData, addPublicLog, gameStore, selectedCityIndices = null) {
+export function handleSanyaSkill(player, skillData, addPublicLog, gameStore, selectedCityNames = null) {
   const aliveCities = getAliveCities(player)
 
   // 筛选HP低于5000的城市
@@ -97,8 +96,8 @@ export function handleSanyaSkill(player, skillData, addPublicLog, gameStore, sel
 
   // 选择城市（最多3座）
   let citiesToBuff
-  if (selectedCityIndices && Array.isArray(selectedCityIndices)) {
-    citiesToBuff = selectedCityIndices.map(idx => player.cities[idx]).filter(city => city && getCurrentHp(city) < 5000)
+  if (selectedCityNames && Array.isArray(selectedCityNames)) {
+    citiesToBuff = selectedCityNames.map(name => player.cities[name]).filter(city => city && getCurrentHp(city) < 5000)
   } else {
     // 默认选择HP最低的3座
     citiesToBuff = lowHpCities.sort((a, b) => getCurrentHp(a) - getCurrentHp(b)).slice(0, 3)
@@ -122,8 +121,8 @@ export function handleSanyaSkill(player, skillData, addPublicLog, gameStore, sel
  * 当己方中心第一次受到伤害时，所有伤害转移至该城市
  */
 export function handleSanshaSkill(player, skillData, addPublicLog, gameStore) {
-  const sanshaIndex = getCityIndex(player, skillData.cityName)
-  const sanshaCity = player.cities[sanshaIndex]
+  const sanshaName = skillData.cityName.name || skillData.cityName
+  const sanshaCity = player.cities[sanshaName]
 
   if (!sanshaCity || sanshaCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"南海守望"，城市已阵亡！`)
@@ -135,7 +134,7 @@ export function handleSanshaSkill(player, skillData, addPublicLog, gameStore) {
 
   gameStore.southSeaGuard[player.name] = {
     active: true,
-    cityIndex: sanshaIndex,
+    cityName: sanshaName,
     triggered: false,  // 是否已触发（只触发一次）
     appliedRound: gameStore.currentRound
   }
@@ -148,13 +147,13 @@ export function handleSanshaSkill(player, skillData, addPublicLog, gameStore) {
  * 琼海市 - 博鳌论坛
  * 限1次，选定对方一座HP低于5000的已知城市，将其HP与该城市互换
  */
-export function handleQionghaiSkill(player, skillData, addPublicLog, gameStore, targetPlayer = null, targetCityIndex = null) {
-  if (!targetPlayer || targetCityIndex === null) {
+export function handleQionghaiSkill(player, skillData, addPublicLog, gameStore, targetPlayer = null, targetCityName = null) {
+  if (!targetPlayer || targetCityName === null) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"博鳌论坛"，未指定目标！`)
     return
   }
 
-  const targetCity = targetPlayer.cities[targetCityIndex]
+  const targetCity = targetPlayer.cities[targetCityName]
   if (!targetCity || targetCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"博鳌论坛"，目标城市无效或已阵亡！`)
     return
@@ -169,15 +168,15 @@ export function handleQionghaiSkill(player, skillData, addPublicLog, gameStore, 
   // 检查是否为已知城市
   const isKnown = gameStore.knownCities && gameStore.knownCities[player.name] &&
                   gameStore.knownCities[player.name][targetPlayer.name] &&
-                  gameStore.knownCities[player.name][targetPlayer.name].has(targetCityIndex)
+                  gameStore.knownCities[player.name][targetPlayer.name].has(targetCityName)
 
   if (!isKnown) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"博鳌论坛"，目标城市不是已知城市！`)
     return
   }
 
-  const qionghaiIndex = getCityIndex(player, skillData.cityName)
-  const qionghaiCity = player.cities[qionghaiIndex]
+  const qionghaiName = skillData.cityName.name || skillData.cityName
+  const qionghaiCity = player.cities[qionghaiName]
 
   if (!qionghaiCity || qionghaiCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"博鳌论坛"，琼海市已阵亡！`)
@@ -229,13 +228,13 @@ export function handleWenchangSkill(player, skillData, addPublicLog, gameStore, 
  * 万宁市 - 神州半岛
  * 限1次，己方一座城市下场2回合，2回合后恢复至满血状态（HP5000以下可使用）
  */
-export function handleWanningSkill(player, skillData, addPublicLog, gameStore, selectedCityIndex = null) {
-  if (selectedCityIndex === null) {
+export function handleWanningSkill(player, skillData, addPublicLog, gameStore, selectedCityName = null) {
+  if (selectedCityName === null) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"神州半岛"，需要选择一座城市！`)
     return
   }
 
-  const targetCity = player.cities[selectedCityIndex]
+  const targetCity = player.cities[selectedCityName]
   if (!targetCity || targetCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"神州半岛"，目标城市无效或已阵亡！`)
     return
@@ -251,7 +250,7 @@ export function handleWanningSkill(player, skillData, addPublicLog, gameStore, s
   if (!gameStore.shenzhouPeninsula) gameStore.shenzhouPeninsula = {}
   if (!gameStore.shenzhouPeninsula[player.name]) gameStore.shenzhouPeninsula[player.name] = {}
 
-  gameStore.shenzhouPeninsula[player.name][selectedCityIndex] = {
+  gameStore.shenzhouPeninsula[player.name][selectedCityName] = {
     offFieldRounds: 2,
     returnRound: gameStore.currentRound + 2,
     fullHealOnReturn: true,
@@ -266,13 +265,13 @@ export function handleWanningSkill(player, skillData, addPublicLog, gameStore, s
  * 五指山市 - 五指山
  * 限1次，己方一座城市禁止出战3回合，3回合后HPx3（HP8000以下可使用）
  */
-export function handleWuzhishanSkill(player, skillData, addPublicLog, gameStore, selectedCityIndex = null) {
-  if (selectedCityIndex === null) {
+export function handleWuzhishanSkill(player, skillData, addPublicLog, gameStore, selectedCityName = null) {
+  if (selectedCityName === null) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"五指山"，需要选择一座城市！`)
     return
   }
 
-  const targetCity = player.cities[selectedCityIndex]
+  const targetCity = player.cities[selectedCityName]
   if (!targetCity || targetCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"五指山"，目标城市无效或已阵亡！`)
     return
@@ -288,7 +287,7 @@ export function handleWuzhishanSkill(player, skillData, addPublicLog, gameStore,
   if (!gameStore.wuzhiMountain) gameStore.wuzhiMountain = {}
   if (!gameStore.wuzhiMountain[player.name]) gameStore.wuzhiMountain[player.name] = {}
 
-  gameStore.wuzhiMountain[player.name][selectedCityIndex] = {
+  gameStore.wuzhiMountain[player.name][selectedCityName] = {
     bannedRounds: 3,
     returnRound: gameStore.currentRound + 3,
     hpMultiplier: 3,  // HP×3

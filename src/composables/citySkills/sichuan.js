@@ -40,8 +40,8 @@ export function handleChengduSkill(attacker, defender, skillData, addPublicLog, 
  */
 export function handleMianyangSkill(attacker, skillData, addPublicLog, gameStore) {
   // 此技能需要特殊UI支持，暂时给予固定加成（实际需要玩家输入诗歌）
-  const cityIndex = attacker.cities.findIndex(c => c.name === skillData.cityName)
-  const city = attacker.cities[cityIndex]
+  const cityName = skillData.cityName
+  const city = attacker.cities[cityName]
 
   if (!city) return
 
@@ -62,8 +62,8 @@ export function handleMianyangSkill(attacker, skillData, addPublicLog, gameStore
  * 限2次，派出自贡出战时，己方召唤2个「花灯」，生命值为当前自贡的生命值，对方的伤害会优先打在花灯上，每使一个花灯阵亡，可夺走对方一座HP低于1500的城市
  */
 export function handleZigongSkill(attacker, defender, skillData, addPublicLog, gameStore) {
-  const cityIndex = attacker.cities.findIndex(c => c.name === skillData.cityName)
-  const city = attacker.cities[cityIndex]
+  const cityName = skillData.cityName
+  const city = attacker.cities[cityName]
 
   if (!city) return
 
@@ -87,7 +87,7 @@ export function handleZigongSkill(attacker, defender, skillData, addPublicLog, g
  * 限1次，选定对方一座初始HP低于10000的城市恢复至初始HP并有50%概率归顺，若该技能没有归顺城市或该城市使用定海神针等可不被归顺的技能，则使己方金币+5
  */
 export function handleLuzhouSkill(attacker, defender, skillData, addPublicLog, gameStore) {
-  const eligibleCities = defender.cities.filter(city =>
+  const eligibleCities = Object.values(defender.cities).filter(city =>
     city.isAlive !== false && (city.initialHp || city.hp) < 10000
   )
 
@@ -108,13 +108,13 @@ export function handleLuzhouSkill(attacker, defender, skillData, addPublicLog, g
   // 50%概率归顺
   if (Math.random() < 0.5) {
     // 归顺成功
-    const cityIndex = defender.cities.indexOf(targetCity)
+    const cityName = defender.cities.indexOf(targetCity)
     targetCity.isAlive = false
     targetCity.currentHp = 0
     targetCity.hp = 0
 
     const surrenderedCity = { ...targetCity, currentHp: initialHp, hp: initialHp, isAlive: true }
-    attacker.cities.push(surrenderedCity)
+    attacker.cities[surrenderedCity.name] = surrenderedCity
 
     addPublicLog(`${attacker.name}的${skillData.cityName}激活"泸州老窖"，${targetCity.name}归顺成功！`)
   } else {
@@ -180,15 +180,15 @@ export function handleNeijiangSkill(attacker, skillData, addPublicLog, gameStore
  * 限1次，前3回合出战时对方对乐山市造成的伤害减少80%
  */
 export function handleLeshanSkill(attacker, skillData, addPublicLog, gameStore) {
-  const cityIndex = attacker.cities.findIndex(c => c.name === skillData.cityName)
+  const cityName = skillData.cityName
 
   if (!gameStore.damageReduction) gameStore.damageReduction = {}
   if (!gameStore.damageReduction[attacker.name]) gameStore.damageReduction[attacker.name] = {}
-  if (!gameStore.damageReduction[attacker.name][cityIndex]) {
-    gameStore.damageReduction[attacker.name][cityIndex] = {}
+  if (!gameStore.damageReduction[attacker.name][cityName]) {
+    gameStore.damageReduction[attacker.name][cityName] = {}
   }
 
-  gameStore.damageReduction[attacker.name][cityIndex].emeiDefense = {
+  gameStore.damageReduction[attacker.name][cityName].emeiDefense = {
     active: true,
     multiplier: 0.2,  // 减少80%伤害
     roundsLeft: 3,
@@ -221,7 +221,7 @@ export function handleZiyangSkill(attacker, defender, skillData, addPublicLog, g
  * 限1次，消耗自身50%血量恢复己方一座城市至50%初始HP
  */
 export function handleYibinSkill(attacker, skillData, addPublicLog, gameStore) {
-  const yibinCity = attacker.cities.find(c => c.name === skillData.cityName)
+  const yibinCity = Object.values(attacker.cities).find(c => c.name === skillData.cityName)
   if (!yibinCity) return
 
   const aliveCities = getAliveCities(attacker).filter(c => c.name !== skillData.cityName)
@@ -254,13 +254,13 @@ export function handleNanchongSkill(attacker, defender, skillData, addPublicLog,
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityIndex = defender.cities.indexOf(targetCity)
+  const cityName = defender.cities.indexOf(targetCity)
 
   // 限制治疗技能使用
   if (!gameStore.healingRestriction) gameStore.healingRestriction = {}
   if (!gameStore.healingRestriction[defender.name]) gameStore.healingRestriction[defender.name] = {}
 
-  gameStore.healingRestriction[defender.name][cityIndex] = {
+  gameStore.healingRestriction[defender.name][cityName] = {
     active: true,
     limitCount: 1,
     additionalCost: 3
@@ -275,12 +275,12 @@ export function handleNanchongSkill(attacker, defender, skillData, addPublicLog,
  * 限1次，出战时将己方出战城市换为随机一个HP前20（含香港）的城市，当对方对此城市释放技能时，将效果打在雅安市身上
  */
 export function handleYaanSkill(attacker, skillData, addPublicLog, gameStore) {
-  const cityIndex = attacker.cities.findIndex(c => c.name === skillData.cityName)
+  const cityName = skillData.cityName
 
   if (!gameStore.disguiseCity) gameStore.disguiseCity = {}
   gameStore.disguiseCity[attacker.name] = {
     active: true,
-    realCityIndex: cityIndex,
+    realCityIndex: cityName,
     roundsLeft: 1,
     appliedRound: gameStore.currentRound
   }
@@ -295,12 +295,12 @@ export function handleYaanSkill(attacker, skillData, addPublicLog, gameStore) {
  */
 export function handleAbaSkill(attacker, skillData, addPublicLog, gameStore) {
   // 被动技能：阵亡时触发
-  const cityIndex = attacker.cities.findIndex(c => c.name === skillData.cityName)
+  const cityName = skillData.cityName
 
   if (!gameStore.onDeathEffect) gameStore.onDeathEffect = {}
   if (!gameStore.onDeathEffect[attacker.name]) gameStore.onDeathEffect[attacker.name] = {}
 
-  gameStore.onDeathEffect[attacker.name][cityIndex] = {
+  gameStore.onDeathEffect[attacker.name][cityName] = {
     type: 'jiuzhaigou',
     healPercent: 0.5,
     removeDebuff: true
@@ -354,12 +354,12 @@ export function handleMeishanSkill(attacker, skillData, addPublicLog, gameStore)
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityIndex = attacker.cities.indexOf(targetCity)
+  const cityName = attacker.cities.indexOf(targetCity)
 
   if (!gameStore.literatiMark) gameStore.literatiMark = {}
   if (!gameStore.literatiMark[attacker.name]) gameStore.literatiMark[attacker.name] = {}
 
-  gameStore.literatiMark[attacker.name][cityIndex] = {
+  gameStore.literatiMark[attacker.name][cityName] = {
     active: true,
     damageThreshold: 20000,
     followUpDamage: 1000,

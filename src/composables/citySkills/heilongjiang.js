@@ -10,7 +10,6 @@ import {
   healCity,
   increaseMaxHp,
   addShield,
-  getCityIndex
 } from './skillHelpers'
 
 /**
@@ -30,7 +29,7 @@ export function handleHaerbinSkill(attacker, defender, skillData, addPublicLog, 
   if (!gameStore.skillFrozen[defender.name]) gameStore.skillFrozen[defender.name] = {}
 
   // 标记所有对方城市2回合内无法使用技能
-  defender.cities.forEach((city, idx) => {
+  Object.values(defender.cities).forEach((city, idx) => {
     if (city.isAlive !== false && getCurrentHp(city) > 0) {
       gameStore.skillFrozen[defender.name][idx] = {
         roundsLeft: 2,
@@ -48,18 +47,18 @@ export function handleHaerbinSkill(attacker, defender, skillData, addPublicLog, 
  * 限2次，出战时给己方中心城市一个持续3回合的2000HP护盾，对方伤害优先打在护盾上
  */
 export function handleQiqihaerSkill(attacker, skillData, addPublicLog, gameStore) {
-  if (attacker.centerIndex === undefined) {
+  if (attacker.centerCityName === undefined) {
     addPublicLog(`${attacker.name}的${skillData.cityName}无法激活"鹤城守护"，没有中心城市！`)
     return
   }
 
-  const centerCity = attacker.cities[attacker.centerIndex]
+  const centerCity = attacker.cities[attacker.centerCityName]
   if (!centerCity || centerCity.isAlive === false) {
     addPublicLog(`${attacker.name}的${skillData.cityName}无法激活"鹤城守护"，中心城市已阵亡！`)
     return
   }
 
-  addShield(gameStore, attacker.name, attacker.centerIndex, {
+  addShield(gameStore, attacker.name, attacker.centerCityName, {
     hp: 2000,
     roundsLeft: 3
   })
@@ -72,13 +71,13 @@ export function handleQiqihaerSkill(attacker, skillData, addPublicLog, gameStore
  * 牡丹江市 - 镜泊湖光（战斗技能）
  * 限1次，选定己方一座城市进入镜泊湖光状态3回合，期间受到伤害时有50%概率反弹20%伤害给攻击者
  */
-export function handleMudanjiangSkill(attacker, skillData, addPublicLog, gameStore, selectedCityIndex = null) {
-  let targetCity, cityIndex
+export function handleMudanjiangSkill(attacker, skillData, addPublicLog, gameStore, selectedCityName = null) {
+  let targetCity, cityName
 
-  if (selectedCityIndex !== null && selectedCityIndex !== undefined) {
+  if (selectedCityName !== null && selectedCityName !== undefined) {
     // 使用玩家选择的城市
-    targetCity = attacker.cities[selectedCityIndex]
-    cityIndex = selectedCityIndex
+    targetCity = attacker.cities[selectedCityName]
+    cityName = selectedCityIndex
   } else {
     // 默认行为：选择HP最低的城市
     const aliveCities = getAliveCities(attacker)
@@ -88,7 +87,7 @@ export function handleMudanjiangSkill(attacker, skillData, addPublicLog, gameSto
     }
     const sorted = [...aliveCities].sort((a, b) => getCurrentHp(a) - getCurrentHp(b))
     targetCity = sorted[0]
-    cityIndex = getCityIndex(attacker, targetCity)
+    cityName = getCityName(attacker, targetCity)
   }
 
   if (!targetCity || targetCity.isAlive === false) {
@@ -100,7 +99,7 @@ export function handleMudanjiangSkill(attacker, skillData, addPublicLog, gameSto
   if (!gameStore.mirrorLake) gameStore.mirrorLake = {}
   if (!gameStore.mirrorLake[attacker.name]) gameStore.mirrorLake[attacker.name] = {}
 
-  gameStore.mirrorLake[attacker.name][cityIndex] = {
+  gameStore.mirrorLake[attacker.name][cityName] = {
     roundsLeft: 3,
     reflectChance: 0.5,  // 50%概率
     reflectPercent: 0.2,  // 反弹20%伤害
@@ -137,12 +136,12 @@ export function handleJiamusSkill(attacker, skillData, addPublicLog, gameStore) 
  * 大庆市 - 石油之城（战斗技能）
  * 限2次，给己方2座城市+2000HP的护盾，接下来该城市出战时攻击力增加30%
  */
-export function handleDaqingSkill(attacker, skillData, addPublicLog, gameStore, selectedCityIndices = null) {
+export function handleDaqingSkill(attacker, skillData, addPublicLog, gameStore, selectedCityNames = null) {
   let citiesToBuff
 
-  if (selectedCityIndices && Array.isArray(selectedCityIndices)) {
+  if (selectedCityNames && Array.isArray(selectedCityNames)) {
     // 使用玩家选择的城市
-    citiesToBuff = selectedCityIndices.map(idx => ({ city: attacker.cities[idx], idx })).filter(item => item.city)
+    citiesToBuff = selectedCityNames.map(name => ({ city: attacker.cities[name], name })).filter(item => item.city)
   } else {
     // 默认行为：选择HP最高的2座城市
     const aliveCities = getAliveCities(attacker)
@@ -151,7 +150,7 @@ export function handleDaqingSkill(attacker, skillData, addPublicLog, gameStore, 
       return
     }
     const sorted = [...aliveCities].sort((a, b) => getCurrentHp(b) - getCurrentHp(a))
-    citiesToBuff = sorted.slice(0, 2).map(city => ({ city, idx: getCityIndex(attacker, city) }))
+    citiesToBuff = sorted.slice(0, 2).map(city => ({ city, idx: getCityName(attacker, city) }))
   }
 
   if (citiesToBuff.length === 0) {
@@ -198,13 +197,13 @@ export function handleYichunSkill(attacker, defender, skillData, addPublicLog, g
 
   // 随机选择一座城市
   const randomCity = defenderAliveCities[Math.floor(Math.random() * defenderAliveCities.length)]
-  const cityIndex = getCityIndex(defender, randomCity)
+  const cityName = randomCity.name
 
   // 初始化禁止攻击状态
   if (!gameStore.cannotAttack) gameStore.cannotAttack = {}
   if (!gameStore.cannotAttack[defender.name]) gameStore.cannotAttack[defender.name] = {}
 
-  gameStore.cannotAttack[defender.name][cityIndex] = {
+  gameStore.cannotAttack[defender.name][cityName] = {
     roundsLeft: 2,
     appliedRound: gameStore.currentRound
   }
@@ -219,9 +218,9 @@ export function handleYichunSkill(attacker, defender, skillData, addPublicLog, g
  */
 export function handleJixiSkill(attacker, skillData, addPublicLog, gameStore) {
   // 找到鸡西市在城市列表中的索引
-  const jixiIndex = attacker.cities.findIndex(c => c.name === '鸡西市')
+  const jixiName = attacker.cities.findName(c => c.name === '鸡西市')
 
-  if (jixiIndex === -1) {
+  if (jixiName === -1) {
     return
   }
 
@@ -229,7 +228,7 @@ export function handleJixiSkill(attacker, skillData, addPublicLog, gameStore) {
   if (!gameStore.tempAttackBoost) gameStore.tempAttackBoost = {}
   if (!gameStore.tempAttackBoost[attacker.name]) gameStore.tempAttackBoost[attacker.name] = {}
 
-  gameStore.tempAttackBoost[attacker.name][jixiIndex] = {
+  gameStore.tempAttackBoost[attacker.name][jixiName] = {
     bonusAttack: 2000,
     roundsLeft: 1,  // 仅本回合有效
     appliedRound: gameStore.currentRound
@@ -245,9 +244,9 @@ export function handleJixiSkill(attacker, skillData, addPublicLog, gameStore) {
  */
 export function handleShuangyashanSkill(attacker, skillData, addPublicLog, gameStore) {
   // 找到双鸭山市在城市列表中的索引
-  const cityIndex = attacker.cities.findIndex(c => c.name === '双鸭山市')
+  const cityName = attacker.cities.findName(c => c.name === '双鸭山市')
 
-  if (cityIndex === -1) {
+  if (cityName === -1) {
     return
   }
 
@@ -258,7 +257,7 @@ export function handleShuangyashanSkill(attacker, skillData, addPublicLog, gameS
   if (!gameStore.damageReduction) gameStore.damageReduction = {}
   if (!gameStore.damageReduction[attacker.name]) gameStore.damageReduction[attacker.name] = {}
 
-  gameStore.damageReduction[attacker.name][cityIndex] = {
+  gameStore.damageReduction[attacker.name][cityName] = {
     amount: blockAmount,
     roundsLeft: 1,  // 仅本回合有效
     appliedRound: gameStore.currentRound
@@ -305,13 +304,13 @@ export function handleQitaiheSkill(attacker, skillData, addPublicLog, gameStore)
 
   // 随机选择一座城市
   const randomCity = aliveCities[Math.floor(Math.random() * aliveCities.length)]
-  const cityIndex = getCityIndex(attacker, randomCity)
+  const cityName = randomCity.name
 
   // 初始化临时攻击力加成
   if (!gameStore.tempAttackBoost) gameStore.tempAttackBoost = {}
   if (!gameStore.tempAttackBoost[attacker.name]) gameStore.tempAttackBoost[attacker.name] = {}
 
-  gameStore.tempAttackBoost[attacker.name][cityIndex] = {
+  gameStore.tempAttackBoost[attacker.name][cityName] = {
     bonusAttack: 2000,
     roundsLeft: 1,  // 仅本回合有效
     appliedRound: gameStore.currentRound
@@ -325,13 +324,13 @@ export function handleQitaiheSkill(attacker, skillData, addPublicLog, gameStore)
  * 大兴安岭地区 - 林海雪原（非战斗技能/主动）
  * 限1次，选定己方一座城市隐身2回合，期间无法被攻击但也不能攻击对方
  */
-export function handleDaxinganlingSkill(attacker, skillData, addPublicLog, gameStore, selectedCityIndex = null) {
-  let targetCity, cityIndex
+export function handleDaxinganlingSkill(attacker, skillData, addPublicLog, gameStore, selectedCityName = null) {
+  let targetCity, cityName
 
-  if (selectedCityIndex !== null && selectedCityIndex !== undefined) {
+  if (selectedCityName !== null && selectedCityName !== undefined) {
     // 使用玩家选择的城市
-    targetCity = attacker.cities[selectedCityIndex]
-    cityIndex = selectedCityIndex
+    targetCity = attacker.cities[selectedCityName]
+    cityName = selectedCityIndex
   } else {
     // 默认行为：选择HP最高的城市
     const aliveCities = getAliveCities(attacker)
@@ -341,7 +340,7 @@ export function handleDaxinganlingSkill(attacker, skillData, addPublicLog, gameS
     }
     const sorted = [...aliveCities].sort((a, b) => getCurrentHp(b) - getCurrentHp(a))
     targetCity = sorted[0]
-    cityIndex = getCityIndex(attacker, targetCity)
+    cityName = getCityName(attacker, targetCity)
   }
 
   if (!targetCity || targetCity.isAlive === false) {
@@ -354,7 +353,7 @@ export function handleDaxinganlingSkill(attacker, skillData, addPublicLog, gameS
   if (!gameStore.forestSnow[attacker.name]) gameStore.forestSnow[attacker.name] = {}
 
   // 设置隐身状态
-  gameStore.forestSnow[attacker.name][cityIndex] = {
+  gameStore.forestSnow[attacker.name][cityName] = {
     roundsLeft: 2,
     appliedRound: gameStore.currentRound,
     cannotDeploy: true,  // 不能派出攻击
@@ -369,8 +368,8 @@ export function handleDaxinganlingSkill(attacker, skillData, addPublicLog, gameS
       if (gameStore.knownCities && gameStore.knownCities[attacker.name]) {
         if (gameStore.knownCities[attacker.name][player.name]) {
           const knownSet = gameStore.knownCities[attacker.name][player.name]
-          if (knownSet.has(cityIndex)) {
-            knownSet.delete(cityIndex)
+          if (knownSet.has(cityName)) {
+            knownSet.delete(cityName)
           }
         }
       }

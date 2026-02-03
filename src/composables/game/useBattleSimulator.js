@@ -11,13 +11,13 @@ import { useGameStore } from '../../stores/gameStore'
 /**
  * 计算城市战斗力（原版逻辑）
  * @param {Object} city - 城市对象
- * @param {number} cityIdx - 城市索引
+ * @param {string} cityName - 城市名称
  * @param {Object} player - 玩家对象
  * @param {Object} gameStore - 游戏状态
  * @returns {number} 战斗力
  */
-export function calculateCityPower(city, cityIdx, player, gameStore) {
-  console.log(`[calculateCityPower] 城市:${city?.name}, cityIdx:${cityIdx}, isAlive:${city?.isAlive}, currentHp:${city?.currentHp}, hp:${city?.hp}`)
+export function calculateCityPower(city, cityName, player, gameStore) {
+  console.log(`[calculateCityPower] 城市:${city?.name}, cityName:${cityName}, isAlive:${city?.isAlive}, currentHp:${city?.currentHp}, hp:${city?.hp}`)
 
   // 修复：显式检查 isAlive === false，而不是 !isAlive（避免undefined被当作false）
   if (city.isAlive === false) {
@@ -36,18 +36,17 @@ export function calculateCityPower(city, cityIdx, player, gameStore) {
   // === 战斗修饰符（按HTML版本citycard_web.html顺序） ===
 
   // 1. 中心城市：攻击力×2
-  const centerIdx = player.centerIndex ?? 0
-  if (cityIdx === centerIdx) {
+  if (cityName === player.centerCityName) {
     power *= 2
   }
 
   // 2. 副中心制：攻击力×1.5 (citycard_web.html lines 4641, 6994, 9179)
-  if (gameStore.subCenters && gameStore.subCenters[player.name] === cityIdx) {
+  if (gameStore.subCenters && gameStore.subCenters[player.name] === cityName) {
     power = Math.floor(power * 1.5)
   }
 
   // 3. 生于紫室：攻击力×2
-  if (gameStore.purpleChamber && gameStore.purpleChamber[player.name] === cityIdx) {
+  if (gameStore.purpleChamber && gameStore.purpleChamber[player.name] === cityName) {
     power *= 2
   }
 
@@ -67,12 +66,12 @@ export function calculateCityPower(city, cityIdx, player, gameStore) {
   }
 
   // 7. 天灾人祸：攻击力变为1
-  if (gameStore.disaster?.[player.name]?.[cityIdx]) {
+  if (gameStore.disaster?.[player.name]?.[cityName]) {
     power = 1
   }
 
   // 8. 厚积薄发：攻击力变为1
-  if (gameStore.hjbf?.[player.name]?.[cityIdx]) {
+  if (gameStore.hjbf?.[player.name]?.[cityName]) {
     power = 1
   }
 
@@ -335,15 +334,33 @@ export function calculateBattleResult(
   console.log('[calculateBattleResult] 攻击方:', attackerPlayer.name)
   console.log('[calculateBattleResult] attackerCities 长度:', attackerCities.length)
   attackerCities.forEach((city, i) => {
-    console.log(`  [${i}] name=${city.name}, cityIdx=${city.cityIdx}, hp=${city.hp}, currentHp=${city.currentHp}, isAlive=${city.isAlive}`)
+    console.log(`  [${i}] name=${city.name}, cityName=${city.cityName}, hp=${city.hp}, currentHp=${city.currentHp}, isAlive=${city.isAlive}`)
   })
+
+  // 检查是否有同省撤退或省会归顺事件
+  // 如果有，攻击力为0，不造成伤害
+  console.log('[calculateBattleResult] 检查specialEventThisRound:', gameStore.specialEventThisRound)
+  if (gameStore.specialEventThisRound) {
+    const event = gameStore.specialEventThisRound
+    console.log('[calculateBattleResult] 特殊事件类型:', event.type)
+    if (event.type === 'retreat' || event.type === 'surrender') {
+      console.log(`[calculateBattleResult] ✅ 检测到特殊事件: ${event.type}，攻击力设为0`)
+      return {
+        totalAttackPower: 0,
+        greenReduction: 0,
+        netDamage: 0,
+        destroyedCities: [],
+        damageDistribution: []
+      }
+    }
+  }
 
   // 计算总攻击力
   const totalAttackPower = attackerCities.reduce((sum, city) => {
-    // 使用城市对象中的 cityIdx 属性（已在调用时添加）
-    const realIdx = city.cityIdx
-    const power = calculateCityPower(city, realIdx, attackerPlayer, gameStore)
-    console.log(`  [calculateCityPower] ${city.name} (idx=${realIdx}): power=${power}`)
+    // 使用城市对象中的 cityName 属性
+    const cityName = city.cityName || city.name
+    const power = calculateCityPower(city, cityName, attackerPlayer, gameStore)
+    console.log(`  [calculateCityPower] ${city.name} (name=${cityName}): power=${power}`)
     return sum + power
   }, 0)
 

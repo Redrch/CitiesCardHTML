@@ -27,9 +27,6 @@
         </div>
         <div>
           <div>HP: {{ city.hp }}</div>
-          <div class="muted" style="font-size: 10px;">
-            战力: {{ calculateCityPower(city) }}
-          </div>
         </div>
         <div style="color: #f093fb; font-size: 12px; margin: 6px 0;">
           <template v-if="getCitySkill(city.name)">
@@ -78,7 +75,7 @@ const props = defineProps({
     type: String,
     default: '2P' // '2P', '3P', '2v2'
   },
-  centerIndex: {
+  centerCityName: {
     type: Number,
     default: null
   },
@@ -96,9 +93,9 @@ const rosterSize = props.mode === '2v2' ? 4 : 5
 
 // 如果有中心城市，自动添加到roster
 onMounted(() => {
-  if (props.centerIndex !== null && props.centerIndex !== undefined) {
-    if (!roster.value.includes(props.centerIndex)) {
-      roster.value.push(props.centerIndex)
+  if (props.centerCityName !== null && props.centerCityName !== undefined) {
+    if (!roster.value.includes(props.centerCityName)) {
+      roster.value.push(props.centerCityName)
       console.log('[Roster] 自动将中心城市添加到预备城市中')
       emit('roster-updated', roster.value)
     }
@@ -110,7 +107,7 @@ function toggleCity(idx) {
 
   if (position > -1) {
     // 如果这是中心城市，不允许取消选择
-    if (props.centerIndex === idx) {
+    if (props.centerCityName === idx) {
       showNotification('中心城市不能取消选择！', 'warning')
       return
     }
@@ -135,7 +132,7 @@ function confirmRoster() {
 }
 
 // 监听centerIndex变化
-watch(() => props.centerIndex, (newVal) => {
+watch(() => props.centerCityName, (newVal) => {
   if (newVal !== null && newVal !== undefined && !roster.value.includes(newVal)) {
     roster.value.push(newVal)
     emit('roster-updated', roster.value)
@@ -160,12 +157,6 @@ function getProvinceName(cityName) {
   return province.name
 }
 
-/**
- * 计算城市战力
- */
-function calculateCityPower(city) {
-  return city.hp
-}
 </script>
 
 <style scoped>

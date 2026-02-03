@@ -27,7 +27,7 @@ export function handleWuzhongSkill(attacker, skillData, addPublicLog, gameStore)
   }
 
   // 记录当前所有城市的技能
-  attacker.cities.forEach(city => {
+  Object.values(attacker.cities).forEach(city => {
     if (city.citySkill) {
       gameStore.bronzeGorge[attacker.name].originalSkills.push({
         cityName: city.name,

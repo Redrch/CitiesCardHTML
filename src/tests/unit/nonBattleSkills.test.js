@@ -482,7 +482,7 @@ describe('非战斗技能单元测试', () => {
     })
   })
 
-  describe('提灯定损 - executeTiDengDingSun', () => {
+  describe('一落千丈 - executeTiDengDingSun', () => {
     it('应该成功将城市HP降至1/3', () => {
       // 设置合理的初始金币
       caster.gold = 10

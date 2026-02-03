@@ -18,12 +18,12 @@ import {
  */
 export function handleLanzhouSkill(attacker, skillData, addPublicLog, gameStore) {
   // 被动技能：阵亡时触发
-  const cityIndex = attacker.cities.findIndex(c => c.name === skillData.cityName)
+  const cityName = skillData.cityName
 
   if (!gameStore.onDeathEffect) gameStore.onDeathEffect = {}
   if (!gameStore.onDeathEffect[attacker.name]) gameStore.onDeathEffect[attacker.name] = {}
 
-  gameStore.onDeathEffect[attacker.name][cityIndex] = {
+  gameStore.onDeathEffect[attacker.name][cityName] = {
     type: 'yellowRiverPearl',
     disableAttackersSkills: true,
     makeAttackersUntargetable: true,

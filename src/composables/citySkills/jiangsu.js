@@ -10,7 +10,6 @@ import {
   healCity,
   damageCity,
   addShield,
-  getCityIndex
 } from './skillHelpers'
 
 /**
@@ -23,9 +22,9 @@ export function handleNanjingSkill(attacker, skillData, addPublicLog, gameStore)
   if (aliveCities.length > 0) {
     const sorted = sortCitiesByHp(aliveCities)
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(attacker, targetCity)
+    const cityName = targetCity.name
 
-    addShield(gameStore, attacker.name, cityIndex, {
+    addShield(gameStore, attacker.name, cityName, {
       hp: 10000,
       roundsLeft: 3
     })
@@ -157,14 +156,14 @@ export function handleTaizhouSkill(attacker, skillData, addPublicLog, gameStore)
  * 出战时增加2000攻击力（被动触发）
  */
 export function handleSuqianSkill(attacker, skillData, addPublicLog, gameStore) {
-  const suqianIndex = getCityIndex(attacker, skillData.cityName)
+  const suqianName = skillData.cityName.name || skillData.cityName
 
   // 初始化临时攻击力增益系统
   if (!gameStore.tempAttackBoost) gameStore.tempAttackBoost = {}
   if (!gameStore.tempAttackBoost[attacker.name]) gameStore.tempAttackBoost[attacker.name] = {}
 
   // 为宿迁市添加2000攻击力
-  gameStore.tempAttackBoost[attacker.name][suqianIndex] = {
+  gameStore.tempAttackBoost[attacker.name][suqianName] = {
     bonus: 2000,
     roundsLeft: 1,
     appliedRound: gameStore.currentRound
@@ -184,9 +183,9 @@ export function handleWuxiSkill(attacker, skillData, addPublicLog, gameStore) {
   if (aliveCities.length > 0) {
     const sorted = sortCitiesByHp(aliveCities)
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(attacker, targetCity)
+    const cityName = targetCity.name
 
-    addShield(gameStore, attacker.name, cityIndex, {
+    addShield(gameStore, attacker.name, cityName, {
       hp: 5000,  // 给一个基础护盾
       roundsLeft: 3,
       extra: {
@@ -210,13 +209,13 @@ export function handleNantongSkill(attacker, defender, skillData, addPublicLog, 
     // 选择对方HP最高的城市
     const sorted = sortCitiesByHp(aliveCities).reverse()
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(defender, targetCity)
+    const cityName = targetCity.name
 
     // 初始化强制出战系统
     if (!gameStore.forcedDeploy) gameStore.forcedDeploy = {}
     if (!gameStore.forcedDeploy[defender.name]) gameStore.forcedDeploy[defender.name] = {}
 
-    gameStore.forcedDeploy[defender.name][cityIndex] = {
+    gameStore.forcedDeploy[defender.name][cityName] = {
       roundsLeft: 2,
       appliedRound: gameStore.currentRound,
       fatigued: true  // 疲劳状态
@@ -240,13 +239,13 @@ export function handleLianyungangSkill(attacker, skillData, addPublicLog, gameSt
   if (eligibleCities.length > 0) {
     const sorted = sortCitiesByHp(eligibleCities)
     const targetCity = sorted[0]
-    const cityIndex = getCityIndex(attacker, targetCity)
+    const cityName = targetCity.name
 
     // 使用延迟效果系统
     if (!gameStore.delayedEffects) gameStore.delayedEffects = {}
     if (!gameStore.delayedEffects[attacker.name]) gameStore.delayedEffects[attacker.name] = {}
 
-    gameStore.delayedEffects[attacker.name][cityIndex] = {
+    gameStore.delayedEffects[attacker.name][cityName] = {
       type: 'huaguoshan',
       effectRoundsLeft: 2,
       effectData: {

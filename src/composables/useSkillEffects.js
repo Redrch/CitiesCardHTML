@@ -146,7 +146,7 @@ export function useSkillEffects() {
         case '进制扭曲':
           return nonBattleSkills.executeJinZhiNiuQu(caster, target, targetCity)
 
-        case '提灯定损':
+        case '一落千丈':
           return nonBattleSkills.executeTiDengDingSun(caster, target, targetCity)
 
         case '连续打击':

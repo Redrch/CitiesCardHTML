@@ -71,7 +71,7 @@
                   <span class="badge">{{ player.gold }} 金币</span>
                 </div>
                 <div class="muted" style="margin-top: 4px;">
-                  城市: {{ getAliveCities(player).length }}/{{ player.cities.length }}
+                  城市: {{ getAliveCities(player).length }}/{{ Object.keys(player.cities).length }}
                   | HP总和: {{ getTotalHp(player) }}
                 </div>
                 <div style="margin-top: 8px; display: flex; gap: 4px;">
@@ -243,7 +243,7 @@ function initGame() {
 
   // 初始化城市对象
   players.value.forEach(player => {
-    player.cities = player.cities.map(city => initializeCityObject(city))
+    player.cities = Object.values(player.cities).map(city => initializeCityObject(city))
   })
 
   gameStarted.value = true
@@ -280,7 +280,7 @@ function executeBattle() {
 }
 
 function getAliveCities(player) {
-  return player.cities.filter(c => c.isAlive !== false)
+  return Object.values(player.cities).filter(c => c.isAlive !== false)
 }
 
 function getTotalHp(player) {

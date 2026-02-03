@@ -7,7 +7,6 @@
 import {
   getAliveCities,
   getCurrentHp,
-  getCityIndex
 } from './skillHelpers'
 
 /**
@@ -15,8 +14,8 @@ import {
  * 限1次，该城市出战的前三回合消灭对方n个城市，新HP为原始HPxn
  */
 export function handleNanchangSkill(player, skillData, addPublicLog, gameStore) {
-  const nanchangIndex = getCityIndex(player, skillData.cityName)
-  const nanchangCity = player.cities[nanchangIndex]
+  const nanchangName = skillData.cityName.name || skillData.cityName
+  const nanchangCity = player.cities[nanchangName]
 
   if (!nanchangCity || nanchangCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"八一记忆"，城市已阵亡！`)
@@ -28,7 +27,7 @@ export function handleNanchangSkill(player, skillData, addPublicLog, gameStore) 
 
   gameStore.bayiMemory[player.name] = {
     active: true,
-    cityIndex: nanchangIndex,
+    cityName: nanchangName,
     initialHp: nanchangCity.hp,
     roundsTracked: 3,  // 跟踪前3回合
     startRound: gameStore.currentRound,
@@ -45,9 +44,9 @@ export function handleNanchangSkill(player, skillData, addPublicLog, gameStore) 
  * 限1次，己方中心HP若不满初始HP的一半，可选择己方阵营中的另一座城市作为新中心，
  * HPx2，原中心不淘汰且HP增加50%
  */
-export function handleGanzhouSkill(player, skillData, addPublicLog, gameStore, newCenterIndex = null) {
-  const centerIndex = player.centerIndex || 0
-  const centerCity = player.cities[centerIndex]
+export function handleGanzhouSkill(player, skillData, addPublicLog, gameStore, newCenterName = null) {
+  const centerCityName = player.centerCityName || 0
+  const centerCity = player.cities[centerCityName]
 
   if (!centerCity) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"长征伊始"，中心城市不存在！`)
@@ -61,12 +60,12 @@ export function handleGanzhouSkill(player, skillData, addPublicLog, gameStore, n
     return
   }
 
-  if (newCenterIndex === null || newCenterIndex === centerIndex) {
+  if (newCenterName === null || newCenterName === centerCityName) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"长征伊始"，需要选择另一座城市作为新中心！`)
     return
   }
 
-  const newCenterCity = player.cities[newCenterIndex]
+  const newCenterCity = player.cities[newCenterName]
   if (!newCenterCity || newCenterCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"长征伊始"，目标城市无效或已阵亡！`)
     return
@@ -82,7 +81,7 @@ export function handleGanzhouSkill(player, skillData, addPublicLog, gameStore, n
   newCenterCity.hp = newCenterCity.hp * 2
 
   // 更新中心索引
-  player.centerIndex = newCenterIndex
+  player.centerCityName = newCenterIndex
 
   addPublicLog(`${player.name}的${skillData.cityName}激活"长征伊始"，${centerCity.name}（原中心）HP增加50%（${Math.floor(oldCenterHp)} → ${Math.floor(centerCity.currentHp)}），${newCenterCity.name}成为新中心且HP×2（${Math.floor(oldNewCenterHp)} → ${Math.floor(newCenterCity.currentHp)}）！`)
   gameStore.recordSkillUsage(player.name, skillData.cityName)
@@ -92,13 +91,13 @@ export function handleGanzhouSkill(player, skillData, addPublicLog, gameStore, n
  * 宜春市 - 明月山
  * 限1次，己方一座城市禁止出战2回合，2回合后恢复至初始HP（HP8000以下可使用）
  */
-export function handleYichunSkill(player, skillData, addPublicLog, gameStore, selectedCityIndex = null) {
-  if (selectedCityIndex === null) {
+export function handleYichunSkill(player, skillData, addPublicLog, gameStore, selectedCityName = null) {
+  if (selectedCityName === null) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"明月山"，需要选择一座城市！`)
     return
   }
 
-  const targetCity = player.cities[selectedCityIndex]
+  const targetCity = player.cities[selectedCityName]
   if (!targetCity || targetCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"明月山"，目标城市无效或已阵亡！`)
     return
@@ -114,7 +113,7 @@ export function handleYichunSkill(player, skillData, addPublicLog, gameStore, se
   if (!gameStore.mingyueMountain) gameStore.mingyueMountain = {}
   if (!gameStore.mingyueMountain[player.name]) gameStore.mingyueMountain[player.name] = {}
 
-  gameStore.mingyueMountain[player.name][selectedCityIndex] = {
+  gameStore.mingyueMountain[player.name][selectedCityName] = {
     offFieldRounds: 2,
     returnRound: gameStore.currentRound + 2,
     restoreToInitialHp: true,
@@ -133,8 +132,8 @@ export function handleYichunSkill(player, skillData, addPublicLog, gameStore, se
  * 3回合结束后若未阵亡则HP恢复至初始HP且HPx3
  */
 export function handleJianSkill(player, skillData, addPublicLog, gameStore) {
-  const jianIndex = getCityIndex(player, skillData.cityName)
-  const jianCity = player.cities[jianIndex]
+  const jianName = skillData.cityName.name || skillData.cityName
+  const jianCity = player.cities[jianName]
 
   if (!jianCity || jianCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"井冈山"，城市已阵亡！`)
@@ -149,7 +148,7 @@ export function handleJianSkill(player, skillData, addPublicLog, gameStore) {
 
   gameStore.jinggangMountain[player.name] = {
     active: true,
-    cityIndex: jianIndex,
+    cityName: jianName,
     roundsLeft: 3,
     damagePerRound: Math.floor(jianHp * 0.5),  // 50% HP伤害
     overflowDamagePercent: 0.1,  // 承受10%溢出伤害
@@ -177,7 +176,7 @@ export function handleShangraoSkill(player, skillData, addPublicLog, gameStore, 
   }
 
   const validTargets = targetCityIndices.filter(idx => {
-    const city = targetPlayer.cities[idx]
+    const city = targetPlayer.cities[cityName]
     return city && city.isAlive !== false
   })
 
@@ -191,7 +190,7 @@ export function handleShangraoSkill(player, skillData, addPublicLog, gameStore, 
   const damagedCities = []
 
   validTargets.forEach(idx => {
-    const city = targetPlayer.cities[idx]
+    const city = targetPlayer.cities[cityName]
     const oldHp = city.currentHp
     city.currentHp -= 3000
 
@@ -211,7 +210,7 @@ export function handleShangraoSkill(player, skillData, addPublicLog, gameStore, 
     const extraDamage = 1000 * killCount
 
     damagedCities.forEach(idx => {
-      const city = targetPlayer.cities[idx]
+      const city = targetPlayer.cities[cityName]
       const oldHp = city.currentHp
       city.currentHp -= extraDamage
 
@@ -234,10 +233,10 @@ export function handleShangraoSkill(player, skillData, addPublicLog, gameStore, 
  * 选定一座非中心城市，给它一个HP为省内最低城市HP的护盾，对方攻击优先打在护盾上
  * （直辖市和特别行政区无法使用）
  */
-export function handleJiujiangSkill(player, skillData, addPublicLog, gameStore, selectedCityIndex = null) {
+export function handleJiujiangSkill(player, skillData, addPublicLog, gameStore, selectedCityName = null) {
   // 检查是否为直辖市或特别行政区
-  const jiujiangIndex = getCityIndex(player, skillData.cityName)
-  const jiujiangCity = player.cities[jiujiangIndex]
+  const jiujiangName = skillData.cityName.name || skillData.cityName
+  const jiujiangCity = player.cities[jiujiangName]
 
   if (!jiujiangCity) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"庐山胜境"，城市不存在！`)
@@ -252,26 +251,26 @@ export function handleJiujiangSkill(player, skillData, addPublicLog, gameStore, 
     return
   }
 
-  if (selectedCityIndex === null) {
+  if (selectedCityName === null) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"庐山胜境"，需要选择一座城市！`)
     return
   }
 
   // 检查目标城市是否为中心城市
-  const centerIndex = player.centerIndex || 0
-  if (selectedCityIndex === centerIndex) {
+  const centerCityName = player.centerCityName || 0
+  if (selectedCityName === centerCityName) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"庐山胜境"，不能选择中心城市！`)
     return
   }
 
-  const targetCity = player.cities[selectedCityIndex]
+  const targetCity = player.cities[selectedCityName]
   if (!targetCity || targetCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"庐山胜境"，目标城市无效或已阵亡！`)
     return
   }
 
   // 获取省内所有城市
-  const provinceCities = player.cities.filter(city => {
+  const provinceCities = Object.values(player.cities).filter(city => {
     return city.province === province && city.isAlive !== false
   })
 
@@ -287,7 +286,7 @@ export function handleJiujiangSkill(player, skillData, addPublicLog, gameStore, 
   if (!gameStore.lushanShield) gameStore.lushanShield = {}
   if (!gameStore.lushanShield[player.name]) gameStore.lushanShield[player.name] = {}
 
-  gameStore.lushanShield[player.name][selectedCityIndex] = {
+  gameStore.lushanShield[player.name][selectedCityName] = {
     shieldHp: lowestHp,
     appliedRound: gameStore.currentRound
   }

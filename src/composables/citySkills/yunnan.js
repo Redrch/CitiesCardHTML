@@ -19,12 +19,12 @@ import {
  * 限1次，该城市出战时最多扣除自身50%HP
  */
 export function handleKunmingSkill(attacker, skillData, addPublicLog, gameStore) {
-  const cityIndex = attacker.cities.findIndex(c => c.name === skillData.cityName)
+  const cityName = skillData.cityName
 
   if (!gameStore.hpLossLimit) gameStore.hpLossLimit = {}
   if (!gameStore.hpLossLimit[attacker.name]) gameStore.hpLossLimit[attacker.name] = {}
 
-  gameStore.hpLossLimit[attacker.name][cityIndex] = {
+  gameStore.hpLossLimit[attacker.name][cityName] = {
     active: true,
     maxLossPercent: 0.5,
     appliedRound: gameStore.currentRound
@@ -52,11 +52,11 @@ export function handleQujingSkill(attacker, skillData, addPublicLog, gameStore) 
   targetCity.currentHp = newHp
   targetCity.hp = newHp
 
-  const cityIndex = attacker.cities.indexOf(targetCity)
+  const cityName = attacker.cities.indexOf(targetCity)
   if (!gameStore.temporaryHpBoost) gameStore.temporaryHpBoost = {}
   if (!gameStore.temporaryHpBoost[attacker.name]) gameStore.temporaryHpBoost[attacker.name] = {}
 
-  gameStore.temporaryHpBoost[attacker.name][cityIndex] = {
+  gameStore.temporaryHpBoost[attacker.name][cityName] = {
     active: true,
     multiplier: 2,
     roundsLeft: 2,
@@ -76,7 +76,7 @@ export function handleYuxiSkill(attacker, skillData, addPublicLog, gameStore) {
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityIndex = attacker.cities.indexOf(targetCity)
+  const cityName = attacker.cities.indexOf(targetCity)
 
   addCityShield(targetCity, 5000, 3)
 
@@ -93,13 +93,13 @@ export function handleBaoshanSkill(attacker, skillData, addPublicLog, gameStore)
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityIndex = attacker.cities.indexOf(targetCity)
+  const cityName = attacker.cities.indexOf(targetCity)
 
   // 解除疲劳
   if (!gameStore.fatigueRemoval) gameStore.fatigueRemoval = {}
   if (!gameStore.fatigueRemoval[attacker.name]) gameStore.fatigueRemoval[attacker.name] = {}
 
-  gameStore.fatigueRemoval[attacker.name][cityIndex] = {
+  gameStore.fatigueRemoval[attacker.name][cityName] = {
     active: true,
     appliedRound: gameStore.currentRound
   }
@@ -117,7 +117,7 @@ export function handleZhaotongSkill(attacker, skillData, addPublicLog, gameStore
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const zhaotongCity = attacker.cities.find(c => c.name === skillData.cityName)
+  const zhaotongCity = Object.values(attacker.cities).find(c => c.name === skillData.cityName)
 
   if (zhaotongCity) {
     const zhaotongHp = getCurrentHp(zhaotongCity)
@@ -141,8 +141,8 @@ export function handleZhaotongSkill(attacker, skillData, addPublicLog, gameStore
  * 限2次，使己方中心城市获得1200HP护盾
  */
 export function handleLijiangSkill(attacker, skillData, addPublicLog, gameStore) {
-  const centerIndex = attacker.centerIndex ?? 0
-  const centerCity = attacker.cities[centerIndex]
+  const centerCityName = attacker.centerCityName ?? 0
+  const centerCity = attacker.cities[centerCityName]
 
   if (!centerCity) return
 
@@ -189,7 +189,7 @@ export function handleLinchangSkill(attacker, skillData, addPublicLog, gameStore
  * 限1次，完整复活己方一座HP低于13000的城市，城市专属技能不刷新
  */
 export function handleChuxiongSkill(attacker, skillData, addPublicLog, gameStore) {
-  const deadCities = attacker.cities.filter(city =>
+  const deadCities = Object.values(attacker.cities).filter(city =>
     city.isAlive === false &&
     (city.initialHp || city.hp) < 13000
   )
@@ -273,7 +273,7 @@ export function handleXishuangbannaSkill(attacker, skillData, addPublicLog, game
  * 限1次，使己方一座初始HP低于9000的城市恢复至初始HP且攻击力增加50%，但大理州和该城市禁止出战2回合
  */
 export function handleDaliSkill(attacker, skillData, addPublicLog, gameStore) {
-  const eligibleCities = attacker.cities.filter(city =>
+  const eligibleCities = Object.values(attacker.cities).filter(city =>
     city.isAlive !== false &&
     city.name !== skillData.cityName &&
     (city.initialHp || city.hp) < 9000
@@ -291,7 +291,7 @@ export function handleDaliSkill(attacker, skillData, addPublicLog, gameStore) {
   targetCity.hp = initialHp
 
   const targetIndex = attacker.cities.indexOf(targetCity)
-  const daliIndex = attacker.cities.findIndex(c => c.name === skillData.cityName)
+  const daliName = skillData.cityName
 
   // 禁止出战2回合
   if (!gameStore.battleBanned) gameStore.battleBanned = {}
@@ -328,14 +328,14 @@ export function handleDaliSkill(attacker, skillData, addPublicLog, gameStore) {
  * 中心城市受到的技能伤害全部转移至该城市，并且不溢出（被动触发）
  */
 export function handleNujiangSkill(attacker, skillData, addPublicLog, gameStore) {
-  const cityIndex = attacker.cities.findIndex(c => c.name === skillData.cityName)
+  const cityName = skillData.cityName
 
   if (!gameStore.damageTransfer) gameStore.damageTransfer = {}
   if (!gameStore.damageTransfer[attacker.name]) gameStore.damageTransfer[attacker.name] = {}
 
   gameStore.damageTransfer[attacker.name].nujiang = {
     active: true,
-    transferTo: cityIndex,
+    transferTo: cityName,
     noOverflow: true,
     onlySkillDamage: true,
     targetCenter: true
@@ -349,12 +349,12 @@ export function handleNujiangSkill(attacker, skillData, addPublicLog, gameStore)
  * 限1次，该城市战斗预备时随机变为一个HP10000以上20000以下的城市出战并发起攻击，之后迪庆州还原
  */
 export function handleDiqingSkill(attacker, skillData, addPublicLog, gameStore) {
-  const cityIndex = attacker.cities.findIndex(c => c.name === skillData.cityName)
+  const cityName = skillData.cityName
 
   if (!gameStore.disguiseTransform) gameStore.disguiseTransform = {}
   gameStore.disguiseTransform[attacker.name] = {
     active: true,
-    originalCityIndex: cityIndex,
+    originalCityIndex: cityName,
     hpRange: { min: 10000, max: 20000 },
     transformAttack: true,
     roundsLeft: 1,

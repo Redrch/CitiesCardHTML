@@ -196,7 +196,6 @@
           <div v-else class="city-summary">
             <div class="muted" style="font-size: 11px;">
               HP: {{ city.currentHp || city.hp }}/{{ city.hp }}
-              | 战力: {{ calculateCityPower(city) }}
             </div>
             <div style="margin-top: 4px;">
               <span class="badge">红{{ city.red || 0 }}</span>
@@ -222,7 +221,6 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { calculateCityPower } from '../../utils/cityHelpers'
 
 const props = defineProps({
   players: {

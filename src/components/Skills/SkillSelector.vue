@@ -56,118 +56,126 @@
       </div>
     </div>
 
-    <div v-if="selectedSkill" class="skill-detail">
-      <h4>{{ selectedSkill.name }}</h4>
-      <p class="detail-description">{{ selectedSkill.detailedDescription }}</p>
+    <!-- 目标选择区域（中间位置） -->
+    <div v-if="selectedSkill" class="target-selection-section">
+      <h3 class="section-title">{{ selectedSkill.name }} - 目标选择</h3>
 
-      <div class="skill-params">
-        <div v-if="selectedSkill.requiresTarget" class="param-group">
-          <label>选择目标玩家:</label>
-          <select v-model="targetPlayer">
-            <option value="">-- 请选择 --</option>
-            <option
-              v-for="player in opponents"
-              :key="player.name"
-              :value="player.name"
-            >
-              {{ player.name }} (金币: {{ player.gold }})
-            </option>
-          </select>
-        </div>
-
-        <div v-if="selectedSkill.requiresSelfCity" class="param-group">
-          <label>选择己方城市:</label>
-          <select v-model="selfCity">
-            <option value="">-- 请选择 --</option>
-            <option
-              v-for="(city, idx) in props.currentPlayer.cities"
-              :key="idx"
-              :value="idx"
-              :disabled="city.isAlive === false"
-            >
-              {{ city.name }} (HP: {{ Math.floor(city.currentHp || city.hp) }})
-            </option>
-          </select>
-        </div>
-
-        <div v-if="selectedSkill.requiresTargetCity" class="param-group">
-          <label>选择目标城市:</label>
-          <select v-model="targetCity">
-            <option value="">-- 请选择 --</option>
-            <option
-              v-for="item in getTargetCities()"
-              :key="item.originalIndex"
-              :value="item.originalIndex"
-              :disabled="item.city.isAlive === false"
-            >
-              {{ item.city.name }} (HP: {{ Math.floor(item.city.currentHp || item.city.hp) }})
-            </option>
-          </select>
-        </div>
-
-        <div v-if="selectedSkill.requiresMultipleSelfCities" class="param-group">
-          <label>选择己方城市（{{ selectedSelfCities.length }} / {{ selectedSkill.targetCount }}）:</label>
-          <div class="city-multi-select">
-            <div
-              v-for="(city, idx) in props.currentPlayer.cities"
-              :key="idx"
-              :class="[
-                'city-checkbox-item',
-                {
-                  'selected': selectedSelfCities.includes(idx),
-                  'disabled': !canSelectCity(city, idx)
-                }
-              ]"
-              @click="toggleCitySelection(idx, city)"
-            >
-              <input
-                type="checkbox"
-                :checked="selectedSelfCities.includes(idx)"
-                :disabled="!canSelectCity(city, idx)"
-                @click.stop="toggleCitySelection(idx, city)"
-              />
-              <span class="city-checkbox-label">
-                {{ city.name }} (HP: {{ Math.floor(city.currentHp || city.hp) }})
-              </span>
-            </div>
-          </div>
-          <div v-if="selectedSkill.targetCount && selectedSelfCities.length < selectedSkill.targetCount" class="hint-text">
-            请选择 {{ selectedSkill.targetCount }} 个城市
-          </div>
-        </div>
-
-        <div v-if="selectedSkill.requiresAmount" class="param-group">
-          <label>{{ selectedSkill.amountLabel }}:</label>
-          <input
-            type="number"
-            v-model.number="amount"
-            :min="selectedSkill.amountMin || 1"
-            :max="selectedSkill.amountMax || 999999"
-          />
-        </div>
-
-        <!-- 技能选择（突破瓶颈/一触即发） -->
-        <div v-if="selectedSkill.requiresSkillSelection" class="param-group">
-          <label>{{ selectedSkill.selectionType === 'cooldown' ? '选择要清除冷却的技能:' : '选择要增加次数的技能:' }}</label>
-          <select v-model="selectedSkillName">
-            <option value="">-- 请选择 --</option>
-            <option
-              v-for="skill in getAvailableSkillsForSelection()"
-              :key="skill.name"
-              :value="skill.name"
-            >
-              {{ skill.name }}
-              <span v-if="selectedSkill.selectionType === 'cooldown'">
-                (剩余{{ skill.remainingRounds }}回合)
-              </span>
-              <span v-else>
-                (已使用{{ skill.usedCount }}次)
-              </span>
-            </option>
-          </select>
+      <!-- 对手玩家选择器 -->
+      <div v-if="selectedSkill.requiresTarget" class="target-player-selector">
+        <h4>选择目标玩家</h4>
+        <div class="player-buttons">
+          <button
+            v-for="player in opponents"
+            :key="player.name"
+            :class="['player-btn', { selected: targetPlayer === player.name }]"
+            @click="targetPlayer = player.name"
+          >
+            {{ player.name }} (💰{{ player.gold }})
+          </button>
         </div>
       </div>
 
+      <!-- 己方城市卡牌选择 -->
+      <div v-if="selectedSkill.requiresSelfCity || selectedSkill.requiresMultipleSelfCities" class="city-card-selector">
+        <h4>
+          {{ selectedSkill.requiresMultipleSelfCities
+            ? `选择己方城市（${selectedSelfCities.length} / ${selectedSkill.targetCount}）`
+            : '选择己方城市'
+          }}
+        </h4>
+        <div class="city-cards-grid">
+          <div
+            v-for="item in getSelectableSelfCities()"
+            :key="item.idx"
+            :class="[
+              'mini-city-card',
+              {
+                'selected': selectedSkill.requiresMultipleSelfCities
+                  ? selectedSelfCities.includes(item.idx)
+                  : selfCity === item.idx,
+                'disabled': !canSelectCity(item.city, item.idx),
+                'dead': item.city.isAlive === false
+              }
+            ]"
+            @click="handleCityClick(item.idx, item.city, 'self')"
+          >
+            <div class="city-name">{{ item.city.name }}</div>
+            <div class="city-hp">HP: {{ Math.floor(item.city.currentHp !== undefined ? item.city.currentHp : item.city.hp) }}</div>
+            <div v-if="item.city.isAlive === false" class="city-status dead">已阵亡</div>
+            <!-- 禁用原因标记（先声夺人技能专用） -->
+            <div v-if="selectedSkill.name === '先声夺人' && !canSelectCity(item.city, item.idx) && item.city.isAlive !== false" class="disabled-reason">
+              <span v-if="item.idx === props.currentPlayer.centerIndex" class="reason-badge center">中心</span>
+              <span v-else class="reason-badge cautious">谨慎交换</span>
+            </div>
+            <div v-if="selectedSkill.requiresMultipleSelfCities && selectedSelfCities.includes(item.idx)" class="check-mark">✓</div>
+            <div v-else-if="!selectedSkill.requiresMultipleSelfCities && selfCity === item.idx" class="check-mark">✓</div>
+          </div>
+        </div>
+        <div v-if="getSelectableSelfCities().length === 0" class="no-cities-hint">
+          {{ selectedSkill.name === '借尸还魂' ? '暂无已阵亡的城市可复活' : '暂无可选择的城市' }}
+        </div>
+      </div>
+
+      <!-- 对手已知城市卡牌选择 -->
+      <div v-if="selectedSkill.requiresTargetCity && targetPlayer" class="city-card-selector">
+        <h4>选择目标城市（{{ targetPlayer }}的已知城市）</h4>
+        <div class="city-cards-grid">
+          <div
+            v-for="item in getTargetCities()"
+            :key="item.originalIndex"
+            :class="[
+              'mini-city-card',
+              {
+                'selected': targetCity === item.originalIndex,
+                'disabled': item.city.isAlive === false
+              }
+            ]"
+            @click="handleCityClick(item.originalIndex, item.city, 'target')"
+          >
+            <div class="city-name">{{ item.city.name }}</div>
+            <div class="city-hp">HP: {{ Math.floor(item.city.currentHp || item.city.hp) }}</div>
+            <div v-if="item.city.isAlive === false" class="city-status dead">已阵亡</div>
+            <div v-if="targetCity === item.originalIndex" class="check-mark">✓</div>
+          </div>
+        </div>
+        <div v-if="getTargetCities().length === 0" class="no-cities-hint">
+          暂无已知城市，请先探测对手城市
+        </div>
+      </div>
+
+      <!-- 其他参数 -->
+      <div v-if="selectedSkill.requiresAmount" class="param-group">
+        <label>{{ selectedSkill.amountLabel }}:</label>
+        <input
+          type="number"
+          v-model.number="amount"
+          :min="selectedSkill.amountMin || 1"
+          :max="selectedSkill.amountMax || 999999"
+        />
+      </div>
+
+      <!-- 技能选择（突破瓶颈/一触即发） -->
+      <div v-if="selectedSkill.requiresSkillSelection" class="param-group">
+        <label>{{ selectedSkill.selectionType === 'cooldown' ? '选择要清除冷却的技能:' : '选择要增加次数的技能:' }}</label>
+        <select v-model="selectedSkillName">
+          <option value="">-- 请选择 --</option>
+          <option
+            v-for="skill in getAvailableSkillsForSelection()"
+            :key="skill.name"
+            :value="skill.name"
+          >
+            {{ skill.name }}
+            <span v-if="selectedSkill.selectionType === 'cooldown'">
+              (剩余{{ skill.remainingRounds }}回合)
+            </span>
+            <span v-else>
+              (已使用{{ skill.usedCount }}次)
+            </span>
+          </option>
+        </select>
+      </div>
+
+      <!-- 执行按钮 -->
       <div class="skill-actions">
         <button
           class="btn-primary"
@@ -176,7 +184,7 @@
         >
           使用技能
         </button>
-        <button class="btn-secondary" @click="selectedSkill = null">
+        <button class="btn-secondary" @click="selectedSkill = null; resetParams()">
           取消
         </button>
       </div>
@@ -273,7 +281,7 @@ const SKILL_METADATA = {
   // 非战斗金币技能
   '转账给他人': { emoji: '💸', category: 'resource', description: '转账金币给其他玩家', requiresTarget: true, requiresAmount: true, amountLabel: '金额' },
   '无知无畏': { emoji: '⚔️', category: 'damage', description: '最低HP城市自毁攻击对方中心', requiresTarget: true },
-  '先声夺人': { emoji: '⚡', category: 'battle', description: '先出牌，若比对方大交换城市', requiresTarget: false },
+  '先声夺人': { emoji: '⚡', category: 'control', description: '与对手交换一张卡牌（双方自选）', requiresTarget: true, requiresSelfCity: true },
   '金币贷款': { emoji: '🏦', category: 'resource', description: '贷款5金币，5回合无自动金币', requiresTarget: false },
   '定海神针': { emoji: '⚓', category: 'protection', description: '城市锁定位置，免疫交换', requiresSelfCity: true },
   '焕然一新': { emoji: '✨', category: 'control', description: '重置城市专属技能使用次数', requiresSelfCity: true },
@@ -285,7 +293,7 @@ const SKILL_METADATA = {
   '一举两得': { emoji: '🎯', category: 'resource', description: '对手本轮必出2城市', requiresTarget: false },
   '明察秋毫': { emoji: '👁️', category: 'control', description: '查看对手战斗预备城市', requiresTarget: true },
   '借尸还魂': { emoji: '👻', category: 'protection', description: '复活阵亡城市满血归来', requiresSelfCity: true },
-  '高级治疗': { emoji: '💊', category: 'protection', description: '2城市满血，禁用2回合', requiresSelfCity: true },
+  '高级治疗': { emoji: '💊', category: 'protection', description: '2城市满血，禁用2回合', requiresMultipleSelfCities: true, targetCount: 2 },
   '孔孟故里': { emoji: '🏛️', category: 'protection', description: '给己方2座城市+1000HP', requiresMultipleSelfCities: true, targetCount: 2 },
   '舟山海鲜': { emoji: '🦞', category: 'protection', description: '给己方3座城市HP增加20%', requiresMultipleSelfCities: true, targetCount: 3 },
   '进制扭曲': { emoji: '🔢', category: 'damage', description: '改变对手城市数值进制', requiresTarget: true },
@@ -315,9 +323,9 @@ const SKILL_METADATA = {
   '城市预言': { emoji: '🔮', category: 'control', description: '预知下回合出战城市', requiresTarget: false },
   '倒反天罡': { emoji: '🔄', category: 'control', description: '永久移除对手省会效果', requiresTarget: true },
   '解除封锁': { emoji: '🔓', category: 'control', description: '解除被事半功倍禁用的技能', requiresTarget: false },
-  '提灯定损': { emoji: '🏮', category: 'damage', description: '对手所有城市-2000HP', requiresTarget: true },
+  '一落千丈': { emoji: '📉', category: 'damage', description: '对手所有城市-2000HP', requiresTarget: true },
   '好高骛远': { emoji: '🎯', category: 'buff', description: '城市HP上限+20000', requiresSelfCity: true },
-  '目不转睛': { emoji: '👁️', category: 'control', description: '对手3回合只能用当机立断', requiresTarget: true },
+  '寸步难行': { emoji: '🚫', category: 'control', description: '对手3回合只能用当机立断', requiresTarget: true },
   '数位反转': { emoji: '🔢', category: 'control', description: '反转对手城市数位', requiresTarget: true },
   '波涛汹涌': { emoji: '🌊', category: 'damage', description: '对手全体城市-5000HP', requiresTarget: true },
   '狂轰滥炸': { emoji: '💣', category: 'damage', description: '对手全体城市-8000HP', requiresTarget: true },
@@ -341,7 +349,7 @@ const SKILL_METADATA = {
   '无懈可击': { emoji: '🛡️', category: 'protection', description: '撤销对手上一个技能', requiresTarget: false },
   '趁其不备·随机': { emoji: '🎲', category: 'damage', description: '摧毁对手随机城市', requiresTarget: true },
   '自相残杀': { emoji: '⚔️', category: 'control', description: '对手城市互相攻击', requiresTarget: true },
-  '当机立断': { emoji: '⚡', category: 'control', description: '免疫目不转睛的限制', requiresTarget: false },
+  '当机立断': { emoji: '⚡', category: 'control', description: '免疫寸步难行的限制', requiresTarget: false },
   '中庸之道': { emoji: '⚖️', category: 'control', description: '所有玩家城市HP均衡', requiresTarget: false },
   '步步高升': { emoji: '📈', category: 'buff', description: '城市阵亡召唤更高HP城市', requiresTarget: false },
   '大义灭亲': { emoji: '⚔️', category: 'damage', description: '摧毁己方城市', requiresSelfCity: true },
@@ -364,13 +372,38 @@ const SKILL_METADATA = {
   '事半功倍': { emoji: '✨', category: 'resource', description: '禁用对手1个技能，费用减半', requiresTarget: false }
 }
 
+// 3P专属技能列表
+const SKILLS_3P_ONLY = ['声东击西', '隔岸观火', '暗度陈仓']
+
+// 2v2专属技能列表
+const SKILLS_2V2_ONLY = ['挑拨离间']
+
 // 技能列表定义(从skills.js导入完整列表)
 const allSkills = computed(() => {
   const skills = []
+  const currentMode = gameStore.gameMode
 
   // 战斗技能
   if (props.skillType === 'all' || props.skillType === 'battle') {
     BATTLE_SKILLS.forEach(skillName => {
+      // 过滤模式专属技能
+      if (currentMode === '2P' || currentMode === '2p') {
+        // 2P模式：排除3P和2v2专属技能
+        if (SKILLS_3P_ONLY.includes(skillName) || SKILLS_2V2_ONLY.includes(skillName)) {
+          return
+        }
+      } else if (currentMode === '3P' || currentMode === '3p') {
+        // 3P模式：排除2v2专属技能
+        if (SKILLS_2V2_ONLY.includes(skillName)) {
+          return
+        }
+      } else if (currentMode === '2v2') {
+        // 2v2模式：排除3P专属技能
+        if (SKILLS_3P_ONLY.includes(skillName)) {
+          return
+        }
+      }
+
       const metadata = SKILL_METADATA[skillName] || {
         emoji: '❓',
         category: 'battle',
@@ -388,6 +421,24 @@ const allSkills = computed(() => {
   // 非战斗技能
   if (props.skillType === 'all' || props.skillType === 'nonBattle') {
     NON_BATTLE_SKILLS.forEach(skillName => {
+      // 非战斗技能也需要模式过滤
+      if (currentMode === '2P' || currentMode === '2p') {
+        // 2P模式：排除3P和2v2专属技能
+        if (SKILLS_3P_ONLY.includes(skillName) || SKILLS_2V2_ONLY.includes(skillName)) {
+          return
+        }
+      } else if (currentMode === '3P' || currentMode === '3p') {
+        // 3P模式：排除2v2专属技能
+        if (SKILLS_2V2_ONLY.includes(skillName)) {
+          return
+        }
+      } else if (currentMode === '2v2') {
+        // 2v2模式：排除3P专属技能
+        if (SKILLS_3P_ONLY.includes(skillName)) {
+          return
+        }
+      }
+
       const metadata = SKILL_METADATA[skillName] || {
         emoji: '❓',
         category: 'resource',
@@ -406,17 +457,50 @@ const allSkills = computed(() => {
 })
 
 const filteredSkills = computed(() => {
+  let skills = []
   if (activeCategory.value === 'all') {
-    return allSkills.value
+    skills = allSkills.value
+  } else {
+    skills = allSkills.value.filter(s => s.category === activeCategory.value)
   }
-  return allSkills.value.filter(s => s.category === activeCategory.value)
+
+  // 按金币花费从小到大排序
+  return skills.sort((a, b) => {
+    const costA = getSkillCost(a.name)
+    const costB = getSkillCost(b.name)
+    return costA - costB
+  })
 })
 
-const battleSkillsList = computed(() => allSkills.value.filter(s => s.category === 'battle'))
-const resourceSkills = computed(() => allSkills.value.filter(s => s.category === 'resource'))
-const protectionSkills = computed(() => allSkills.value.filter(s => s.category === 'protection'))
-const damageSkills = computed(() => allSkills.value.filter(s => s.category === 'damage'))
-const controlSkills = computed(() => allSkills.value.filter(s => s.category === 'control'))
+const battleSkillsList = computed(() => {
+  return allSkills.value
+    .filter(s => s.category === 'battle')
+    .sort((a, b) => getSkillCost(a.name) - getSkillCost(b.name))
+})
+
+const resourceSkills = computed(() => {
+  return allSkills.value
+    .filter(s => s.category === 'resource')
+    .sort((a, b) => getSkillCost(a.name) - getSkillCost(b.name))
+})
+
+const protectionSkills = computed(() => {
+  return allSkills.value
+    .filter(s => s.category === 'protection')
+    .sort((a, b) => getSkillCost(a.name) - getSkillCost(b.name))
+})
+
+const damageSkills = computed(() => {
+  return allSkills.value
+    .filter(s => s.category === 'damage')
+    .sort((a, b) => getSkillCost(a.name) - getSkillCost(b.name))
+})
+
+const controlSkills = computed(() => {
+  return allSkills.value
+    .filter(s => s.category === 'control')
+    .sort((a, b) => getSkillCost(a.name) - getSkillCost(b.name))
+})
 
 const opponents = computed(() => {
   if (!gameStore.players || !Array.isArray(gameStore.players)) {
@@ -470,13 +554,41 @@ function selectSkill(skill) {
   }
   console.log('[SkillSelector] 选择技能:', skill.name)
   selectedSkill.value = skill
-  // 重置参数
+  resetParams()
+}
+
+// 重置参数
+function resetParams() {
   targetPlayer.value = ''
   targetCity.value = ''
   selfCity.value = ''
   amount.value = 0
-  selectedSelfCities.value = []  // 重置多城市选择
-  selectedSkillName.value = ''  // 重置技能选择
+  selectedSelfCities.value = []
+  selectedSkillName.value = ''
+}
+
+// 处理城市卡牌点击
+function handleCityClick(cityIdx, city, type) {
+  // 判断城市是否阵亡：currentHp <= 0 或 isAlive === false
+  const isCityDead = city.currentHp <= 0 || city.isAlive === false
+
+  // 借尸还魂技能：允许点击已阵亡的城市
+  if (selectedSkill.value && selectedSkill.value.name === '借尸还魂') {
+    if (!isCityDead) return // 只能选择已阵亡的城市
+  } else {
+    // 其他技能：不能点击已阵亡的城市
+    if (isCityDead) return
+  }
+
+  if (type === 'self') {
+    if (selectedSkill.value.requiresMultipleSelfCities) {
+      toggleCitySelection(cityIdx, city)
+    } else {
+      selfCity.value = cityIdx
+    }
+  } else if (type === 'target') {
+    targetCity.value = cityIdx
+  }
 }
 
 // 获取可选择的技能列表（突破瓶颈/一触即发）
@@ -539,7 +651,47 @@ function toggleCitySelection(cityIdx, city) {
 // 检查城市是否可以被选择
 function canSelectCity(city, cityIdx) {
   if (!city) return false
-  if (city.isAlive === false) return false
+
+  // 判断城市是否阵亡：currentHp <= 0 或 isAlive === false
+  const isCityDead = (city.currentHp !== undefined ? city.currentHp : city.hp) <= 0 || city.isAlive === false
+
+  // 借尸还魂技能：只能选择已阵亡的城市
+  if (selectedSkill.value && selectedSkill.value.name === '借尸还魂') {
+    // 必须是已阵亡的城市
+    return isCityDead
+  }
+
+  // 其他技能：不能选择已阵亡的城市
+  if (isCityDead) return false
+
+  // 针对先声夺人技能：排除谨慎交换集合中的城市
+  if (selectedSkill.value && selectedSkill.value.name === '先声夺人') {
+    // 检查谨慎交换集合（包括cautionSet和cautiousExchange）
+    if (gameStore.isInCautiousSet(props.currentPlayer.name, cityIdx)) {
+      return false
+    }
+
+    // 检查中心城市（使用centerIndex判断）
+    if (cityIdx === props.currentPlayer.centerIndex) {
+      return false
+    }
+
+    // 检查定海神针
+    if (gameStore.anchored[props.currentPlayer.name] &&
+        gameStore.anchored[props.currentPlayer.name][cityIdx]) {
+      return false
+    }
+
+    // 检查钢铁城市
+    if (gameStore.hasIronShield(props.currentPlayer.name, cityIdx)) {
+      return false
+    }
+
+    // 检查城市保护
+    if (gameStore.hasProtection(props.currentPlayer.name, cityIdx)) {
+      return false
+    }
+  }
 
   // 检查HP需求（舟山海鲜：HP20000以下可使用）
   if (selectedSkill.value.hpRequirement) {
@@ -552,7 +704,49 @@ function canSelectCity(city, cityIdx) {
     }
   }
 
+  // 快速治疗和高级治疗技能：只能选择未满血的城市
+  if (selectedSkill.value && (selectedSkill.value.name === '快速治疗' || selectedSkill.value.name === '高级治疗')) {
+    const currentHp = city.currentHp !== undefined ? city.currentHp : city.hp
+    const maxHp = city.hp
+    // 如果当前HP >= 最大HP,说明已满血,不能选择
+    if (currentHp >= maxHp) {
+      return false
+    }
+  }
+
   return true
+}
+
+/**
+ * 获取可选择的己方城市列表（根据技能类型过滤）
+ */
+function getSelectableSelfCities() {
+  if (!props.currentPlayer || !props.currentPlayer.cities) return []
+
+  const cities = props.currentPlayer.cities
+  const result = []
+
+  // 遍历所有城市
+  for (let idx = 0; idx < cities.length; idx++) {
+    const city = cities[idx]
+    if (!city) continue
+
+    const isCityDead = (city.currentHp !== undefined ? city.currentHp : city.hp) <= 0 || city.isAlive === false
+
+    // 借尸还魂技能：只显示已阵亡的城市
+    if (selectedSkill.value && selectedSkill.value.name === '借尸还魂') {
+      if (isCityDead) {
+        result.push({ city, idx })
+      }
+    } else {
+      // 其他技能：只显示存活的城市（除非该技能允许选择阵亡城市）
+      if (!isCityDead) {
+        result.push({ city, idx })
+      }
+    }
+  }
+
+  return result
 }
 
 function getTargetCities() {
@@ -562,8 +756,15 @@ function getTargetCities() {
 
   const centerIdx = player.centerIndex || 0
 
+  console.log('[SkillSelector] ===== getTargetCities 诊断 =====')
+  console.log('[SkillSelector] 当前玩家:', props.currentPlayer.name)
+  console.log('[SkillSelector] 目标玩家:', player.name)
+  console.log('[SkillSelector] gameStore.knownCities:', JSON.stringify(gameStore.knownCities, null, 2))
+  console.log('[SkillSelector] gameStore.knownCities[当前玩家]:', gameStore.knownCities[props.currentPlayer.name])
+  console.log('[SkillSelector] gameStore.knownCities[当前玩家][目标玩家]:', gameStore.knownCities[props.currentPlayer.name]?.[player.name])
+
   // 返回已知城市，同时保留原始索引
-  return player.cities
+  const result = player.cities
     .map((city, idx) => ({ city, originalIndex: idx }))
     .filter(item => {
       // 过滤掉已阵亡的城市
@@ -579,16 +780,23 @@ function getTargetCities() {
 
       // 主持人模式或knownCities未初始化时，显示所有城市（除中心外）
       // 玩家模式才检查已知城市
-      if (!gameStore.knownCities ||
-          !gameStore.knownCities[props.currentPlayer.name] ||
-          !gameStore.knownCities[props.currentPlayer.name][player.name]) {
-        // 未初始化：显示所有非中心城市
+      // 关键修复：使用getKnownCitiesForPlayer来检查（内部会处理前缀）
+      const knownCitiesList = gameStore.getKnownCitiesForPlayer(props.currentPlayer.name, player.name)
+      if (!knownCitiesList || knownCitiesList.length === 0) {
+        // 未初始化或没有已知城市：显示所有非中心城市
+        console.log(`[SkillSelector] knownCities未初始化或为空，显示所有城市`)
         return true
       }
 
       // 检查城市是否为当前玩家所知
-      return gameStore.isCityKnown(player.name, item.originalIndex, props.currentPlayer.name)
+      const isKnown = gameStore.isCityKnown(player.name, item.originalIndex, props.currentPlayer.name)
+      console.log(`[SkillSelector] 检查城市 ${item.city.name} (idx=${item.originalIndex}): isKnown=${isKnown}`)
+      return isKnown
     })
+
+  console.log('[SkillSelector] 最终返回城市数量:', result.length)
+  console.log('[SkillSelector] ==========================================')
+  return result
 }
 
 function canExecuteSkill() {
@@ -605,123 +813,124 @@ function canExecuteSkill() {
 // 技能执行映射表
 const SKILL_EXECUTOR_MAP = {
   // 战斗技能
-  '擒贼擒王': () => battleSkills.executeQinZeiQinWang(props.currentPlayer, getTargetPlayer()),
-  '草木皆兵': () => battleSkills.executeCaoMuJieBing(props.currentPlayer, getTargetPlayer()),
-  '越战越勇': () => battleSkills.executeYueZhanYueYong(props.currentPlayer, getSelfCityObject()),
-  '吸引攻击': () => battleSkills.executeXiYinGongJi(props.currentPlayer, getSelfCityObject()),
-  '铜墙铁壁': () => battleSkills.executeTongQiangTieBi(props.currentPlayer, getTargetPlayer()),
-  '背水一战': () => battleSkills.executeBeiShuiYiZhan(props.currentPlayer, getSelfCityObject()),
-  '料事如神': () => battleSkills.executeLiaoShiRuShen(props.currentPlayer, getTargetPlayer(), getTargetCityObject()),
-  '同归于尽': () => battleSkills.executeTongGuiYuJin(props.currentPlayer, getSelfCityObject()),
-  '设置屏障': () => battleSkills.executeSetBarrier(props.currentPlayer),
-  '潜能激发': () => battleSkills.executeQianNengJiFa(props.currentPlayer),
-  '御驾亲征': () => battleSkills.executeYuJiaQinZheng(props.currentPlayer, getTargetPlayer()),
-  '狂暴模式': () => battleSkills.executeKuangBaoMoShi(props.currentPlayer, getSelfCityObject()),
-  '按兵不动': () => battleSkills.executeAnBingBuDong(props.currentPlayer),
-  '既来则安': () => battleSkills.executeJiLaiZeAn(props.currentPlayer, getSelfCityObject()),
-  '反戈一击': () => battleSkills.executeFanGeYiJi(props.currentPlayer, getTargetPlayer()),
-  '暗度陈仓': () => battleSkills.executeAnDuChenCang(props.currentPlayer),
-  '声东击西': () => battleSkills.executeShengDongJiXi(props.currentPlayer, getTargetPlayer()),
-  '以逸待劳': () => battleSkills.executeYiYiDaiLao(props.currentPlayer, getTargetPlayer()),
-  '草船借箭': () => battleSkills.executeCaoChuanJieJian(props.currentPlayer, getTargetPlayer()),
-  '围魏救赵': () => battleSkills.executeWeiWeiJiuZhao(props.currentPlayer, getTargetPlayer()),
-  '欲擒故纵': () => battleSkills.executeYuQinGuZong(props.currentPlayer, getTargetPlayer(), getTargetCityObject()),
-  '晕头转向': () => battleSkills.executeYunTouZhuanXiang(props.currentPlayer, getTargetPlayer()),
-  '隔岸观火': () => battleSkills.executeGeAnGuanHuo(props.currentPlayer, getTargetPlayer()),
-  '挑拨离间': () => battleSkills.executeTiaoBoBaoLiJian(props.currentPlayer, getTargetPlayer()),
-  '趁火打劫': () => battleSkills.executeChenHuoDaJie(props.currentPlayer, getTargetPlayer()),
-  '玉碎瓦全': () => battleSkills.executeYuSuiWaQuan(props.currentPlayer, getTargetPlayer(), targetCity.value),
+  '擒贼擒王': () => battleSkills.executeQinZeiQinWang(getCasterPlayer(), getTargetPlayer()),
+  '草木皆兵': () => battleSkills.executeCaoMuJieBing(getCasterPlayer(), getTargetPlayer()),
+  '越战越勇': () => battleSkills.executeYueZhanYueYong(getCasterPlayer(), getSelfCityObject()),
+  '吸引攻击': () => battleSkills.executeXiYinGongJi(getCasterPlayer(), getSelfCityObject()),
+  '铜墙铁壁': () => battleSkills.executeTongQiangTieBi(getCasterPlayer(), getTargetPlayer()),
+  '背水一战': () => battleSkills.executeBeiShuiYiZhan(getCasterPlayer(), getSelfCityObject()),
+  '料事如神': () => battleSkills.executeLiaoShiRuShen(getCasterPlayer(), getTargetPlayer(), getTargetCityObject()),
+  '同归于尽': () => battleSkills.executeTongGuiYuJin(getCasterPlayer(), getSelfCityObject()),
+  '设置屏障': () => battleSkills.executeSetBarrier(getCasterPlayer()),
+  '潜能激发': () => battleSkills.executeQianNengJiFa(getCasterPlayer()),
+  '御驾亲征': () => battleSkills.executeYuJiaQinZheng(getCasterPlayer(), getTargetPlayer()),
+  '狂暴模式': () => battleSkills.executeKuangBaoMoShi(getCasterPlayer(), getSelfCityObject()),
+  '按兵不动': () => battleSkills.executeAnBingBuDong(getCasterPlayer()),
+  '既来则安': () => battleSkills.executeJiLaiZeAn(getCasterPlayer(), getSelfCityObject()),
+  '反戈一击': () => battleSkills.executeFanGeYiJi(getCasterPlayer(), getTargetPlayer()),
+  '暗度陈仓': () => battleSkills.executeAnDuChenCang(getCasterPlayer()),
+  '声东击西': () => battleSkills.executeShengDongJiXi(getCasterPlayer(), getTargetPlayer()),
+  '以逸待劳': () => battleSkills.executeYiYiDaiLao(getCasterPlayer(), getTargetPlayer()),
+  '草船借箭': () => battleSkills.executeCaoChuanJieJian(getCasterPlayer(), getTargetPlayer()),
+  '围魏救赵': () => battleSkills.executeWeiWeiJiuZhao(getCasterPlayer(), getTargetPlayer()),
+  '欲擒故纵': () => battleSkills.executeYuQinGuZong(getCasterPlayer(), getTargetPlayer(), getTargetCityObject()),
+  '晕头转向': () => battleSkills.executeYunTouZhuanXiang(getCasterPlayer(), getTargetPlayer()),
+  '隔岸观火': () => battleSkills.executeGeAnGuanHuo(getCasterPlayer(), getTargetPlayer()),
+  '挑拨离间': () => battleSkills.executeTiaoBoBaoLiJian(getCasterPlayer(), getTargetPlayer()),
+  '趁火打劫': () => battleSkills.executeChenHuoDaJie(getCasterPlayer(), getTargetPlayer()),
+  '玉碎瓦全': () => battleSkills.executeYuSuiWaQuan(getCasterPlayer(), getTargetPlayer(), targetCity.value),
 
   // 非战斗技能
-  '转账给他人': () => nonBattleSkills.executeTransferGold(props.currentPlayer, getTargetPlayer(), amount.value),
-  '无知无畏': () => nonBattleSkills.executeWuZhiWuWei(props.currentPlayer, getTargetPlayer()),
-  '金币贷款': () => nonBattleSkills.executeJinBiDaiKuan(props.currentPlayer),
-  '快速治疗': () => nonBattleSkills.executeKuaiSuZhiLiao(props.currentPlayer, getSelfCityObject()),
-  '城市保护': () => nonBattleSkills.executeCityProtection(props.currentPlayer, getSelfCityObject()),
-  '钢铁城市': () => nonBattleSkills.executeGangTieChengShi(props.currentPlayer, getSelfCityObject()),
-  '定海神针': () => nonBattleSkills.executeDingHaiShenZhen(props.currentPlayer, getSelfCityObject()),
-  '焕然一新': () => nonBattleSkills.executeHuanRanYiXin(props.currentPlayer, getSelfCityObject()),
-  '抛砖引玉': () => nonBattleSkills.executePaoZhuanYinYu(props.currentPlayer),
-  '改弦更张': () => nonBattleSkills.executeGaiXianGengZhang(props.currentPlayer),
-  '拔旗易帜': () => nonBattleSkills.executeBaQiYiZhi(props.currentPlayer, getSelfCityObject()),
-  '高级治疗': () => nonBattleSkills.executeGaoJiZhiLiao(props.currentPlayer, getSelfCityObject()),
-  '借尸还魂': () => nonBattleSkills.executeJieShiHuanHun(props.currentPlayer, getSelfCityObject()),
-  '实力增强': () => nonBattleSkills.executeShiLiZengQiang(props.currentPlayer),
-  '士气大振': () => nonBattleSkills.executeShiQiDaZhen(props.currentPlayer),
-  '清除加成': () => nonBattleSkills.executeQingChuJiaCheng(props.currentPlayer, getTargetPlayer()),
-  '时来运转': () => nonBattleSkills.executeShiLaiYunZhuan(props.currentPlayer, getTargetPlayer()),
-  '众志成城': () => nonBattleSkills.executeZhongZhiChengCheng(props.currentPlayer),
-  '无中生有': () => nonBattleSkills.executeWuZhongShengYou(props.currentPlayer),
-  '苟延残喘': () => nonBattleSkills.executeGouYanCanChuan(props.currentPlayer),
-  '好高骛远': () => nonBattleSkills.executeHaoGaoWuYuan(props.currentPlayer, getSelfCityObject()),
-  '狐假虎威': () => nonBattleSkills.executeHuJiaHuWei(props.currentPlayer, getSelfCityObject(), amount.value, '伪装城市'),
-  '四面楚歌': () => nonBattleSkills.executeSiMianChuGe(props.currentPlayer, getTargetPlayer()),
-  '博学多才': () => nonBattleSkills.executeBoXueDuoCai(props.currentPlayer, getSelfCityObject(), 3),
-  '进制扭曲': () => nonBattleSkills.executeJinZhiNiuQu(props.currentPlayer, getTargetPlayer()),
-  '提灯定损': () => nonBattleSkills.executeTiDengDingSun(props.currentPlayer, getTargetPlayer()),
-  '连续打击': () => nonBattleSkills.executeLianXuDaJi(props.currentPlayer, getTargetPlayer()),
-  '波涛汹涌': () => nonBattleSkills.executeBoTaoXiongYong(props.currentPlayer, getTargetPlayer()),
-  '狂轰滥炸': () => nonBattleSkills.executeKuangHongLanZha(props.currentPlayer, getTargetPlayer()),
-  '横扫一空': () => nonBattleSkills.executeHengSaoYiKong(props.currentPlayer, getTargetPlayer()),
-  '万箭齐发': () => nonBattleSkills.executeWanJianQiFa(props.currentPlayer, getTargetPlayer()),
-  '降维打击': () => nonBattleSkills.executeJiangWeiDaJi(props.currentPlayer, getTargetPlayer()),
-  '深藏不露': () => nonBattleSkills.executeShenCangBuLu(props.currentPlayer),
-  '定时爆破': () => nonBattleSkills.executeDingShiBaoPo(props.currentPlayer, getTargetPlayer(), getTargetCityObject()),
-  '永久摧毁': () => nonBattleSkills.executeYongJiuCuiHui(props.currentPlayer, getTargetPlayer(), getTargetCityObject()),
-  '战略转移': () => nonBattleSkills.executeZhanLueZhuanYi(props.currentPlayer, getSelfCityObject()),
-  '连锁反应': () => nonBattleSkills.executeLianSuoFanYing(props.currentPlayer, getTargetPlayer()),
-  '招贤纳士': () => nonBattleSkills.executeZhaoXianNaShi(props.currentPlayer),
-  '无懈可击': () => nonBattleSkills.executeWuXieKeJi(props.currentPlayer),
-  '坚不可摧': () => nonBattleSkills.executeJianBuKeCui(props.currentPlayer),
-  '移花接木': () => nonBattleSkills.executeYiHuaJieMu(props.currentPlayer, getTargetPlayer()),
-  '不露踪迹': () => nonBattleSkills.executeBuLuZongJi(props.currentPlayer),
-  '整齐划一': () => nonBattleSkills.executeZhengQiHuaYi(props.currentPlayer),
-  '人质交换': () => nonBattleSkills.executeRenZhiJiaoHuan(props.currentPlayer, getTargetPlayer()),
-  '釜底抽薪': () => nonBattleSkills.executeFuDiChouXin(props.currentPlayer, getTargetPlayer()),
-  '金融危机': () => nonBattleSkills.executeJinRongWeiJi(props.currentPlayer, getTargetPlayer()),
-  '劫富济贫': () => nonBattleSkills.executeJieFuJiPin(props.currentPlayer, getTargetPlayer()),
-  '城市试炼': () => nonBattleSkills.executeChengShiShiLian(props.currentPlayer, getSelfCityObject()),
-  '天灾人祸': () => nonBattleSkills.executeTianZaiRenHuo(props.currentPlayer, getTargetPlayer()),
-  '李代桃僵': () => nonBattleSkills.executeLiDaiTaoJiang(props.currentPlayer),
-  '避而不见': () => nonBattleSkills.executeBiErBuJian(props.currentPlayer),
-  '一触即发': () => nonBattleSkills.executeYiChuJiFa(props.currentPlayer, selectedSkillName.value),
-  '技能保护': () => nonBattleSkills.executeJiNengBaoHu(props.currentPlayer),
-  '突破瓶颈': () => nonBattleSkills.executeTuPoPingJing(props.currentPlayer, selectedSkillName.value),
-  '血量存储': () => nonBattleSkills.executeXueLiangCunChu(props.currentPlayer, getSelfCityObject()),
-  '海市蜃楼': () => nonBattleSkills.executeHaiShiShenLou(props.currentPlayer),
-  '解除封锁': () => nonBattleSkills.executeJieChuFengSuo(props.currentPlayer),
-  '数位反转': () => nonBattleSkills.executeShuWeiFanZhuan(props.currentPlayer, getTargetPlayer()),
-  '目不转睛': () => nonBattleSkills.executeMuBuZhuanJing(props.currentPlayer, getTargetPlayer()),
-  '过河拆桥': () => nonBattleSkills.executeGuoHeChaiQiao(props.currentPlayer, getTargetPlayer()),
-  '电磁感应': () => nonBattleSkills.executeDianCiGanYing(props.currentPlayer, getTargetPlayer()),
-  '厚积薄发': () => nonBattleSkills.executeHouJiBaoFa(props.currentPlayer),
-  '中庸之道': () => nonBattleSkills.executeZhongYongZhiDao(props.currentPlayer),
-  '当机立断': () => nonBattleSkills.executeDangJiLiDuan(props.currentPlayer),
-  '自相残杀': () => nonBattleSkills.executeZiXiangCanSha(props.currentPlayer, getTargetPlayer()),
-  '言听计从': () => nonBattleSkills.executeYanTingJiCong(props.currentPlayer, getTargetPlayer(), targetCity.value),
-  '事半功倍': () => nonBattleSkills.executeShiBanGongBei(props.currentPlayer),
-  '倒反天罡': () => nonBattleSkills.executeDaoFanTianGang(props.currentPlayer, getTargetPlayer()),
-  '搬运救兵·普通': () => nonBattleSkills.executeBanyunJiubingPutong(props.currentPlayer),
-  '搬运救兵·高级': () => nonBattleSkills.executeBanyunJiubingGaoji(props.currentPlayer),
-  '趁其不备·随机': () => nonBattleSkills.executeChenqibubeiSuiji(props.currentPlayer, getTargetPlayer()),
-  '趁其不备·指定': () => nonBattleSkills.executeChenqibubeiZhiding(props.currentPlayer, getTargetPlayer(), getTargetCityObject()),
-  '守望相助': () => nonBattleSkills.executeShouWangXiangZhu(props.currentPlayer, getTargetPlayer()),
-  '以礼来降': () => nonBattleSkills.executeYiLiLaiJiang(props.currentPlayer, getTargetPlayer(), getTargetCityObject()),
-  '大义灭亲': () => nonBattleSkills.executeDaYiMieQin(props.currentPlayer, getSelfCityObject()),
-  '强制迁都·普通': () => nonBattleSkills.executeQiangZhiQianDuPutong(props.currentPlayer, getTargetPlayer()),
-  '强制迁都·高级版': () => nonBattleSkills.executeQiangZhiQianDuGaoji(props.currentPlayer, getTargetPlayer()),
-  '夷为平地': () => nonBattleSkills.executeYiWeiPingDi(props.currentPlayer, getTargetPlayer()),
-  '强制搬运': () => nonBattleSkills.executeQiangZhiBanYun(props.currentPlayer, getTargetPlayer()),
-  '行政中心': () => nonBattleSkills.executeXingZhengZhongXin(props.currentPlayer),
-  '代行省权': () => nonBattleSkills.executeDaiXingShengQuan(props.currentPlayer, getTargetPlayer()),
-  '副中心制': () => nonBattleSkills.executeFuZhongXinZhi(props.currentPlayer, getSelfCityObject()),
-  '计划单列': () => nonBattleSkills.executeJiHuaDanLie(props.currentPlayer),
-  '步步高升': () => nonBattleSkills.executeBuBuGaoSheng(props.currentPlayer),
-  '生于紫室': () => nonBattleSkills.executeShengYuZiShi(props.currentPlayer, getSelfCityObject()),
-  '城市侦探': () => nonBattleSkills.executeCityDetective(props.currentPlayer, getTargetPlayer()),
-  '城市预言': () => nonBattleSkills.executeChengShiYuYan(props.currentPlayer),
-  '一举两得': () => nonBattleSkills.executeYiJuLiangDe(props.currentPlayer),
-  '明察秋毫': () => nonBattleSkills.executeMingChaQiuHao(props.currentPlayer, getTargetPlayer()),
+  '转账给他人': () => nonBattleSkills.executeTransferGold(getCasterPlayer(), getTargetPlayer(), amount.value),
+  '无知无畏': () => nonBattleSkills.executeWuZhiWuWei(getCasterPlayer(), getTargetPlayer()),
+  '先声夺人': () => nonBattleSkills.executeXianShengDuoRen(getCasterPlayer(), getTargetPlayer(), { casterCityIdx: selfCity.value }),
+  '金币贷款': () => nonBattleSkills.executeJinBiDaiKuan(getCasterPlayer()),
+  '快速治疗': () => nonBattleSkills.executeKuaiSuZhiLiao(getCasterPlayer(), getSelfCityObject()),
+  '城市保护': () => nonBattleSkills.executeCityProtection(getCasterPlayer(), getSelfCityObject()),
+  '钢铁城市': () => nonBattleSkills.executeGangTieChengShi(getCasterPlayer(), getSelfCityObject()),
+  '定海神针': () => nonBattleSkills.executeDingHaiShenZhen(getCasterPlayer(), getSelfCityObject()),
+  '焕然一新': () => nonBattleSkills.executeHuanRanYiXin(getCasterPlayer(), getSelfCityObject()),
+  '抛砖引玉': () => nonBattleSkills.executePaoZhuanYinYu(getCasterPlayer()),
+  '改弦更张': () => nonBattleSkills.executeGaiXianGengZhang(getCasterPlayer()),
+  '拔旗易帜': () => nonBattleSkills.executeBaQiYiZhi(getCasterPlayer(), getSelfCityObject()),
+  '高级治疗': () => nonBattleSkills.executeGaoJiZhiLiao(getCasterPlayer(), selectedSelfCities.value),
+  '借尸还魂': () => nonBattleSkills.executeJieShiHuanHun(getCasterPlayer(), getSelfCityObject()),
+  '实力增强': () => nonBattleSkills.executeShiLiZengQiang(getCasterPlayer()),
+  '士气大振': () => nonBattleSkills.executeShiQiDaZhen(getCasterPlayer()),
+  '清除加成': () => nonBattleSkills.executeQingChuJiaCheng(getCasterPlayer(), getTargetPlayer()),
+  '时来运转': () => nonBattleSkills.executeShiLaiYunZhuan(getCasterPlayer(), getTargetPlayer()),
+  '众志成城': () => nonBattleSkills.executeZhongZhiChengCheng(getCasterPlayer()),
+  '无中生有': () => nonBattleSkills.executeWuZhongShengYou(getCasterPlayer()),
+  '苟延残喘': () => nonBattleSkills.executeGouYanCanChuan(getCasterPlayer()),
+  '好高骛远': () => nonBattleSkills.executeHaoGaoWuYuan(getCasterPlayer(), getSelfCityObject()),
+  '狐假虎威': () => nonBattleSkills.executeHuJiaHuWei(getCasterPlayer(), getSelfCityObject(), amount.value, '伪装城市'),
+  '四面楚歌': () => nonBattleSkills.executeSiMianChuGe(getCasterPlayer(), getTargetPlayer()),
+  '博学多才': () => nonBattleSkills.executeBoXueDuoCai(getCasterPlayer(), getSelfCityObject(), 3),
+  '进制扭曲': () => nonBattleSkills.executeJinZhiNiuQu(getCasterPlayer(), getTargetPlayer()),
+  '一落千丈': () => nonBattleSkills.executeTiDengDingSun(getCasterPlayer(), getTargetPlayer()),
+  '连续打击': () => nonBattleSkills.executeLianXuDaJi(getCasterPlayer(), getTargetPlayer()),
+  '波涛汹涌': () => nonBattleSkills.executeBoTaoXiongYong(getCasterPlayer(), getTargetPlayer()),
+  '狂轰滥炸': () => nonBattleSkills.executeKuangHongLanZha(getCasterPlayer(), getTargetPlayer()),
+  '横扫一空': () => nonBattleSkills.executeHengSaoYiKong(getCasterPlayer(), getTargetPlayer()),
+  '万箭齐发': () => nonBattleSkills.executeWanJianQiFa(getCasterPlayer(), getTargetPlayer()),
+  '降维打击': () => nonBattleSkills.executeJiangWeiDaJi(getCasterPlayer(), getTargetPlayer()),
+  '深藏不露': () => nonBattleSkills.executeShenCangBuLu(getCasterPlayer()),
+  '定时爆破': () => nonBattleSkills.executeDingShiBaoPo(getCasterPlayer(), getTargetPlayer(), getTargetCityObject()),
+  '永久摧毁': () => nonBattleSkills.executeYongJiuCuiHui(getCasterPlayer(), getTargetPlayer(), getTargetCityObject()),
+  '战略转移': () => nonBattleSkills.executeZhanLueZhuanYi(getCasterPlayer(), getSelfCityObject()),
+  '连锁反应': () => nonBattleSkills.executeLianSuoFanYing(getCasterPlayer(), getTargetPlayer()),
+  '招贤纳士': () => nonBattleSkills.executeZhaoXianNaShi(getCasterPlayer()),
+  '无懈可击': () => nonBattleSkills.executeWuXieKeJi(getCasterPlayer()),
+  '坚不可摧': () => nonBattleSkills.executeJianBuKeCui(getCasterPlayer()),
+  '移花接木': () => nonBattleSkills.executeYiHuaJieMu(getCasterPlayer(), getTargetPlayer()),
+  '不露踪迹': () => nonBattleSkills.executeBuLuZongJi(getCasterPlayer()),
+  '整齐划一': () => nonBattleSkills.executeZhengQiHuaYi(getCasterPlayer()),
+  '人质交换': () => nonBattleSkills.executeRenZhiJiaoHuan(getCasterPlayer(), getTargetPlayer()),
+  '釜底抽薪': () => nonBattleSkills.executeFuDiChouXin(getCasterPlayer(), getTargetPlayer()),
+  '金融危机': () => nonBattleSkills.executeJinRongWeiJi(getCasterPlayer(), getTargetPlayer()),
+  '劫富济贫': () => nonBattleSkills.executeJieFuJiPin(getCasterPlayer(), getTargetPlayer()),
+  '城市试炼': () => nonBattleSkills.executeChengShiShiLian(getCasterPlayer(), getSelfCityObject()),
+  '天灾人祸': () => nonBattleSkills.executeTianZaiRenHuo(getCasterPlayer(), getTargetPlayer()),
+  '李代桃僵': () => nonBattleSkills.executeLiDaiTaoJiang(getCasterPlayer()),
+  '避而不见': () => nonBattleSkills.executeBiErBuJian(getCasterPlayer()),
+  '一触即发': () => nonBattleSkills.executeYiChuJiFa(getCasterPlayer(), selectedSkillName.value),
+  '技能保护': () => nonBattleSkills.executeJiNengBaoHu(getCasterPlayer()),
+  '突破瓶颈': () => nonBattleSkills.executeTuPoPingJing(getCasterPlayer(), selectedSkillName.value),
+  '血量存储': () => nonBattleSkills.executeXueLiangCunChu(getCasterPlayer(), getSelfCityObject()),
+  '海市蜃楼': () => nonBattleSkills.executeHaiShiShenLou(getCasterPlayer()),
+  '解除封锁': () => nonBattleSkills.executeJieChuFengSuo(getCasterPlayer()),
+  '数位反转': () => nonBattleSkills.executeShuWeiFanZhuan(getCasterPlayer(), getTargetPlayer()),
+  '寸步难行': () => nonBattleSkills.executeMuBuZhuanJing(getCasterPlayer(), getTargetPlayer()),
+  '过河拆桥': () => nonBattleSkills.executeGuoHeChaiQiao(getCasterPlayer(), getTargetPlayer()),
+  '电磁感应': () => nonBattleSkills.executeDianCiGanYing(getCasterPlayer(), getTargetPlayer()),
+  '厚积薄发': () => nonBattleSkills.executeHouJiBaoFa(getCasterPlayer()),
+  '中庸之道': () => nonBattleSkills.executeZhongYongZhiDao(getCasterPlayer()),
+  '当机立断': () => nonBattleSkills.executeDangJiLiDuan(getCasterPlayer()),
+  '自相残杀': () => nonBattleSkills.executeZiXiangCanSha(getCasterPlayer(), getTargetPlayer()),
+  '言听计从': () => nonBattleSkills.executeYanTingJiCong(getCasterPlayer(), getTargetPlayer(), targetCity.value),
+  '事半功倍': () => nonBattleSkills.executeShiBanGongBei(getCasterPlayer()),
+  '倒反天罡': () => nonBattleSkills.executeDaoFanTianGang(getCasterPlayer(), getTargetPlayer()),
+  '搬运救兵·普通': () => nonBattleSkills.executeBanyunJiubingPutong(getCasterPlayer()),
+  '搬运救兵·高级': () => nonBattleSkills.executeBanyunJiubingGaoji(getCasterPlayer()),
+  '趁其不备·随机': () => nonBattleSkills.executeChenqibubeiSuiji(getCasterPlayer(), getTargetPlayer()),
+  '趁其不备·指定': () => nonBattleSkills.executeChenqibubeiZhiding(getCasterPlayer(), getTargetPlayer(), getTargetCityObject()),
+  '守望相助': () => nonBattleSkills.executeShouWangXiangZhu(getCasterPlayer(), getTargetPlayer()),
+  '以礼来降': () => nonBattleSkills.executeYiLiLaiJiang(getCasterPlayer(), getTargetPlayer(), getTargetCityObject()),
+  '大义灭亲': () => nonBattleSkills.executeDaYiMieQin(getCasterPlayer(), getSelfCityObject()),
+  '强制迁都·普通': () => nonBattleSkills.executeQiangZhiQianDuPutong(getCasterPlayer(), getTargetPlayer()),
+  '强制迁都·高级版': () => nonBattleSkills.executeQiangZhiQianDuGaoji(getCasterPlayer(), getTargetPlayer()),
+  '夷为平地': () => nonBattleSkills.executeYiWeiPingDi(getCasterPlayer(), getTargetPlayer()),
+  '强制搬运': () => nonBattleSkills.executeQiangZhiBanYun(getCasterPlayer(), getTargetPlayer()),
+  '行政中心': () => nonBattleSkills.executeXingZhengZhongXin(getCasterPlayer()),
+  '代行省权': () => nonBattleSkills.executeDaiXingShengQuan(getCasterPlayer(), getTargetPlayer()),
+  '副中心制': () => nonBattleSkills.executeFuZhongXinZhi(getCasterPlayer(), getSelfCityObject()),
+  '计划单列': () => nonBattleSkills.executeJiHuaDanLie(getCasterPlayer()),
+  '步步高升': () => nonBattleSkills.executeBuBuGaoSheng(getCasterPlayer()),
+  '生于紫室': () => nonBattleSkills.executeShengYuZiShi(getCasterPlayer(), getSelfCityObject()),
+  '城市侦探': () => nonBattleSkills.executeCityDetective(getCasterPlayer(), getTargetPlayer()),
+  '城市预言': () => nonBattleSkills.executeChengShiYuYan(getCasterPlayer()),
+  '一举两得': () => nonBattleSkills.executeYiJuLiangDe(getCasterPlayer()),
+  '明察秋毫': () => nonBattleSkills.executeMingChaQiuHao(getCasterPlayer(), getTargetPlayer()),
 
   // 城市专属非战斗技能
   '孔孟故里': () => executeCitySkill(handleJiningSkill, '济宁市'),
@@ -729,12 +938,18 @@ const SKILL_EXECUTOR_MAP = {
 }
 
 // 辅助函数
+function getCasterPlayer() {
+  // 从 gameStore.players 中获取当前玩家，确保修改的是同一个引用
+  return gameStore.players.find(p => p.name === props.currentPlayer?.name)
+}
+
 function getTargetPlayer() {
   return opponents.value.find(p => p.name === targetPlayer.value)
 }
 
 function getSelfCityObject() {
-  return props.currentPlayer.cities[selfCity.value]
+  const caster = getCasterPlayer()
+  return caster?.cities[selfCity.value]
 }
 
 function getTargetCityObject() {
@@ -778,6 +993,7 @@ function executeSkill() {
     console.log('[SkillSelector] 目标玩家:', targetPlayer.value)
     console.log('[SkillSelector] 目标城市:', targetCity.value)
     console.log('[SkillSelector] 自己城市:', selfCity.value)
+    console.log('[SkillSelector] 选中的多个城市:', selectedSelfCities.value)
     console.log('[SkillSelector] 数量:', amount.value)
 
     // 使用映射表执行技能
@@ -791,7 +1007,14 @@ function executeSkill() {
     }
 
     if (result.success) {
-      emit('skill-used', { skill: skill.name, result })
+      emit('skill-used', {
+        skillName: skill.name,
+        result,
+        targetPlayerName: targetPlayer.value,
+        targetCityIdx: targetCity.value,
+        selfCityIdx: selfCity.value,
+        amount: amount.value
+      })
       selectedSkill.value = null
 
       // 重置参数
@@ -799,7 +1022,9 @@ function executeSkill() {
       targetCity.value = ''
       selfCity.value = ''
       amount.value = 0
+      selectedSelfCities.value = []  // 重置多城市选择
     } else {
+      console.log('[SkillSelector] 技能执行失败，发出 skill-failed 事件:', { skill: skill.name, result })
       emit('skill-failed', { skill: skill.name, result })
     }
   } catch (error) {
@@ -853,14 +1078,38 @@ function executeSkill() {
 }
 
 .skill-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  display: flex;
+  flex-direction: row;
   gap: 15px;
   margin-bottom: 20px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 10px 5px;
+  scroll-behavior: smooth;
+}
+
+/* 自定义横向滚动条 */
+.skill-grid::-webkit-scrollbar {
+  height: 8px;
+}
+
+.skill-grid::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.skill-grid::-webkit-scrollbar-thumb {
+  background: #4CAF50;
+  border-radius: 4px;
+}
+
+.skill-grid::-webkit-scrollbar-thumb:hover {
+  background: #45a049;
 }
 
 .skill-card {
   display: flex;
+  flex-direction: row;
   gap: 12px;
   padding: 15px;
   background: white;
@@ -868,6 +1117,9 @@ function executeSkill() {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
+  min-width: 280px;
+  max-width: 280px;
+  flex-shrink: 0;
 }
 
 .skill-card:hover:not(.disabled) {
@@ -980,66 +1232,286 @@ function executeSkill() {
   flex: 1;
 }
 
-.skill-cooldown, .skill-limit {
-  font-size: 12px;
-  color: #999;
-  margin-top: 4px;
-}
-
-.skill-detail {
+/* ====== 目标选择区域样式 ====== */
+.target-selection-section {
   background: white;
   padding: 20px;
   border-radius: 8px;
   border: 2px solid #4CAF50;
+  margin-top: 20px;
 }
 
-.skill-detail h4 {
-  margin: 0 0 10px 0;
+.section-title {
+  margin: 0 0 20px 0;
   font-size: 20px;
   color: #4CAF50;
+  text-align: center;
+  font-weight: bold;
 }
 
-.detail-description {
-  color: #666;
+/* 对手玩家选择器 */
+.target-player-selector {
   margin-bottom: 20px;
 }
 
-.skill-params {
+.target-player-selector h4,
+.city-card-selector h4 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  color: #555;
+  font-weight: 600;
+}
+
+.player-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.player-btn {
+  padding: 12px 24px;
+  border: 2px solid #ddd;
+  background: white;
+  color: #333;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.player-btn:hover {
+  border-color: #4CAF50;
+  background: #f0f8f0;
+}
+
+.player-btn.selected {
+  border-color: #4CAF50;
+  background: #4CAF50;
+  color: white;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+}
+
+/* 城市卡牌选择器 */
+.city-card-selector {
   margin-bottom: 20px;
 }
 
+.city-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.mini-city-card {
+  position: relative;
+  padding: 12px;
+  background: #fafafa;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: center;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.mini-city-card:hover:not(.disabled):not(.dead) {
+  border-color: #4CAF50;
+  background: #f0f8f0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+}
+
+.mini-city-card.selected {
+  border-color: #4CAF50;
+  background: #e8f5e9;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+}
+
+.mini-city-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mini-city-card.dead {
+  opacity: 0.7;
+  background: #f5f5f5;
+}
+
+/* 借尸还魂：已阵亡城市可以选择，显示正常样式 */
+.mini-city-card.dead:not(.disabled) {
+  opacity: 0.85;
+  cursor: pointer;
+  background: #fff3e0;
+  border-color: #ff9800;
+}
+
+/* 已阵亡城市的hover效果（可选择时） */
+.mini-city-card.dead:not(.disabled):hover {
+  opacity: 1;
+  background: #ffe0b2;
+  border-color: #f57c00;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+}
+
+/* 选中已阵亡城市的高亮效果 */
+.mini-city-card.dead.selected {
+  opacity: 1 !important;
+  background: linear-gradient(135deg, #81c784 0%, #66bb6a 100%) !important;
+  border-color: #4CAF50 !important;
+  box-shadow: 0 4px 16px rgba(76, 175, 80, 0.5) !important;
+}
+
+/* 选中时文字颜色优化 */
+.mini-city-card.dead.selected .city-name {
+  color: white !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.mini-city-card.dead.selected .city-hp {
+  color: rgba(255, 255, 255, 0.95) !important;
+  font-weight: 600;
+}
+
+.mini-city-card.dead.selected .city-status.dead {
+  color: rgba(255, 255, 255, 0.9) !important;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+/* 禁用的已阵亡城市 */
+.mini-city-card.dead.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: #f5f5f5;
+}
+
+.city-name {
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 6px;
+  color: #333;
+}
+
+.city-hp {
+  font-size: 13px;
+  color: #f57c00;
+  font-weight: 500;
+}
+
+.city-status.dead {
+  font-size: 11px;
+  color: #f44336;
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.check-mark {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  background: #4CAF50;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* 禁用原因标记 */
+.disabled-reason {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.reason-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.reason-badge.center {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: white;
+  box-shadow: 0 1px 3px rgba(251, 191, 36, 0.3);
+}
+
+.reason-badge.cautious {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  box-shadow: 0 1px 3px rgba(239, 68, 68, 0.3);
+}
+
+.no-cities-hint {
+  text-align: center;
+  padding: 30px;
+  color: #999;
+  font-size: 14px;
+  font-style: italic;
+}
+
+/* 参数组 */
 .param-group {
   margin-bottom: 15px;
 }
 
 .param-group label {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 6px;
   font-weight: bold;
   color: #555;
+  font-size: 14px;
 }
 
 .param-group select,
 .param-group input {
   width: 100%;
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: 10px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
   font-size: 14px;
+  transition: border-color 0.3s;
 }
 
+.param-group select:focus,
+.param-group input:focus {
+  outline: none;
+  border-color: #4CAF50;
+}
+
+/* 按钮 */
 .skill-actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
+  margin-top: 20px;
+  justify-content: center;
 }
 
 .btn-primary,
 .btn-secondary {
-  padding: 10px 20px;
+  padding: 12px 32px;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: bold;
   transition: all 0.3s;
 }
@@ -1051,11 +1523,14 @@ function executeSkill() {
 
 .btn-primary:hover:not(:disabled) {
   background: #45a049;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
 }
 
 .btn-primary:disabled {
   background: #ccc;
   cursor: not-allowed;
+  transform: none;
 }
 
 .btn-secondary {
@@ -1065,68 +1540,5 @@ function executeSkill() {
 
 .btn-secondary:hover {
   background: #e0e0e0;
-}
-
-/* 多城市选择样式 */
-.city-multi-select {
-  display: grid;
-  gap: 8px;
-  margin-top: 8px;
-  max-height: 300px;
-  overflow-y: auto;
-  padding: 8px;
-  background: #f9f9f9;
-  border-radius: 6px;
-}
-
-.city-checkbox-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  background: white;
-  border: 2px solid #e0e0e0;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.city-checkbox-item:hover:not(.disabled) {
-  border-color: #4CAF50;
-  background: #f0fdf4;
-}
-
-.city-checkbox-item.selected {
-  border-color: #4CAF50;
-  background: #dcfce7;
-}
-
-.city-checkbox-item.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background: #f5f5f5;
-}
-
-.city-checkbox-item input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-}
-
-.city-checkbox-item.disabled input[type="checkbox"] {
-  cursor: not-allowed;
-}
-
-.city-checkbox-label {
-  flex: 1;
-  font-size: 14px;
-  color: #333;
-}
-
-.hint-text {
-  font-size: 12px;
-  color: #666;
-  font-style: italic;
-  margin-top: 6px;
 }
 </style>

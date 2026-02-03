@@ -12,43 +12,44 @@ export const useGameStore = defineStore('game', () => {
 
   // ========== 城市管理 ==========
   const usedCities = ref(new Set())           // 已使用的城市名称集合
-  const initialCities = reactive({})          // 玩家初始城市列表 [player][idx]
+  const initialCities = reactive({})          // 玩家初始城市列表 [player][cityName]
   const deadCities = reactive({})             // 阵亡城市列表 [player][]
 
   // ========== 技能状态追踪 ==========
-  const cautiousExchange = reactive({})       // 谨慎交换集合 [player][]
-  const anchored = reactive({})               // 定海神针城市 [player][idx]
-  const ironCities = reactive({})             // 钢铁城市 [player][idx]: layers
-  const protections = reactive({})            // 城市保护罩 [player][idx]: rounds
-  const disguisedCities = reactive({})        // 伪装城市 [player][idx]: {m, cur, n, paid, roundsLeft}
-  const knownCities = reactive({})            // 已知城市 [player][knownBy][]
+  const cautiousExchange = reactive({})       // 谨慎交换集合（步步高升专用）[player]: Set(cityName)
+  const cautionSet = reactive({})             // 谨慎交换集合（技能效果）[player]: Set(cityName)
+  const anchored = reactive({})               // 定海神针城市 [player][cityName]: rounds
+  const ironCities = reactive({})             // 钢铁城市 [player][cityName]: layers
+  const protections = reactive({})            // 城市保护罩 [player][cityName]: rounds
+  const disguisedCities = reactive({})        // 伪装城市 [player][cityName]: {m, cur, n, paid, roundsLeft}
+  const knownCities = reactive({})            // 已知城市 [player][knownBy]: Set(cityName)
 
   // ========== 战斗技能标记 ==========
   const qinwang = ref(null)                   // 擒贼擒王目标
   const cmjb = ref(null)                      // 草木皆兵目标
-  const yueyueyong = reactive({})             // 越战越勇城市 [player][idx]
-  const attract = reactive({})                // 吸引攻击城市 [player]: idx
-  const jilaizan = reactive({})               // 既来则安城市 [player][idx]: {used}
+  const yueyueyong = reactive({})             // 越战越勇城市 [player][cityName]: active
+  const attract = reactive({})                // 吸引攻击城市 [player]: cityName
+  const jilaizan = reactive({})               // 既来则安城市 [player][cityName]: {used}
   const ironwall = ref(null)                  // 铜墙铁壁目标
   const barrier = reactive({})                // 屏障 [player]: {hp, maxHp, roundsLeft, team?}
-  const yujia = ref(null)                     // 御驾亲征 {player, target, centerIdx}
+  const yujia = ref(null)                     // 御驾亲征 {player, target, centerCityName}
   const foresee = ref(null)                   // 料事如神标记
   const reflect = reactive({})                // 反戈一击 [player]: {target, active}
 
   // ========== 非战斗技能状态 ==========
   const goldLoanRounds = reactive({})         // 金币贷款禁用 [player]: rounds
-  const bannedCities = reactive({})           // 禁用城市 [player][idx]: rounds
-  const fatigueStreaks = reactive({})         // 疲劳指数 [player][idx]: number
-  const brickJade = reactive({})              // 抛砖引玉 [player][idx]: {rounds, originalHp}
-  const hiddenGrowth = reactive({})           // 深藏不露 [player][idx]: {idleRounds, active, everDied}
-  const timeBombs = reactive({})              // 定时爆破 [player][idx]: countdown
-  const cityTrialUsed = reactive({})          // 城市试炼使用记录 [player][idx]
-  const berserkFired = reactive({})           // 狂暴模式使用 [player][idx]: originalHp
-  const buffs = reactive({})                  // 城市增益效果 [player][idx]: {multiplier, ...}
+  const bannedCities = reactive({})           // 禁用城市 [player][cityName]: rounds
+  const fatigueStreaks = reactive({})         // 疲劳指数 [player][cityName]: number
+  const brickJade = reactive({})              // 抛砖引玉 [player][cityName]: {rounds, originalHp}
+  const hiddenGrowth = reactive({})           // 深藏不露 [player][cityName]: {idleRounds, active, everDied}
+  const timeBombs = reactive({})              // 定时爆破 [player][cityName]: countdown
+  const cityTrialUsed = reactive({})          // 城市试炼使用记录 [player][cityName]: boolean
+  const berserkFired = reactive({})           // 狂暴模式使用 [player][cityName]: originalHp
+  const buffs = reactive({})                  // 城市增益效果 [player][cityName]: {multiplier, ...}
   const stolenSkills = reactive({})           // 移花接木偷取技能 [player]: [{skillName, roundsLeft, usedCount, from}]
   const stealth = reactive({})                // 不露踪迹状态 [player]: {roundsLeft}
   const costIncrease = reactive({})           // 釜底抽薪标记 [player]: count (下次8+金币技能费用增加50%)
-  const disaster = reactive({})               // 天灾人祸标记 [player][idx]: roundsLeft (攻击力变为1)
+  const disaster = reactive({})               // 天灾人祸标记 [player][cityName]: roundsLeft (攻击力变为1)
   const forceDeployTwo = reactive({})         // 一举两得标记 [player]: {active, round} (强制出战2个城市)
   const cannotStandDown = reactive({})        // 一举两得标记 [player]: {active, round} (禁用按兵不动)
   const financialCrisis = ref(null)           // 金融危机状态 {roundsLeft} (持续3回合，金币最高玩家无法+3，其余+1)
@@ -56,29 +57,29 @@ export const useGameStore = defineStore('game', () => {
   const skillProtection = reactive({})        // 技能保护状态 [player]: {roundsLeft} (10回合内对手无法使用事半功倍、过河拆桥)
   const yiyidl = reactive({})                 // 以逸待劳标记 [player]: {target, goldMark} (根据对手出战城市数+2000伤害，抢走金币)
   const sdxj = reactive({})                   // 声东击西标记 [player]: {target, active} (3P模式，战力劣势时转向攻击另一玩家)
-  const changeFlagMark = reactive({})         // 拔旗易帜标记 [player][cityIdx]: {newProvince, originalProvince} (交换省份归属)
+  const changeFlagMark = reactive({})         // 拔旗易帜标记 [player][cityName]: {newProvince, originalProvince} (交换省份归属)
   const wwjz = reactive({})                   // 围魏救赵标记 [player]: {active} (本轮生效，战斗特殊处理)
   const wwjzUsageCount = reactive({})         // 围魏救赵使用次数 [player]: count (最多2次)
   const dizzy = reactive({})                  // 晕头转向标记 [player]: {mode, target} (本轮交换出战城市)
-  const yqgzMarks = ref([])                   // 欲擒故纵陷阱标记数组 [{player, target, cityIdx, roundCreated}]
+  const yqgzMarks = ref([])                   // 欲擒故纵陷阱标记数组 [{player, target, cityName, roundCreated}]
   const ccjj = reactive({})                   // 草船借箭标记 [player]: {active} (本轮攻击转为治疗)
   const gawhUser = ref(null)                  // 隔岸观火用户 {player, round} (每轮仅首次使用者生效，3P模式)
   const tblj = reactive({})                   // 挑拨离间标记 [player]: {mode, targetTeam} (本轮对手团队内斗，2v2模式)
-  const reversedCapitals = reactive({})       // 倒反天罡标记 [player][cityIdx]: {province, cityName} (永久移除省会效果)
+  const reversedCapitals = reactive({})       // 倒反天罡标记 [player][cityName]: {province, cityName} (永久移除省会效果)
   const hpBank = reactive({})                 // 血量存储 [player]: {balance, depositMade, hasWithdrawnThisRound} (HP存储库)
   const centerProjection = reactive({})       // 海市蜃楼 [player]: {roundsLeft, blocked} (中心投影，75%拦截伤害)
   const bannedSkills = reactive({})           // 事半功倍 [opponent]: {skillName: rounds} (禁用对手技能)
-  const stareDown = reactive({})              // 目不转睛 [player]: {caster, roundsLeft} (限制玩家只能使用当机立断和无懈可击)
+  const stareDown = reactive({})              // 寸步难行 [player]: {caster, roundsLeft} (限制玩家只能使用当机立断和无懈可击)
   const dcgy = ref([])                        // 电磁感应 [{caster, target, cities: [], roundsLeft, damagedThisRound}] (电磁感应链接数组)
   const forcedSoldierBan = reactive({})       // 强制搬运禁用 [player]: [] (被禁用的搬运技能列表)
   const potentialOverflow = reactive({})      // 潜能激发溢出 [player]: state (潜能激发溢出效果)
-  const bbgs = reactive({})                   // 步步高升 [player][cityIdx]: state (步步高升状态标记)
-  const subCenters = reactive({})             // 副中心制 [player]: cityIdx (副中心城市索引)
-  const purpleChamber = reactive({})          // 生于紫室 [player]: cityIdx (生于紫室城市索引)
+  const bbgs = reactive({})                   // 步步高升 [player][cityName]: state (步步高升状态标记)
+  const subCenters = reactive({})             // 副中心制 [player]: cityName (副中心城市名称)
+  const purpleChamber = reactive({})          // 生于紫室 [player]: cityName (生于紫室城市名称)
 
   // ========== 交互流程 ==========
   const pendingFortuneSwap = ref(null)        // 待处理的时来运转
-  const pendingPreemptiveStrike = ref(null)   // 待处理的先声夺人
+  const pendingSwaps = ref([])                // 待处理的先声夺人交换请求数组 [{id, initiatorName, targetName, status, round, initiatorCityIdx?, targetCityIdx?}]
   const ldtj = reactive({})                   // 李代桃僵状态 [player]: active
 
   // ========== 护盾系统 ==========
@@ -98,6 +99,9 @@ export const useGameStore = defineStore('game', () => {
   // ========== 颜色技能使用追踪 ==========
   const colorSkillsUsed = reactive({})        // 颜色技能使用 [player]: {red, green, blue}
 
+  // ========== 改弦更张使用次数 ==========
+  const gaixiangengzhangUsed = reactive({})   // 改弦更张使用次数 [player]: count (每局限2次)
+
   // ========== 私有日志系统 ==========
   const playerPrivateLogs = reactive({})      // 玩家私有日志 [player]: [{timestamp, round, message}]
 
@@ -111,10 +115,25 @@ export const useGameStore = defineStore('game', () => {
   function addPlayer(playerData) {
     const playerName = playerData.name
 
+    // 将cities数组转换为对象（键为城市名称）
+    let citiesObj = {}
+    if (playerData.cities && Array.isArray(playerData.cities)) {
+      playerData.cities.forEach(city => {
+        citiesObj[city.name] = city
+      })
+    } else if (playerData.cities && typeof playerData.cities === 'object') {
+      // 如果已经是对象格式，直接使用
+      citiesObj = playerData.cities
+    }
+
+    // 获取第一个城市名称作为默认中心城市
+    const firstCityName = Object.keys(citiesObj)[0] || null
+
     players.value.push({
       name: playerName,
       gold: 0,
-      cities: playerData.cities || [],
+      cities: citiesObj,
+      centerCityName: playerData.centerCityName || firstCityName,
       ...playerData
     })
 
@@ -151,23 +170,35 @@ export const useGameStore = defineStore('game', () => {
   }
 
   // 添加日志
-  function addLog(message, type = 'info') {
-    const timestamp = Date.now()  // 使用时间戳数字而不是字符串
+  /**
+   * 添加公共日志（所有玩家可见）
+   * @param {string} message - 日志消息
+   */
+  function addLog(message) {
+    const timestamp = Date.now()
     logs.value.push({
       message,
-      type,
-      timestamp
+      timestamp,
+      round: currentRound.value,
+      isPrivate: false
     })
   }
 
-  // 清空日志
+  /**
+   * 清空所有日志
+   */
   function clearLogs() {
     logs.value = []
+    Object.keys(playerPrivateLogs).forEach(key => delete playerPrivateLogs[key])
   }
 
-  // 添加私有日志
+  /**
+   * 添加私密日志（仅特定玩家可见）
+   * @param {string} playerName - 玩家名称
+   * @param {string} message - 日志消息
+   */
   function addPrivateLog(playerName, message) {
-    const timestamp = Date.now()  // 使用时间戳数字而不是字符串
+    const timestamp = Date.now()
     if (!playerPrivateLogs[playerName]) {
       playerPrivateLogs[playerName] = []
     }
@@ -295,7 +326,7 @@ export const useGameStore = defineStore('game', () => {
     yujia.value = null
     foresee.value = null
     pendingFortuneSwap.value = null
-    pendingPreemptiveStrike.value = null
+    pendingSwaps.value = []
     lastSkillUsed.value = null
     gameStateSnapshot.value = null
   }
@@ -341,29 +372,131 @@ export const useGameStore = defineStore('game', () => {
 
   // ========== 谨慎交换集合管理 ==========
 
-  // 检查是否在谨慎交换集合
-  function isInCautiousSet(playerName, cityIdx) {
-    if (!cautiousExchange[playerName]) return false
-    return cautiousExchange[playerName].includes(cityIdx)
+  // 检查是否在谨慎交换集合（检查技能效果cautionSet和步步高升cautiousExchange）
+  function isInCautiousSet(playerName, cityName) {
+    // 检查技能效果产生的谨慎标记（cautionSet）
+    if (cautionSet[playerName] && cautionSet[playerName].has(cityName)) {
+      return true
+    }
+    // 检查步步高升产生的谨慎标记（cautiousExchange）
+    if (cautiousExchange[playerName] && cautiousExchange[playerName].has(cityName)) {
+      return true
+    }
+    return false
   }
 
-  // 添加到谨慎交换集合
-  function addToCautiousSet(playerName, cityIdx) {
+  // 添加到谨慎交换集合（步步高升专用）
+  function addToCautiousSet(playerName, cityName) {
     if (!cautiousExchange[playerName]) {
-      cautiousExchange[playerName] = []
+      cautiousExchange[playerName] = new Set()
     }
-    if (!cautiousExchange[playerName].includes(cityIdx)) {
-      cautiousExchange[playerName].push(cityIdx)
+    cautiousExchange[playerName].add(cityName)
+  }
+
+  // 从谨慎交换集合移除（步步高升专用）
+  function removeFromCautiousSet(playerName, cityName) {
+    if (!cautiousExchange[playerName]) return
+    cautiousExchange[playerName].delete(cityName)
+  }
+
+  // 添加到技能效果谨慎集合（如以礼来降、晕头转向等）
+  function addToCautionSet(playerName, cityName) {
+    if (!cautionSet[playerName]) {
+      cautionSet[playerName] = new Set()
+    }
+    cautionSet[playerName].add(cityName)
+  }
+
+  // 从技能效果谨慎集合移除
+  function removeFromCautionSet(playerName, cityName) {
+    if (!cautionSet[playerName]) return
+    cautionSet[playerName].delete(cityName)
+  }
+
+  // 清空玩家的技能效果谨慎集合
+  function clearCautionSet(playerName) {
+    if (cautionSet[playerName]) {
+      cautionSet[playerName].clear()
     }
   }
 
-  // 从谨慎交换集合移除
-  function removeFromCautiousSet(playerName, cityIdx) {
-    if (!cautiousExchange[playerName]) return
-    const index = cautiousExchange[playerName].indexOf(cityIdx)
-    if (index > -1) {
-      cautiousExchange[playerName].splice(index, 1)
+  // ========== 待处理交换请求管理（先声夺人） ==========
+
+  // 创建先声夺人待处理请求
+  function createPendingSwap(initiatorName, targetName, initiatorCityName) {
+    const swap = {
+      id: `swap_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      initiatorName,
+      targetName,
+      initiatorCityName,
+      status: 'pending', // 'pending', 'accepted', 'rejected'
+      round: currentRound.value
     }
+    pendingSwaps.value.push(swap)
+    return swap
+  }
+
+  // 获取玩家的待处理请求（作为目标）
+  function getPendingSwapsForPlayer(playerName) {
+    console.log('[gameStore] getPendingSwapsForPlayer 被调用:', {
+      playerName,
+      playerNameType: typeof playerName,
+      totalPendingSwaps: pendingSwaps.value?.length || 0
+    })
+
+    const filtered = pendingSwaps.value.filter((swap, idx) => {
+      const statusMatch = swap.status === 'pending'
+      const targetMatch = swap.targetName === playerName
+      const matches = statusMatch && targetMatch
+
+      console.log(`[gameStore] 检查 swap[${idx}]:`, {
+        swapId: swap.id,
+        'swap.status': swap.status,
+        'swap.targetName': swap.targetName,
+        'swap.targetName类型': typeof swap.targetName,
+        playerName,
+        'playerName类型': typeof playerName,
+        statusMatch,
+        targetMatch,
+        'targetName === playerName': swap.targetName === playerName,
+        '严格相等': swap.targetName === playerName,
+        '字符串比较': String(swap.targetName) === String(playerName),
+        matches
+      })
+
+      return matches
+    })
+
+    console.log('[gameStore] 筛选结果:', {
+      filteredCount: filtered.length,
+      filtered
+    })
+
+    return filtered
+  }
+
+  // 更新待处理请求状态
+  function updatePendingSwapStatus(swapId, status, targetCityName = null) {
+    const swap = pendingSwaps.value.find(s => s.id === swapId)
+    if (swap) {
+      swap.status = status
+      if (targetCityName !== null) {
+        swap.targetCityName = targetCityName
+      }
+    }
+    return swap
+  }
+
+  // 清理已完成的待处理请求
+  function clearCompletedSwaps() {
+    pendingSwaps.value = pendingSwaps.value.filter(swap =>
+      swap.status === 'pending'
+    )
+  }
+
+  // 清理所有待处理请求
+  function clearAllPendingSwaps() {
+    pendingSwaps.value = []
   }
 
   // ========== 护盾和保护检查 ==========
@@ -378,7 +511,7 @@ export const useGameStore = defineStore('game', () => {
       '无知无畏', '进制扭曲', '整齐划一', '人质交换', '时来运转',
       '吸引攻击', '铜墙铁壁', '料事如神', '背水一战', '同归于尽',
       '暗度陈仓', '隔岸观火', '挑拨离间', '清除加成', '釜底抽薪',
-      '劫富济贫', '天灾人祸', '提灯定损', '连续打击', '倒反天罡',
+      '劫富济贫', '天灾人祸', '一落千丈', '连续打击', '倒反天罡',
       '数位反转', '波涛汹涌', '万箭齐发', '连锁反应', '御驾亲征',
       '欲擒故纵', '晕头转向', '草船借箭', '招贤纳士', '狂轰滥炸',
       '横扫一空', '降维打击', '定时爆破', '反戈一击', '围魏救赵',
@@ -392,13 +525,13 @@ export const useGameStore = defineStore('game', () => {
   }
 
   // 检查城市是否有保护罩
-  function hasProtection(playerName, cityIdx) {
-    return protections[playerName] && protections[playerName][cityIdx] > 0
+  function hasProtection(playerName, cityName) {
+    return protections[playerName] && protections[playerName][cityName] > 0
   }
 
   // 检查城市是否有钢铁护盾
-  function hasIronShield(playerName, cityIdx) {
-    return ironCities[playerName] && ironCities[playerName][cityIdx] > 0
+  function hasIronShield(playerName, cityName) {
+    return ironCities[playerName] && ironCities[playerName][cityName] > 0
   }
 
   // 检查海市蜃楼是否拦截伤害（75%概率）
@@ -428,16 +561,16 @@ export const useGameStore = defineStore('game', () => {
   }
 
   // 消耗一层保护（返回true表示被保护抵消）
-  function consumeProtection(playerName, cityIdx) {
-    if (hasProtection(playerName, cityIdx)) {
-      delete protections[playerName][cityIdx]
+  function consumeProtection(playerName, cityName) {
+    if (hasProtection(playerName, cityName)) {
+      delete protections[playerName][cityName]
       addLog(`${playerName}的城市保护罩被击破`)
       return true
     }
-    if (hasIronShield(playerName, cityIdx)) {
-      ironCities[playerName][cityIdx]--
-      if (ironCities[playerName][cityIdx] <= 0) {
-        delete ironCities[playerName][cityIdx]
+    if (hasIronShield(playerName, cityName)) {
+      ironCities[playerName][cityName]--
+      if (ironCities[playerName][cityName] <= 0) {
+        delete ironCities[playerName][cityName]
       }
       addLog(`${playerName}的钢铁护盾减少一层`)
       return true
@@ -446,41 +579,66 @@ export const useGameStore = defineStore('game', () => {
   }
 
   // 检查城市是否是副中心
-  function isSubCenter(playerName, cityIdx) {
-    return subCenters[playerName] === cityIdx
+  function isSubCenter(playerName, cityName) {
+    return subCenters[playerName] === cityName
   }
 
   // ========== 城市状态管理 ==========
 
+  // 关键修复：添加玩家名称前缀，防止Firebase将纯数字玩家名（如"123"）转换为数组索引
+  // Firebase会自动将形如 {"123": {...}, "456": {...}} 的对象转换为稀疏数组，导致大量null
+  // 通过添加"p_"前缀，确保键名不是纯数字，避免此问题
+  function _prefixPlayer(name) {
+    return 'p_' + name
+  }
+
+  function _unprefixPlayer(key) {
+    return key.startsWith('p_') ? key.substring(2) : key
+  }
+
   // 检查城市是否为已知城市
-  function isCityKnown(playerName, cityIdx, knownBy) {
-    if (!knownCities[playerName]) return false
-    if (!knownCities[playerName][knownBy]) return false
-    return knownCities[playerName][knownBy].includes(cityIdx)
+  // knownCities[观察者][拥有者] = Set(城市名称)
+  function isCityKnown(playerName, cityName, knownBy) {
+    const observerKey = _prefixPlayer(knownBy)
+    const ownerKey = _prefixPlayer(playerName)
+    if (!knownCities[observerKey]) return false
+    if (!knownCities[observerKey][ownerKey]) return false
+    return knownCities[observerKey][ownerKey].has(cityName)
   }
 
   // 设置城市为已知
-  function setCityKnown(playerName, cityIdx, knownBy) {
-    if (!knownCities[playerName]) {
-      knownCities[playerName] = {}
+  // knownCities[观察者][拥有者] = Set(城市名称)
+  function setCityKnown(playerName, cityName, knownBy) {
+    const observerKey = _prefixPlayer(knownBy)
+    const ownerKey = _prefixPlayer(playerName)
+    if (!knownCities[observerKey]) {
+      knownCities[observerKey] = {}
     }
-    if (!knownCities[playerName][knownBy]) {
-      knownCities[playerName][knownBy] = []
+    if (!knownCities[observerKey][ownerKey]) {
+      knownCities[observerKey][ownerKey] = new Set()
     }
-    if (!knownCities[playerName][knownBy].includes(cityIdx)) {
-      knownCities[playerName][knownBy].push(cityIdx)
-    }
+    knownCities[observerKey][ownerKey].add(cityName)
   }
 
   // 清除城市已知状态
-  function clearCityKnownStatus(playerName, cityIdx) {
-    if (!knownCities[playerName]) return
-    for (const knownBy of Object.keys(knownCities[playerName])) {
-      const index = knownCities[playerName][knownBy].indexOf(cityIdx)
-      if (index > -1) {
-        knownCities[playerName][knownBy].splice(index, 1)
-      }
+  // knownCities[观察者][拥有者] = Set(城市名称)
+  function clearCityKnownStatus(playerName, cityName) {
+    const ownerKey = _prefixPlayer(playerName)
+    // 遍历所有观察者
+    for (const observer of Object.keys(knownCities)) {
+      if (!knownCities[observer][ownerKey]) continue
+      knownCities[observer][ownerKey].delete(cityName)
     }
+  }
+
+  // 获取已知城市列表（供UI组件使用）
+  // 返回观察者知道的拥有者的城市名称数组
+  function getKnownCitiesForPlayer(observerName, ownerName) {
+    const observerKey = _prefixPlayer(observerName)
+    const ownerKey = _prefixPlayer(ownerName)
+    if (!knownCities[observerKey]) return []
+    if (!knownCities[observerKey][ownerKey]) return []
+    return Array.from(knownCities[observerKey][ownerKey])
   }
 
   // ========== 步步高升处理 ==========
@@ -488,33 +646,33 @@ export const useGameStore = defineStore('game', () => {
   /**
    * 处理城市阵亡时的步步高升召唤逻辑
    * @param {Object} player - 玩家对象
-   * @param {number} cityIdx - 阵亡城市索引
+   * @param {string} cityName - 阵亡城市名称
    * @param {Object} city - 阵亡的城市对象
    */
-  function handleBuBuGaoShengSummon(player, cityIdx, city) {
+  function handleBuBuGaoShengSummon(player, cityName, city) {
     // 检查该城市是否有步步高升状态
-    if (!bbgs[player.name] || !bbgs[player.name][cityIdx]) {
+    if (!bbgs[player.name] || !bbgs[player.name][cityName]) {
       return
     }
 
-    const bbgsState = bbgs[player.name][cityIdx]
+    const bbgsState = bbgs[player.name][cityName]
 
     // 检查召唤次数是否已达上限（最多3次）
     if (bbgsState.count >= bbgsState.maxCount) {
       addLog(`${player.name}的${city.name}步步高升召唤次数已达上限（3次）`)
-      delete bbgs[player.name][cityIdx]
+      delete bbgs[player.name][cityName]
       return
     }
 
     // 获取城市的有效省份（考虑拔旗易帜）
     let province = city.province
-    if (changeFlagMark[player.name] && changeFlagMark[player.name][cityIdx]) {
-      province = changeFlagMark[player.name][cityIdx].newProvince
+    if (changeFlagMark[player.name] && changeFlagMark[player.name][cityName]) {
+      province = changeFlagMark[player.name][cityName].newProvince
     }
 
     if (!province) {
       addLog(`${player.name}的${city.name}无法确定所属省份，步步高升失效`)
-      delete bbgs[player.name][cityIdx]
+      delete bbgs[player.name][cityName]
       return
     }
 
@@ -522,7 +680,7 @@ export const useGameStore = defineStore('game', () => {
     const excluded = ['北京市', '天津市', '重庆市', '上海市', '香港特别行政区', '澳门特别行政区']
     if (excluded.includes(city.name)) {
       addLog(`${player.name}的${city.name}是直辖市/特区，步步高升无法召唤`)
-      delete bbgs[player.name][cityIdx]
+      delete bbgs[player.name][cityName]
       return
     }
 
@@ -530,7 +688,7 @@ export const useGameStore = defineStore('game', () => {
     const provinceCities = getCitiesByProvince(province)
     if (!provinceCities || provinceCities.length === 0) {
       addLog(`${player.name}的${city.name}所在省份无可召唤城市`)
-      delete bbgs[player.name][cityIdx]
+      delete bbgs[player.name][cityName]
       return
     }
 
@@ -539,17 +697,17 @@ export const useGameStore = defineStore('game', () => {
     // 2. HP高于阵亡城市的原始HP
     // 3. 不是当前玩家已拥有的城市
     const originalHp = bbgsState.originalHp || city.hp
-    const playerCityNames = player.cities.map(c => c.name)
+    const playerCityNames = Object.keys(player.cities)
 
     const availableCities = provinceCities.filter(c => {
-      return !usedCities.includes(c.name) &&  // 未被使用
-             c.hp > originalHp &&              // HP更高
-             !playerCityNames.includes(c.name) // 不是已拥有的城市
+      return !usedCities.value.has(c.name) &&  // 未被使用
+             c.hp > originalHp &&               // HP更高
+             !playerCityNames.includes(c.name)  // 不是已拥有的城市
     })
 
     if (availableCities.length === 0) {
       addLog(`${player.name}的${city.name}所在省份没有HP更高的未使用城市，步步高升失效`)
-      delete bbgs[player.name][cityIdx]
+      delete bbgs[player.name][cityName]
       return
     }
 
@@ -557,7 +715,7 @@ export const useGameStore = defineStore('game', () => {
     availableCities.sort((a, b) => a.hp - b.hp)
     const summonedCity = availableCities[0]
 
-    // 将新城市添加到玩家城市列表（替换阵亡城市的位置）
+    // 将新城市添加到玩家城市列表（替换阵亡城市）
     const newCity = {
       ...summonedCity,
       currentHp: summonedCity.hp,
@@ -568,17 +726,18 @@ export const useGameStore = defineStore('game', () => {
       yellow: 0
     }
 
-    // 替换阵亡城市
-    player.cities[cityIdx] = newCity
+    // 删除阵亡的城市，添加新城市
+    delete player.cities[cityName]
+    player.cities[summonedCity.name] = newCity
 
     // 标记为已使用
     markCityAsUsed(summonedCity.name)
 
-    // 更新initialCities记录
+    // 更新initialCities记录（按城市名称追踪）
     if (!initialCities[player.name]) {
       initialCities[player.name] = {}
     }
-    initialCities[player.name][cityIdx] = {
+    initialCities[player.name][newCity.name] = {
       name: newCity.name,
       hp: newCity.hp,
       currentHp: newCity.hp,
@@ -586,18 +745,22 @@ export const useGameStore = defineStore('game', () => {
       isAlive: true
     }
 
-    // 更新步步高升状态
-    bbgsState.count++
-    bbgsState.originalHp = summonedCity.hp
+    // 更新步步高升状态（转移到新城市）
+    delete bbgs[player.name][cityName]
+    bbgs[player.name][summonedCity.name] = {
+      ...bbgsState,
+      count: bbgsState.count + 1,
+      originalHp: summonedCity.hp
+    }
 
     // 如果达到最大召唤次数，删除状态
-    if (bbgsState.count >= bbgsState.maxCount) {
-      delete bbgs[player.name][cityIdx]
+    if (bbgsState.count + 1 >= bbgsState.maxCount) {
+      delete bbgs[player.name][summonedCity.name]
     }
 
     addLog(
       `${player.name}的${city.name}阵亡，步步高升召唤${summonedCity.name}（HP${summonedCity.hp}）替换！` +
-      `（剩余召唤次数：${bbgsState.maxCount - bbgsState.count}）`
+      `（剩余召唤次数：${bbgsState.maxCount - (bbgsState.count + 1)}）`
     )
   }
 
@@ -607,8 +770,8 @@ export const useGameStore = defineStore('game', () => {
    * @param {Object} player - 玩家对象
    */
   function checkCenterDeathAndPurpleChamberInheritance(player) {
-    const centerIdx = player.centerIndex ?? 0
-    const centerCity = player.cities[centerIdx]
+    const centerName = player.centerCityName
+    const centerCity = centerName ? player.cities[centerName] : null
 
     // 中心城市未阵亡，无需处理
     if (!centerCity || centerCity.currentHp > 0) {
@@ -616,13 +779,13 @@ export const useGameStore = defineStore('game', () => {
     }
 
     // 检查是否有生于紫室城市
-    const chamberIdx = purpleChamber[player.name]
-    const chamberCity = chamberIdx !== undefined ? player.cities[chamberIdx] : null
+    const chamberName = purpleChamber[player.name]
+    const chamberCity = chamberName ? player.cities[chamberName] : null
     const hasPurpleChamber = chamberCity && chamberCity.currentHp > 0 && chamberCity.isAlive !== false
 
     if (hasPurpleChamber) {
       // 生于紫室城市自动成为新中心，玩家不淘汰
-      player.centerIndex = chamberIdx
+      player.centerCityName = chamberName
 
       // 更新城市的isCenter标记
       if (centerCity) centerCity.isCenter = false
@@ -642,28 +805,24 @@ export const useGameStore = defineStore('game', () => {
           knownCities[opponent.name] = {}
         }
         if (!knownCities[opponent.name][player.name]) {
-          knownCities[opponent.name][player.name] = []
+          knownCities[opponent.name][player.name] = new Set()
         }
-        if (!knownCities[opponent.name][player.name].includes(chamberIdx)) {
-          knownCities[opponent.name][player.name].push(chamberIdx)
-        }
+        knownCities[opponent.name][player.name].add(chamberName)
       })
     } else {
-      // 没有生于紫室城市，正常淘汰
-      const anyAliveOther = player.cities.some((c, idx) =>
-        idx !== centerIdx && (c.currentHp || 0) > 0 && c.isAlive !== false
-      )
+      // 没有生于紫室城市，玩家淘汰
+      // 将中心城市标记为阵亡
+      centerCity.isAlive = false
+      centerCity.currentHp = 0
 
-      if (anyAliveOther) {
-        // 将其余城市HP清零
-        player.cities.forEach((c, idx) => {
-          if (idx === centerIdx) return
-          c.currentHp = 0
-          c.isAlive = false
-        })
+      // 将其余所有城市HP清零并标记为阵亡
+      Object.values(player.cities).forEach((c) => {
+        if (c.name === centerName) return
+        c.currentHp = 0
+        c.isAlive = false
+      })
 
-        addLog(`>>> ${player.name}的中心城市阵亡，玩家淘汰，其余城市全部退出（HP清零）`)
-      }
+      addLog(`>>> ${player.name}的中心城市阵亡，玩家淘汰，所有城市退出战斗`)
     }
   }
 
@@ -717,29 +876,59 @@ export const useGameStore = defineStore('game', () => {
 
   // 更新所有回合相关状态
   function updateRoundStates() {
+    console.log('[gameStore.updateRoundStates] ===== 函数被调用 =====')
+    console.log('[gameStore.updateRoundStates] 当前回合:', currentRound.value)
+    console.log('[gameStore.updateRoundStates] goldLoanRounds状态:', JSON.stringify(goldLoanRounds))
+    console.log('[gameStore.updateRoundStates] 玩家列表:', players.value.map(p => ({ name: p.name, gold: p.gold })))
+
     // 更新金币贷款禁用
-    for (const player of Object.keys(goldLoanRounds)) {
-      if (goldLoanRounds[player] > 0) {
-        goldLoanRounds[player]--
+    // 注意：在线模式和单机模式都使用这个函数
+    console.log('[gameStore.updateRoundStates] 开始处理金币贷款扣除')
+    console.log('[gameStore.updateRoundStates] goldLoanRounds keys:', Object.keys(goldLoanRounds))
+
+    for (const playerName of Object.keys(goldLoanRounds)) {
+      console.log(`[gameStore.updateRoundStates] 检查玩家 ${playerName} 的金币贷款状态`)
+      console.log(`[gameStore.updateRoundStates] ${playerName} 的 goldLoanRounds 值:`, goldLoanRounds[playerName])
+
+      if (goldLoanRounds[playerName] > 0) {
+        console.log(`[gameStore.updateRoundStates] ${playerName} 的金币贷款冷却中，剩余 ${goldLoanRounds[playerName]} 回合`)
+
+        // 找到对应的玩家对象
+        const player = players.value.find(p => p.name === playerName)
+        console.log(`[gameStore.updateRoundStates] 找到玩家对象:`, player ? `${player.name}, 当前金币: ${player.gold}` : '未找到')
+
+        if (player) {
+          const goldBefore = player.gold
+          // 先+3金币（或金融危机期间的规则），然后-3金币
+          // 注意：金币增加由各自的模式处理，这里只处理扣除
+          player.gold = Math.max(0, player.gold - 3)
+          console.log(`[gameStore.updateRoundStates] ${playerName} 金币扣除: ${goldBefore} -> ${player.gold}`)
+          addLog(`${playerName} 金币贷款冷却中(剩余${goldLoanRounds[playerName]}回合)，扣除3金币`)
+        }
+        // 递减冷却回合数
+        goldLoanRounds[playerName]--
+        console.log(`[gameStore.updateRoundStates] ${playerName} 的 goldLoanRounds 递减后:`, goldLoanRounds[playerName])
       }
     }
 
+    console.log('[gameStore.updateRoundStates] 金币贷款扣除处理完成')
+
     // 更新禁用城市
     for (const player of Object.keys(bannedCities)) {
-      for (const cityIdx of Object.keys(bannedCities[player])) {
-        if (bannedCities[player][cityIdx] > 0) {
-          bannedCities[player][cityIdx]--
+      for (const cityName of Object.keys(bannedCities[player])) {
+        if (bannedCities[player][cityName] > 0) {
+          bannedCities[player][cityName]--
         }
       }
     }
 
     // 更新保护罩回合数
     for (const player of Object.keys(protections)) {
-      for (const cityIdx of Object.keys(protections[player])) {
-        if (protections[player][cityIdx] > 0) {
-          protections[player][cityIdx]--
-          if (protections[player][cityIdx] <= 0) {
-            delete protections[player][cityIdx]
+      for (const cityName of Object.keys(protections[player])) {
+        if (protections[player][cityName] > 0) {
+          protections[player][cityName]--
+          if (protections[player][cityName] <= 0) {
+            delete protections[player][cityName]
           }
         }
       }
@@ -747,12 +936,12 @@ export const useGameStore = defineStore('game', () => {
 
     // 更新伪装回合数
     for (const player of Object.keys(disguisedCities)) {
-      for (const cityIdx of Object.keys(disguisedCities[player])) {
-        const disguise = disguisedCities[player][cityIdx]
+      for (const cityName of Object.keys(disguisedCities[player])) {
+        const disguise = disguisedCities[player][cityName]
         if (disguise.roundsLeft > 0) {
           disguise.roundsLeft--
           if (disguise.roundsLeft <= 0) {
-            delete disguisedCities[player][cityIdx]
+            delete disguisedCities[player][cityName]
             addLog(`${player}的城市伪装效果消失`)
           }
         }
@@ -786,14 +975,14 @@ export const useGameStore = defineStore('game', () => {
 
     // 更新定时炸弹
     for (const player of Object.keys(timeBombs)) {
-      for (const cityIdx of Object.keys(timeBombs[player])) {
-        if (timeBombs[player][cityIdx] > 0) {
-          timeBombs[player][cityIdx]--
-          if (timeBombs[player][cityIdx] === 0) {
+      for (const cityName of Object.keys(timeBombs[player])) {
+        if (timeBombs[player][cityName] > 0) {
+          timeBombs[player][cityName]--
+          if (timeBombs[player][cityName] === 0) {
             // 炸弹爆炸逻辑在这里处理
             addLog(`${player}的城市上的定时炸弹爆炸！`)
             // TODO: 实现爆炸效果
-            delete timeBombs[player][cityIdx]
+            delete timeBombs[player][cityName]
           }
         }
       }
@@ -801,11 +990,11 @@ export const useGameStore = defineStore('game', () => {
 
     // 更新天灾人祸
     for (const player of Object.keys(disaster)) {
-      for (const cityIdx of Object.keys(disaster[player])) {
-        if (disaster[player][cityIdx] > 0) {
-          disaster[player][cityIdx]--
-          if (disaster[player][cityIdx] <= 0) {
-            delete disaster[player][cityIdx]
+      for (const cityName of Object.keys(disaster[player])) {
+        if (disaster[player][cityName] > 0) {
+          disaster[player][cityName]--
+          if (disaster[player][cityName] <= 0) {
+            delete disaster[player][cityName]
             addLog(`${player}的城市天灾人祸效果消失`)
           }
         }
@@ -836,7 +1025,7 @@ export const useGameStore = defineStore('game', () => {
     for (const player of players.value) {
       if (!player.cities) continue
 
-      player.cities.forEach((city, idx) => {
+      Object.entries(player.cities).forEach(([cityName, city]) => {
         if (!city.modifiers) return
 
         // 查找healing modifier
@@ -856,8 +1045,8 @@ export const useGameStore = defineStore('game', () => {
             city.modifiers.splice(healingIdx, 1)
 
             // 移除bannedCities记录
-            if (bannedCities[player.name] && bannedCities[player.name][idx]) {
-              delete bannedCities[player.name][idx]
+            if (bannedCities[player.name] && bannedCities[player.name][cityName]) {
+              delete bannedCities[player.name][cityName]
             }
 
             addLog(`${player.name}的${city.name}高级治疗完成，满血返回战场`)
@@ -1002,14 +1191,31 @@ export const useGameStore = defineStore('game', () => {
       }
     }
 
-    // 更新目不转睛状态
+    // 更新寸步难行状态
     for (const player of Object.keys(stareDown)) {
       if (stareDown[player].roundsLeft > 0) {
         stareDown[player].roundsLeft--
         if (stareDown[player].roundsLeft <= 0) {
           delete stareDown[player]
-          addLog(`${player}的目不转睛状态消失，可以正常使用技能了`)
+          addLog(`${player}的寸步难行状态消失，可以正常使用技能了`)
         }
+      }
+    }
+
+    // 更新技能冷却时间（定海神针、先声夺人、永久摧毁、坚不可摧、城市试炼）
+    for (const player of Object.keys(cooldowns)) {
+      for (const skillName of Object.keys(cooldowns[player])) {
+        if (cooldowns[player][skillName] > 0) {
+          cooldowns[player][skillName]--
+          if (cooldowns[player][skillName] <= 0) {
+            delete cooldowns[player][skillName]
+            addLog(`${player}的${skillName}技能冷却完成`)
+          }
+        }
+      }
+      // 如果该玩家所有技能都冷却完成了，删除该玩家条目
+      if (Object.keys(cooldowns[player]).length === 0) {
+        delete cooldowns[player]
       }
     }
 
@@ -1033,18 +1239,18 @@ export const useGameStore = defineStore('game', () => {
     // 更新生于紫室状态（每回合HP增加初始HP的10%）
     // 参考 citycard_web.html lines 10810-10850
     for (const player of Object.keys(purpleChamber)) {
-      const chamberCityIdx = purpleChamber[player]
-      if (chamberCityIdx === undefined) continue
+      const chamberCityName = purpleChamber[player]
+      if (!chamberCityName) continue
 
       const playerObj = players.value.find(p => p.name === player)
       if (!playerObj) continue
 
-      const city = playerObj.cities[chamberCityIdx]
+      const city = playerObj.cities[chamberCityName]
       if (!city || city.currentHp <= 0 || city.isAlive === false) continue
 
-      // 获取初始HP（考虑initialCities记录）
-      const baseHp = initialCities[player] && initialCities[player][chamberCityIdx]
-        ? initialCities[player][chamberCityIdx].hp
+      // 获取初始HP（按城市名称查找）
+      const baseHp = initialCities[player] && initialCities[player][city.name]
+        ? initialCities[player][city.name].hp
         : city.hp
 
       const increaseAmount = Math.floor(baseHp * 0.1)
@@ -1066,18 +1272,17 @@ export const useGameStore = defineStore('game', () => {
       const lastOut = []
       roundActions.value.forEach(action => {
         if (action.round === currentRound.value && action.player === player && action.action === 'deploy') {
-          if (action.details && action.details.cityIdx !== undefined) {
-            lastOut.push(action.details.cityIdx)
+          if (action.details && action.details.cityName !== undefined) {
+            lastOut.push(action.details.cityName)
           }
         }
       })
 
-      for (const cityIdx of Object.keys(hiddenGrowth[player])) {
-        const idx = +cityIdx
-        const cfg = hiddenGrowth[player][idx]
+      for (const cityName of Object.keys(hiddenGrowth[player])) {
+        const cfg = hiddenGrowth[player][cityName]
         if (!cfg || !cfg.active) continue
 
-        const city = playerObj.cities[idx]
+        const city = playerObj.cities[cityName]
         if (!city) continue
 
         // 检查城市是否阵亡
@@ -1091,7 +1296,7 @@ export const useGameStore = defineStore('game', () => {
         }
 
         // 检查是否本轮出战
-        const didFight = lastOut.includes(idx)
+        const didFight = lastOut.includes(cityName)
 
         if (didFight) {
           // 出战了，重置回合数
@@ -1244,7 +1449,7 @@ export const useGameStore = defineStore('game', () => {
 
     // ========== 交互流程 ==========
     pendingFortuneSwap,
-    pendingPreemptiveStrike,
+    pendingSwaps,
     ldtj,
 
     // ========== 护盾系统 ==========
@@ -1263,6 +1468,9 @@ export const useGameStore = defineStore('game', () => {
 
     // ========== 颜色技能使用追踪 ==========
     colorSkillsUsed,
+
+    // ========== 改弦更张使用次数 ==========
+    gaixiangengzhangUsed,
 
     // ========== 私有日志系统 ==========
     playerPrivateLogs,
@@ -1296,6 +1504,17 @@ export const useGameStore = defineStore('game', () => {
     isInCautiousSet,
     addToCautiousSet,
     removeFromCautiousSet,
+    addToCautionSet,
+    removeFromCautionSet,
+    clearCautionSet,
+
+    // ========== 待处理交换请求方法 ==========
+    pendingSwaps,
+    createPendingSwap,
+    getPendingSwapsForPlayer,
+    updatePendingSwapStatus,
+    clearCompletedSwaps,
+    clearAllPendingSwaps,
 
     // ========== 护盾和保护方法 ==========
     isBlockedByJianbukecui,
@@ -1309,6 +1528,7 @@ export const useGameStore = defineStore('game', () => {
     isCityKnown,
     setCityKnown,
     clearCityKnownStatus,
+    getKnownCitiesForPlayer,
     handleBuBuGaoShengSummon,
     checkCenterDeathAndPurpleChamberInheritance,
 

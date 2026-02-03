@@ -7,7 +7,6 @@ import {
   getCurrentHp,
   damageCity,
   getAliveCities,
-  getCityIndex,
   addShield
 } from './skillHelpers'
 
@@ -29,12 +28,12 @@ export function handleBeijingSkill(attacker, defender, defenderCities, skillData
 
   // 攻击力加成（限2次）
   if (state.powerBoostUsed < 2) {
-    const beijingIndex = attacker.cities.findIndex(c => c.name === '北京市')
-    if (beijingIndex !== -1) {
+    const beijingName = attacker.cities.findName(c => c.name === '北京市')
+    if (beijingName !== -1) {
       if (!gameStore.tempAttackBoost) gameStore.tempAttackBoost = {}
       if (!gameStore.tempAttackBoost[attacker.name]) gameStore.tempAttackBoost[attacker.name] = {}
 
-      gameStore.tempAttackBoost[attacker.name][beijingIndex] = {
+      gameStore.tempAttackBoost[attacker.name][beijingName] = {
         multiplier: 1.2,
         roundsLeft: 1,
         appliedRound: gameStore.currentRound
@@ -47,14 +46,14 @@ export function handleBeijingSkill(attacker, defender, defenderCities, skillData
   // 归顺对方出战城市（限1次，不能归顺对方首都）
   if (state.surrenderUsed < 1 && defenderCities && defenderCities.length > 0) {
     const surrenderableCities = defenderCities.filter(city => {
-      const cityIdx = getCityIndex(defender, city)
-      return cityIdx !== defender.centerIndex && city.isAlive !== false && getCurrentHp(city) > 0
+      const cityIdx = getCityName(defender, city)
+      return cityIdx !== defender.centerCityName && city.isAlive !== false && getCurrentHp(city) > 0
     })
 
     if (surrenderableCities.length > 0) {
       // 随机选择一个可归顺的城市
       const targetCity = surrenderableCities[Math.floor(Math.random() * surrenderableCities.length)]
-      const cityIdx = getCityIndex(defender, targetCity)
+      const cityIdx = getCityName(defender, targetCity)
 
       // 从防守方移除
       defender.cities.splice(cityIdx, 1)
@@ -65,7 +64,7 @@ export function handleBeijingSkill(attacker, defender, defenderCities, skillData
         currentHp: targetCity.hp,
         isAlive: true
       }
-      attacker.cities.push(surrenderedCity)
+      attacker.cities[surrenderedCity.name] = surrenderedCity
 
       state.surrenderUsed++
       addPublicLog(`${attacker.name}的${skillData.cityName}使用归顺能力，${targetCity.name}加入${attacker.name}阵营！`)
@@ -81,10 +80,10 @@ export function handleBeijingSkill(attacker, defender, defenderCities, skillData
  * 若天津市为首都，HP×2，但攻击力只能在此基础上增加50%
  */
 export function handleTianjinSkill(attacker, skillData, addPublicLog, gameStore) {
-  const tianjinIndex = attacker.cities.findIndex(c => c.name === '天津市')
-  if (tianjinIndex === -1) return
+  const tianjinName = attacker.cities.findName(c => c.name === '天津市')
+  if (tianjinName === -1) return
 
-  const tianjinCity = attacker.cities[tianjinIndex]
+  const tianjinCity = attacker.cities[tianjinName]
 
   // 初始化天津技能状态（只执行一次）
   if (!gameStore.tianjinInitialized) gameStore.tianjinInitialized = {}
@@ -95,7 +94,7 @@ export function handleTianjinSkill(attacker, skillData, addPublicLog, gameStore)
     tianjinCity.currentHp = Math.floor(getCurrentHp(tianjinCity) * 1.5)
 
     // 如果天津是首都
-    if (tianjinIndex === attacker.centerIndex) {
+    if (tianjinName === attacker.centerCityName) {
       tianjinCity.hp = Math.floor(tianjinCity.hp * 2)
       tianjinCity.currentHp = Math.floor(tianjinCity.currentHp * 2)
       addPublicLog(`${attacker.name}的${skillData.cityName}作为首都激活"津门守卫"，HP×2！`)
@@ -103,7 +102,7 @@ export function handleTianjinSkill(attacker, skillData, addPublicLog, gameStore)
       // 设置攻击力限制标记
       if (!gameStore.tianjinPowerLimit) gameStore.tianjinPowerLimit = {}
       gameStore.tianjinPowerLimit[attacker.name] = {
-        cityIndex: tianjinIndex,
+        cityName: tianjinName,
         maxMultiplier: 1.5  // 攻击力最多增加50%
       }
     } else {
@@ -114,12 +113,12 @@ export function handleTianjinSkill(attacker, skillData, addPublicLog, gameStore)
   }
 
   // 设置伤害转移（每次出战都生效）
-  if (tianjinIndex !== attacker.centerIndex && attacker.centerIndex !== undefined) {
+  if (tianjinName !== attacker.centerCityName && attacker.centerCityName) {
     if (!gameStore.damageTransfer) gameStore.damageTransfer = {}
     if (!gameStore.damageTransfer[attacker.name]) gameStore.damageTransfer[attacker.name] = {}
 
-    gameStore.damageTransfer[attacker.name][attacker.centerIndex] = {
-      targetIndex: tianjinIndex,
+    gameStore.damageTransfer[attacker.name][attacker.centerCityName] = {
+      targetName: tianjinName,
       transferPercent: 0.5,
       appliedRound: gameStore.currentRound
     }
@@ -183,7 +182,7 @@ export function handleHongkongSkill(attacker, skillData, addPublicLog, gameStore
   if (!gameStore.tempAttackBoost[attacker.name]) gameStore.tempAttackBoost[attacker.name] = {}
 
   aliveCities.forEach(city => {
-    const cityIdx = getCityIndex(attacker, city)
+    const cityIdx = getCityName(attacker, city)
     gameStore.tempAttackBoost[attacker.name][cityIdx] = {
       multiplier: 1.2,
       roundsLeft: 1,  // 单回合
@@ -196,7 +195,7 @@ export function handleHongkongSkill(attacker, skillData, addPublicLog, gameStore
   if (!gameStore.damageReduction[attacker.name]) gameStore.damageReduction[attacker.name] = {}
 
   aliveCities.forEach(city => {
-    const cityIdx = getCityIndex(attacker, city)
+    const cityIdx = getCityName(attacker, city)
     gameStore.damageReduction[attacker.name][cityIdx] = {
       percent: 0.5,  // 伤害减半
       roundsLeft: 1,  // 单回合
@@ -212,9 +211,9 @@ export function handleHongkongSkill(attacker, skillData, addPublicLog, gameStore
  * 澳门特别行政区 - 赌城风云（非战斗技能/主动）
  * 限2次，指定对方一座已知城市无法使用城市专属技能
  */
-export function handleMacauSkill(attacker, defender, skillData, addPublicLog, gameStore, targetCityIndex = null) {
+export function handleMacauSkill(attacker, defender, skillData, addPublicLog, gameStore, targetCityName = null) {
   // 获取对方已知城市
-  const knownCities = defender.cities.filter((city, idx) => {
+  const knownCities = Object.values(defender.cities).filter((city, idx) => {
     return city.isAlive !== false && getCurrentHp(city) > 0 && !city.isHidden
   })
 
@@ -225,14 +224,13 @@ export function handleMacauSkill(attacker, defender, skillData, addPublicLog, ga
 
   let targetCity, cityIdx
 
-  if (targetCityIndex !== null && targetCityIndex !== undefined) {
+  if (targetCityName !== null && targetCityName !== undefined) {
     // 使用指定的目标
-    targetCity = defender.cities[targetCityIndex]
-    cityIdx = targetCityIndex
+    targetCity = defender.cities[targetCityName]
   } else {
     // 随机选择一个已知城市
     targetCity = knownCities[Math.floor(Math.random() * knownCities.length)]
-    cityIdx = getCityIndex(defender, targetCity)
+    cityIdx = getCityName(defender, targetCity)
   }
 
   if (!targetCity || targetCity.isAlive === false) {

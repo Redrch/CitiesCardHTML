@@ -13,18 +13,17 @@
  * @param {Object} gameStore - 游戏状态store
  * @param {string} playerName - 使用技能的玩家名称
  * @param {string} skillName - 技能名称
- * @param {string} publicMessage - 公开日志消息（可选，默认为"使用了技能"）
+ * @param {string} publicMessage - 公开日志消息（可选，默认为"玩家名 使用了技能"）
  * @param {string} privateMessage - 私密日志消息（可选，默认为"你使用了技能"）
  */
 export function addSkillUsageLog(gameStore, playerName, skillName, publicMessage = null, privateMessage = null) {
   // 私密日志：告诉玩家使用了技能
-  const defaultPrivateMsg = `${playerName}使用了${skillName}`
+  const defaultPrivateMsg = `你使用了${skillName}`
   gameStore.addPrivateLog(playerName, privateMessage || defaultPrivateMsg)
 
-  // 公开日志：告诉所有人技能被使用了（但不一定说明是谁用的）
-  if (publicMessage) {
-    gameStore.addLog(publicMessage, 'battle')
-  }
+  // 公开日志：告诉所有人是谁使用了技能
+  const defaultPublicMsg = `${playerName} 使用了${skillName}`
+  gameStore.addLog(publicMessage || defaultPublicMsg)
 }
 
 /**
@@ -33,7 +32,7 @@ export function addSkillUsageLog(gameStore, playerName, skillName, publicMessage
  * @param {string} message - 日志消息
  */
 export function addSkillEffectLog(gameStore, message) {
-  gameStore.addLog(message, 'battle')
+  gameStore.addLog(message)
 }
 
 /**
@@ -42,7 +41,7 @@ export function addSkillEffectLog(gameStore, message) {
  * @param {string} message - 日志消息
  */
 export function addBattleLog(gameStore, message) {
-  gameStore.addLog(message, 'battle')
+  gameStore.addLog(message)
 }
 
 /**

@@ -41,34 +41,53 @@ export function useGameLogic() {
     const playerCount = mode === '2P' ? 2 : mode === '3P' ? 3 : 4
 
     // 创建玩家
+    // 将城市数组转换为对象（以城市名称为key）
+    const playerCities = {}
+    drawnCities.forEach((city, index) => {
+      playerCities[city.name] = {
+        ...city,
+        isCenter: index === 0,
+        isAlive: true
+      }
+    })
+
     gameStore.players = [
       {
         name: playerName,
         gold: 2,  // 原版：初始2金币
-        cities: drawnCities.map((city, index) => ({
-          ...city,
-          isCenter: index === 0,
-          isAlive: true
-        })),
-        centerIndex: 0,
+        cities: playerCities,
+        centerCityName: drawnCities[0].name,  // 使用城市名称而非索引
         battleModifiers: [],
         streaks: {},
         team: 0
       }
     ]
 
-    // 创建AI玩家
+    // 创建AI玩家（使用排除列表避免重复城市）
+    const usedCityNames = new Set()
+    // 添加玩家的城市到排除列表
+    drawnCities.forEach(city => usedCityNames.add(city.name))
+
     for (let i = 1; i < playerCount; i++) {
-      const aiCities = drawRandomCities(10)  // 原版：每人10座城市
-      gameStore.players.push({
-        name: `AI玩家${i}`,
-        gold: 2,  // 原版：初始2金币
-        cities: aiCities.map((city, index) => ({
+      const aiCities = drawRandomCities(10, Array.from(usedCityNames))  // 原版：每人10座城市，排除已使用的
+      // 将AI的城市也加入排除列表
+      aiCities.forEach(city => usedCityNames.add(city.name))
+
+      // 将AI城市数组转换为对象
+      const aiCitiesObj = {}
+      aiCities.forEach((city, index) => {
+        aiCitiesObj[city.name] = {
           ...city,
           isCenter: index === 0,
           isAlive: true
-        })),
-        centerIndex: 0,
+        }
+      })
+
+      gameStore.players.push({
+        name: `AI玩家${i}`,
+        gold: 2,  // 原版：初始2金币
+        cities: aiCitiesObj,
+        centerCityName: aiCities[0].name,  // 使用城市名称而非索引
         battleModifiers: [],
         streaks: {},
         team: mode === '2v2' && i > 1 ? 1 : 0,
@@ -79,10 +98,13 @@ export function useGameLogic() {
     // 设置当前玩家
     gameStore.currentPlayer = playerName
 
-    // 保存初始城市状态
+    // 保存初始城市状态（按城市名称追踪，而非索引）
     gameStore.initialCities = {}
     gameStore.players.forEach(player => {
-      gameStore.initialCities[player.name] = JSON.parse(JSON.stringify(player.cities))
+      gameStore.initialCities[player.name] = {}
+      Object.values(player.cities).forEach(city => {
+        gameStore.initialCities[player.name][city.name] = JSON.parse(JSON.stringify(city))
+      })
     })
 
     // 初始化状态
@@ -100,23 +122,28 @@ export function useGameLogic() {
    * 初始化游戏状态
    */
   function initializeGameStates() {
-    gameStore.protections = {}
-    gameStore.ironCities = {}
-    gameStore.anchored = {}
-    gameStore.disguisedCities = {}
-    gameStore.barrier = {}
-    gameStore.berserkFired = {}
-    gameStore.knownCities = {}
+    // 清空对象而不是重新赋值，以保持 reactive 和方法
+    const clearObject = (obj) => {
+      Object.keys(obj).forEach(key => delete obj[key])
+    }
+
+    clearObject(gameStore.protections)
+    clearObject(gameStore.ironCities)
+    clearObject(gameStore.anchored)
+    clearObject(gameStore.disguisedCities)
+    clearObject(gameStore.barrier)
+    clearObject(gameStore.berserkFired)
+    clearObject(gameStore.knownCities)
     gameStore.financialCrisis = null
-    gameStore.costIncrease = {}
-    gameStore.hjbf = {}
-    gameStore.purpleChamber = {}
-    gameStore.jianbukecui = {}
-    gameStore.hpBank = {}
-    gameStore.disaster = {}
-    gameStore.logs = []
-    gameStore.privateLogs = {}
-    gameStore.skillUsageCount = {}
+    clearObject(gameStore.costIncrease)
+    clearObject(gameStore.hjbf)
+    clearObject(gameStore.purpleChamber)
+    clearObject(gameStore.jianbukecui)
+    clearObject(gameStore.hpBank)
+    clearObject(gameStore.disaster)
+    gameStore.logs.length = 0  // 清空数组而不是重新赋值
+    clearObject(gameStore.privateLogs)
+    clearObject(gameStore.skillUsageCount)
 
     // 添加辅助方法
     if (!gameStore.addLog) {
@@ -204,15 +231,18 @@ export function useGameLogic() {
    * 结束回合
    */
   function endTurn() {
+    console.log('[endTurn] 开始结束回合')
     if (!currentPlayer.value) return
 
     const currentIndex = gameStore.players.findIndex(p => p.name === currentPlayer.value.name)
+    console.log('[endTurn] currentIndex:', currentIndex)
 
     // 处理回合结束效果
     processEndOfTurn(currentPlayer.value)
 
     // 切换到下一个玩家
     let nextIndex = (currentIndex + 1) % gameStore.players.length
+    console.log('[endTurn] nextIndex:', nextIndex, 'players.length:', gameStore.players.length)
 
     // 跳过已经失败的玩家
     let attempts = 0
@@ -227,7 +257,9 @@ export function useGameLogic() {
     }
 
     // 如果回到第一个玩家，增加回合数
+    console.log('[endTurn] 检查是否回到第一个玩家: nextIndex === 0?', nextIndex === 0)
     if (nextIndex === 0) {
+      console.log('[endTurn] 回到第一个玩家，调用processNewRound()')
       gameStore.currentRound++
       gameStore.addLog(`─────────────────────`)
       gameStore.addLog(`第 ${gameStore.currentRound} 回合开始`)
@@ -253,20 +285,20 @@ export function useGameLogic() {
   function processEndOfTurn(player) {
     // 1. 减少保护回合数
     if (gameStore.protections[player.name]) {
-      Object.keys(gameStore.protections[player.name]).forEach(cityIdx => {
-        gameStore.protections[player.name][cityIdx]--
-        if (gameStore.protections[player.name][cityIdx] <= 0) {
-          delete gameStore.protections[player.name][cityIdx]
+      Object.keys(gameStore.protections[player.name]).forEach(cityName => {
+        gameStore.protections[player.name][cityName]--
+        if (gameStore.protections[player.name][cityName] <= 0) {
+          delete gameStore.protections[player.name][cityName]
         }
       })
     }
 
     // 2. 减少伪装回合数
     if (gameStore.disguisedCities[player.name]) {
-      Object.keys(gameStore.disguisedCities[player.name]).forEach(cityIdx => {
-        gameStore.disguisedCities[player.name][cityIdx].roundsLeft--
-        if (gameStore.disguisedCities[player.name][cityIdx].roundsLeft <= 0) {
-          delete gameStore.disguisedCities[player.name][cityIdx]
+      Object.keys(gameStore.disguisedCities[player.name]).forEach(cityName => {
+        gameStore.disguisedCities[player.name][cityName].roundsLeft--
+        if (gameStore.disguisedCities[player.name][cityName].roundsLeft <= 0) {
+          delete gameStore.disguisedCities[player.name][cityName]
         }
       })
     }
@@ -294,10 +326,10 @@ export function useGameLogic() {
 
     // 5. 钢铁城市倒计时-1
     if (gameStore.ironCities && gameStore.ironCities[player.name]) {
-      Object.keys(gameStore.ironCities[player.name]).forEach(cityIdx => {
-        gameStore.ironCities[player.name][cityIdx]--
-        if (gameStore.ironCities[player.name][cityIdx] <= 0) {
-          delete gameStore.ironCities[player.name][cityIdx]
+      Object.keys(gameStore.ironCities[player.name]).forEach(cityName => {
+        gameStore.ironCities[player.name][cityName]--
+        if (gameStore.ironCities[player.name][cityName] <= 0) {
+          delete gameStore.ironCities[player.name][cityName]
         }
       })
     }
@@ -312,14 +344,12 @@ export function useGameLogic() {
       })
     }
 
-    // 7. 金币贷款倒计时-1
-    if (player.loanCooldown && player.loanCooldown > 0) {
-      player.loanCooldown--
-    }
+    // 7. 金币贷款倒计时-1 (已移至gameStore.updateRoundStates()统一管理)
+    // 不再使用player.loanCooldown,改用gameStore.goldLoanRounds
 
     // 8. 生于紫室：每回合HP增加（初始HP的10%）
     if (gameStore.purpleChamber && gameStore.purpleChamber[player.name]) {
-      player.cities.forEach(city => {
+      Object.values(player.cities).forEach(city => {
         if (city.isAlive) {
           const hpGain = Math.floor(city.baseHp * 0.1)
           city.currentHp += hpGain
@@ -330,7 +360,7 @@ export function useGameLogic() {
 
     // 9. 深藏不露：每5回合未出战+10000HP
     if (gameStore.deepHiding && gameStore.deepHiding[player.name]) {
-      player.cities.forEach((city, idx) => {
+      Object.values(player.cities).forEach(city => {
         if (city.isAlive) {
           // 检查是否有出战记录
           const roundsSinceLastBattle = gameStore.currentRound - (city.lastBattleRound || 0)
@@ -402,6 +432,14 @@ export function useGameLogic() {
    * 源代码参考：citycard_web.html lines 3307-3365
    */
   function processNewRound() {
+    // 清除上一回合的特殊事件标记
+    if (gameStore.specialEventThisRound) {
+      delete gameStore.specialEventThisRound
+    }
+
+    // 调试日志：输出goldLoanRounds状态
+    console.log('[processNewRound] goldLoanRounds状态:', JSON.stringify(gameStore.goldLoanRounds))
+
     // 1. 屏障回血（+3000，上限15000）
     if (gameStore.barrier) {
       Object.keys(gameStore.barrier).forEach(playerName => {
@@ -433,12 +471,12 @@ export function useGameLogic() {
 
     // 4. 每回合给予金币（原版：+3金币/回合）
     gameStore.players.forEach(player => {
+      console.log(`[processNewRound] 处理玩家 ${player.name} 的金币，当前金币: ${player.gold}`)
+      console.log(`[processNewRound] ${player.name} 的 goldLoanRounds: ${gameStore.goldLoanRounds[player.name]}`)
+
       if (!isPlayerDefeated(player)) {
-        // 检查金币贷款冷却
-        if (player.loanCooldown && player.loanCooldown > 0) {
-          // 金币贷款期间不获得自动金币
-          gameStore.addLog(`${player.name} 金币贷款冷却中，无法获得自动金币`)
-        } else if (gameStore.financialCrisis) {
+        // 正常情况或金融危机期间都先+3金币
+        if (gameStore.financialCrisis) {
           // 金融危机期间特殊处理
           const maxGoldPlayer = gameStore.players.reduce((max, p) =>
             p.gold > max.gold ? p : max
@@ -456,6 +494,15 @@ export function useGameLogic() {
           const goldGain = 3  // 原版配置
           player.gold = Math.min(24, player.gold + goldGain)
         }
+
+        // 金币贷款：每回合扣除3金币（在自动+3之后）
+        // 注意：这个逻辑已移至 gameStore.updateRoundStates() 统一处理
+        // 避免重复扣除，这里不再处理
+        // if (gameStore.goldLoanRounds[player.name] && gameStore.goldLoanRounds[player.name] > 0) {
+        //   player.gold = Math.max(0, player.gold - 3)
+        //   gameStore.addLog(`${player.name} 金币贷款冷却中(剩余${gameStore.goldLoanRounds[player.name]}回合)，扣除3金币`)
+        //   gameStore.goldLoanRounds[player.name]--  // 递减冷却回合数
+        // }
       }
     })
   }
@@ -464,7 +511,7 @@ export function useGameLogic() {
    * 检查玩家是否失败
    */
   function isPlayerDefeated(player) {
-    return player.cities.every(city => !city.isAlive)
+    return Object.values(player.cities).every(city => !city.isAlive)
   }
 
   /**
@@ -519,7 +566,7 @@ export function useGameLogic() {
       const skill = simpleSkills[Math.floor(Math.random() * simpleSkills.length)]
 
       // 查找受伤的城市
-      const injuredCity = aiPlayer.cities.find(city => city.isAlive && city.currentHp < city.hp)
+      const injuredCity = Object.values(aiPlayer.cities).find(city => city.isAlive && city.currentHp < city.hp)
 
       if (skill === '快速治疗' && injuredCity && aiPlayer.gold >= 1) {
         const result = nonBattleSkills.executeKuaiSuZhiLiao(aiPlayer, injuredCity)
@@ -527,7 +574,7 @@ export function useGameLogic() {
           gameStore.addLog(`${aiPlayer.name} 使用了 ${skill}`)
         }
       } else if (skill === '城市保护' && aiPlayer.gold >= 1) {
-        const cityToProtect = aiPlayer.cities.find(city => city.isAlive && city.isCenter)
+        const cityToProtect = Object.values(aiPlayer.cities).find(city => city.isAlive && city.isCenter)
         if (cityToProtect) {
           const result = nonBattleSkills.executeCityProtection(aiPlayer, cityToProtect)
           if (result.success) {
@@ -551,8 +598,8 @@ export function useGameLogic() {
   /**
    * 治疗城市（快捷功能）
    */
-  function healCity(player, cityIndex) {
-    const city = player.cities[cityIndex]
+  function healCity(player, cityName) {
+    const city = player.cities[cityName]
     if (!city || !city.isAlive) {
       return { success: false, message: '城市不存在或已阵亡' }
     }
@@ -605,6 +652,7 @@ export function useGameLogic() {
     healCity,
     checkGameOver,
     resetGame,
-    isPlayerDefeated
+    isPlayerDefeated,
+    processNewRound  // 关键修复：导出processNewRound函数，用于同省撤退/归顺时的金币+3等回合状态更新
   }
 }

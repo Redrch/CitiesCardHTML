@@ -9,7 +9,6 @@ import {
   getCurrentHp,
   healCity,
   increaseMaxHp,
-  getCityIndex,
   summonCity
 } from './skillHelpers'
 
@@ -18,8 +17,8 @@ import {
  * 限1次，该城市HPx2，并随机召唤两座湖南城市加入己方阵营
  */
 export function handleChangshaSkill(player, skillData, addPublicLog, gameStore) {
-  const cityIndex = getCityIndex(player, skillData.cityName)
-  const city = player.cities[cityIndex]
+  const cityName = skillData.cityName.name || skillData.cityName
+  const city = player.cities[cityName]
 
   if (!city || city.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"橘子洲头"，城市已阵亡！`)
@@ -40,13 +39,13 @@ export function handleChangshaSkill(player, skillData, addPublicLog, gameStore) 
   ]
 
   const availableCities = hunanCities.filter(cityName => {
-    return !player.cities.some(c => c.name === cityName)
+    return !Object.values(player.cities).some(c => c.name === cityName)
   })
 
   const summonCount = Math.min(2, availableCities.length)
   for (let i = 0; i < summonCount; i++) {
-    const randomIndex = Math.floor(Math.random() * availableCities.length)
-    const cityName = availableCities.splice(randomIndex, 1)[0]
+    const randomName = Math.floor(Math.random() * availableCities.length)
+    const cityName = availableCities.splice(randomName, 1)[0]
     summonCity(player, cityName, gameStore, addPublicLog)
   }
 
@@ -57,7 +56,7 @@ export function handleChangshaSkill(player, skillData, addPublicLog, gameStore) 
  * 株洲市 - 炎帝陵
  * 限1次，选定己方2座HP低于5000的城市HPx2，并随机掠夺对方一座HP低于5000的城市加入己方阵营
  */
-export function handleZhuzhouSkill(player, skillData, addPublicLog, gameStore, selectedCityIndices = null, targetPlayer = null) {
+export function handleZhuzhouSkill(player, skillData, addPublicLog, gameStore, selectedCityNames = null, targetPlayer = null) {
   const aliveCities = getAliveCities(player)
 
   // 筛选HP低于5000的城市
@@ -70,8 +69,8 @@ export function handleZhuzhouSkill(player, skillData, addPublicLog, gameStore, s
 
   // 选择城市（最多2座）
   let citiesToBuff
-  if (selectedCityIndices && Array.isArray(selectedCityIndices)) {
-    citiesToBuff = selectedCityIndices.map(idx => player.cities[idx]).filter(city => city && getCurrentHp(city) < 5000)
+  if (selectedCityNames && Array.isArray(selectedCityNames)) {
+    citiesToBuff = selectedCityNames.map(name => player.cities[name]).filter(city => city && getCurrentHp(city) < 5000)
   } else {
     // 默认选择HP最低的2座
     citiesToBuff = lowHpCities.sort((a, b) => getCurrentHp(a) - getCurrentHp(b)).slice(0, 2)
@@ -90,17 +89,17 @@ export function handleZhuzhouSkill(player, skillData, addPublicLog, gameStore, s
     const targetLowHpCities = getAliveCities(targetPlayer).filter(city => getCurrentHp(city) < 5000)
     if (targetLowHpCities.length > 0) {
       const randomCity = targetLowHpCities[Math.floor(Math.random() * targetLowHpCities.length)]
-      const cityIndex = getCityIndex(targetPlayer, randomCity.name)
+      const cityName = randomCity.name.name || randomCity.name
 
       // 移除城市
-      const capturedCity = targetPlayer.cities.splice(cityIndex, 1)[0]
+      const capturedCity = targetPlayer.cities.splice(cityName, 1)[0]
 
       // 重置为初始状态
       capturedCity.currentHp = capturedCity.hp
       capturedCity.isAlive = true
 
       // 添加到己方
-      player.cities.push(capturedCity)
+      player.cities[capturedCity.name] = capturedCity
       addPublicLog(`${player.name}掠夺了${targetPlayer.name}的${capturedCity.name}！`)
     }
   }
@@ -112,9 +111,9 @@ export function handleZhuzhouSkill(player, skillData, addPublicLog, gameStore, s
  * 湘潭市 - 伟人故里
  * 限1次，该城市和己方另一座城市HPx2，并召唤赣州市和吉安市加入己方阵营，若己方阵中已拥有赣州市或吉安市，HPx2
  */
-export function handleXiangtanSkill(player, skillData, addPublicLog, gameStore, selectedCityIndex = null) {
-  const cityIndex = getCityIndex(player, skillData.cityName)
-  const city = player.cities[cityIndex]
+export function handleXiangtanSkill(player, skillData, addPublicLog, gameStore, selectedCityName = null) {
+  const cityName = skillData.cityName.name || skillData.cityName
+  const city = player.cities[cityName]
 
   if (!city || city.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"伟人故里"，城市已阵亡！`)
@@ -129,8 +128,8 @@ export function handleXiangtanSkill(player, skillData, addPublicLog, gameStore, 
 
   // 另一座城市HP翻倍
   let targetCity
-  if (selectedCityIndex !== null && selectedCityIndex !== undefined && selectedCityIndex !== cityIndex) {
-    targetCity = player.cities[selectedCityIndex]
+  if (selectedCityName !== null && selectedCityName !== undefined && selectedCityName !== cityName) {
+    targetCity = player.cities[selectedCityName]
   } else {
     // 默认选择除湘潭市外HP最低的城市
     const otherCities = getAliveCities(player).filter(c => c.name !== skillData.cityName)
@@ -149,7 +148,7 @@ export function handleXiangtanSkill(player, skillData, addPublicLog, gameStore, 
   // 召唤或强化赣州市和吉安市
   const targetCities = ['赣州市', '吉安市']
   targetCities.forEach(cityName => {
-    const existingCity = player.cities.find(c => c.name === cityName)
+    const existingCity = Object.values(player.cities).find(c => c.name === cityName)
     if (existingCity) {
       // 已拥有，HP翻倍
       const oldHp = existingCity.hp
@@ -169,13 +168,13 @@ export function handleXiangtanSkill(player, skillData, addPublicLog, gameStore, 
  * 衡阳市 - 南岳衡山
  * 限1次，选定对方一座HP低于30000的城市强制连续出战2回合，2回合后若未阵亡则HP减半
  */
-export function handleHengyangSkill(player, skillData, addPublicLog, gameStore, targetPlayer = null, targetCityIndex = null) {
-  if (!targetPlayer || targetCityIndex === null) {
+export function handleHengyangSkill(player, skillData, addPublicLog, gameStore, targetPlayer = null, targetCityName = null) {
+  if (!targetPlayer || targetCityName === null) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"南岳衡山"，未指定目标！`)
     return
   }
 
-  const targetCity = targetPlayer.cities[targetCityIndex]
+  const targetCity = targetPlayer.cities[targetCityName]
   if (!targetCity || targetCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"南岳衡山"，目标城市无效！`)
     return
@@ -190,7 +189,7 @@ export function handleHengyangSkill(player, skillData, addPublicLog, gameStore, 
   if (!gameStore.forceDeploy) gameStore.forceDeploy = {}
   if (!gameStore.forceDeploy[targetPlayer.name]) gameStore.forceDeploy[targetPlayer.name] = {}
 
-  gameStore.forceDeploy[targetPlayer.name][targetCityIndex] = {
+  gameStore.forceDeploy[targetPlayer.name][targetCityName] = {
     roundsLeft: 2,
     appliedRound: gameStore.currentRound,
     halvePenalty: true  // 2回合后若未阵亡HP减半
@@ -205,8 +204,8 @@ export function handleHengyangSkill(player, skillData, addPublicLog, gameStore, 
  * 限1次，该城市HPx2并随机召唤一座除长沙市之外的湖南省城市
  */
 export function handleYueyangSkill(player, skillData, addPublicLog, gameStore) {
-  const cityIndex = getCityIndex(player, skillData.cityName)
-  const city = player.cities[cityIndex]
+  const cityName = skillData.cityName.name || skillData.cityName
+  const city = player.cities[cityName]
 
   if (!city || city.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"岳阳楼记"，城市已阵亡！`)
@@ -227,12 +226,12 @@ export function handleYueyangSkill(player, skillData, addPublicLog, gameStore) {
   ]
 
   const availableCities = hunanCities.filter(cityName => {
-    return !player.cities.some(c => c.name === cityName)
+    return !Object.values(player.cities).some(c => c.name === cityName)
   })
 
   if (availableCities.length > 0) {
-    const randomIndex = Math.floor(Math.random() * availableCities.length)
-    const cityName = availableCities[randomIndex]
+    const randomName = Math.floor(Math.random() * availableCities.length)
+    const cityName = availableCities[randomName]
     summonCity(player, cityName, gameStore, addPublicLog)
   }
 
@@ -243,13 +242,13 @@ export function handleYueyangSkill(player, skillData, addPublicLog, gameStore) {
  * 张家界市 - 千山迷阵
  * 限1次，直接摧毁对方一座初始HP低于8000的已知城市，50%的概率获得该城市的初始HP并加入己方阵营
  */
-export function handleZhangjiajieSkill(player, skillData, addPublicLog, gameStore, targetPlayer = null, targetCityIndex = null) {
-  if (!targetPlayer || targetCityIndex === null) {
+export function handleZhangjiajieSkill(player, skillData, addPublicLog, gameStore, targetPlayer = null, targetCityName = null) {
+  if (!targetPlayer || targetCityName === null) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"千山迷阵"，未指定目标！`)
     return
   }
 
-  const targetCity = targetPlayer.cities[targetCityIndex]
+  const targetCity = targetPlayer.cities[targetCityName]
   if (!targetCity || targetCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"千山迷阵"，目标城市无效！`)
     return
@@ -277,7 +276,7 @@ export function handleZhangjiajieSkill(player, skillData, addPublicLog, gameStor
       currentHp: baseHp,
       isAlive: true
     }
-    player.cities.push(newCity)
+    player.cities[newCity.name] = newCity
     addPublicLog(`${player.name}获得了${cityName}的初始HP（${baseHp}）！`)
   }
 
@@ -307,7 +306,7 @@ export function handleChangdeSkill(player, skillData, addPublicLog, gameStore) {
  * 娄底市 - 世界锑都
  * 限1次，我方2座HP低于5000的城市HPx2
  */
-export function handleLoudiSkill(player, skillData, addPublicLog, gameStore, selectedCityIndices = null) {
+export function handleLoudiSkill(player, skillData, addPublicLog, gameStore, selectedCityNames = null) {
   const aliveCities = getAliveCities(player)
 
   // 筛选HP低于5000的城市
@@ -320,8 +319,8 @@ export function handleLoudiSkill(player, skillData, addPublicLog, gameStore, sel
 
   // 选择城市（最多2座）
   let citiesToBuff
-  if (selectedCityIndices && Array.isArray(selectedCityIndices)) {
-    citiesToBuff = selectedCityIndices.map(idx => player.cities[idx]).filter(city => city && getCurrentHp(city) < 5000)
+  if (selectedCityNames && Array.isArray(selectedCityNames)) {
+    citiesToBuff = selectedCityNames.map(name => player.cities[name]).filter(city => city && getCurrentHp(city) < 5000)
   } else {
     // 默认选择HP最低的2座
     citiesToBuff = lowHpCities.sort((a, b) => getCurrentHp(a) - getCurrentHp(b)).slice(0, 2)
@@ -343,9 +342,9 @@ export function handleLoudiSkill(player, skillData, addPublicLog, gameStore, sel
  * 永州市 - 永州八记
  * 限1次，该城市和己方另外一座HP低于8000的城市HPx2，并选定对方一座城市禁用博学多才技能
  */
-export function handleYongzhouSkill(player, skillData, addPublicLog, gameStore, selectedCityIndex = null, targetPlayer = null, targetCityIndex = null) {
-  const cityIndex = getCityIndex(player, skillData.cityName)
-  const city = player.cities[cityIndex]
+export function handleYongzhouSkill(player, skillData, addPublicLog, gameStore, selectedCityName = null, targetPlayer = null, targetCityName = null) {
+  const cityName = skillData.cityName.name || skillData.cityName
+  const city = player.cities[cityName]
 
   if (!city || city.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"永州八记"，城市已阵亡！`)
@@ -362,8 +361,8 @@ export function handleYongzhouSkill(player, skillData, addPublicLog, gameStore, 
   const aliveCities = getAliveCities(player).filter(c => c.name !== skillData.cityName && getCurrentHp(c) < 8000)
 
   let targetCity
-  if (selectedCityIndex !== null && selectedCityIndex !== undefined && selectedCityIndex !== cityIndex) {
-    targetCity = player.cities[selectedCityIndex]
+  if (selectedCityName !== null && selectedCityName !== undefined && selectedCityName !== cityName) {
+    targetCity = player.cities[selectedCityName]
     if (getCurrentHp(targetCity) >= 8000) {
       addPublicLog(`${player.name}的${skillData.cityName}无法选择${targetCity.name}，HP不低于8000！`)
       targetCity = null
@@ -383,16 +382,16 @@ export function handleYongzhouSkill(player, skillData, addPublicLog, gameStore, 
   }
 
   // 禁用对方城市的博学多才技能
-  if (targetPlayer && targetCityIndex !== null) {
-    const oppCity = targetPlayer.cities[targetCityIndex]
+  if (targetPlayer && targetCityName !== null) {
+    const oppCity = targetPlayer.cities[targetCityName]
     if (oppCity) {
       if (!gameStore.skillBanned) gameStore.skillBanned = {}
       if (!gameStore.skillBanned[targetPlayer.name]) gameStore.skillBanned[targetPlayer.name] = {}
-      if (!gameStore.skillBanned[targetPlayer.name][targetCityIndex]) {
-        gameStore.skillBanned[targetPlayer.name][targetCityIndex] = []
+      if (!gameStore.skillBanned[targetPlayer.name][targetCityName]) {
+        gameStore.skillBanned[targetPlayer.name][targetCityName] = []
       }
 
-      gameStore.skillBanned[targetPlayer.name][targetCityIndex].push('博学多才')
+      gameStore.skillBanned[targetPlayer.name][targetCityName].push('博学多才')
       addPublicLog(`${targetPlayer.name}的${oppCity.name}被禁用"博学多才"技能！`)
     }
   }
@@ -422,7 +421,7 @@ export function handleHuaihuaSkill(player, skillData, addPublicLog, gameStore) {
  * 湘西州 - 凤凰古城
  * 限1次，己方2座HP低于10000的城市HPx2
  */
-export function handleXiangxiSkill(player, skillData, addPublicLog, gameStore, selectedCityIndices = null) {
+export function handleXiangxiSkill(player, skillData, addPublicLog, gameStore, selectedCityNames = null) {
   const aliveCities = getAliveCities(player)
 
   // 筛选HP低于10000的城市
@@ -435,8 +434,8 @@ export function handleXiangxiSkill(player, skillData, addPublicLog, gameStore, s
 
   // 选择城市（最多2座）
   let citiesToBuff
-  if (selectedCityIndices && Array.isArray(selectedCityIndices)) {
-    citiesToBuff = selectedCityIndices.map(idx => player.cities[idx]).filter(city => city && getCurrentHp(city) < 10000)
+  if (selectedCityNames && Array.isArray(selectedCityNames)) {
+    citiesToBuff = selectedCityNames.map(name => player.cities[name]).filter(city => city && getCurrentHp(city) < 10000)
   } else {
     // 默认选择HP最低的2座
     citiesToBuff = lowHpCities.sort((a, b) => getCurrentHp(a) - getCurrentHp(b)).slice(0, 2)

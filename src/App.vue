@@ -2,14 +2,26 @@
   <div id="app">
     <MainMenu
       v-if="currentView === 'menu'"
-      @enter-player-mode="currentView = 'player'"
+      @enter-player-mode="currentView = 'mode-selection'"
       @show-skill-guide="showSkillGuide = true"
       @show-question-bank="showQuestionBank = true"
       @show-city-info="showCityInfo = true"
     />
 
-    <PlayerMode
-      v-if="currentView === 'player'"
+    <ModeSelection
+      v-if="currentView === 'mode-selection'"
+      @back="currentView = 'menu'"
+      @select-offline="currentView = 'player-offline'"
+      @select-online="currentView = 'player-online'"
+    />
+
+    <PlayerModeOffline
+      v-if="currentView === 'player-offline'"
+      @exit="currentView = 'menu'"
+    />
+
+    <PlayerModeOnline
+      v-if="currentView === 'player-online'"
       @exit="currentView = 'menu'"
     />
 
@@ -30,7 +42,9 @@
 <script setup>
 import { ref } from 'vue'
 import MainMenu from './components/MainMenu/MainMenu.vue'
-import PlayerMode from './components/PlayerMode/PlayerModeOnline.vue'
+import ModeSelection from './components/MainMenu/ModeSelection.vue'
+import PlayerModeOffline from './components/PlayerMode/PlayerModeNew.vue'
+import PlayerModeOnline from './components/PlayerMode/PlayerModeOnline.vue'
 import SkillGuideModal from './components/Modals/SkillGuideModal.vue'
 import QuestionBankModal from './components/Modals/QuestionBankModal.vue'
 import CityInfoModal from './components/Modals/CityInfoModal.vue'

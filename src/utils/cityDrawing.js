@@ -94,7 +94,11 @@ export function getUsedCityNames(players, excludePlayerIndex = -1) {
       return // 跳过指定玩家
     }
     if (player.cities) {
-      player.cities.forEach(city => {
+      // 处理cities可能是对象或数组的情况
+      const citiesArray = Array.isArray(player.cities)
+        ? player.cities
+        : Object.values(player.cities)
+      citiesArray.forEach(city => {
         used.push(city.name)
       })
     }
@@ -331,10 +335,16 @@ export function drawCitiesForRoom(player, count, roomData) {
   roomData.players.forEach(p => {
     if (p.name !== player.name) {
       // 添加已确认的城市
-      if (p.cities && p.cities.length > 0) {
-        p.cities.forEach(city => {
-          usedCityNames.add(city.name)
-        })
+      if (p.cities) {
+        // 处理cities可能是对象或数组的情况
+        const citiesArray = Array.isArray(p.cities)
+          ? p.cities
+          : Object.values(p.cities)
+        if (citiesArray.length > 0) {
+          citiesArray.forEach(city => {
+            usedCityNames.add(city.name)
+          })
+        }
       }
       // 也添加已抽取但未确认的城市（防止重复）
       if (p.drawnCities && p.drawnCities.length > 0) {

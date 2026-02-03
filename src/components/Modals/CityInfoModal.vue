@@ -2,7 +2,6 @@
   <div
     v-if="modelValue"
     class="modal-backdrop"
-    @click.self="close"
   >
     <div class="modal-content">
       <div class="modal-header">

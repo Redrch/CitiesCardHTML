@@ -74,16 +74,15 @@ function applyPlayerGoldUpdates(gameStore, goldUpdates) {
 /**
  * 应用城市HP更新
  * @param {Object} gameStore - 游戏状态存储
- * @param {Object} cityHpUpdates - 城市HP更新映射
+ * @param {Object} cityHpUpdates - 城市HP更新映射 {playerName: {cityName: update}}
  */
 function applyCityHpUpdates(gameStore, cityHpUpdates) {
   for (const [playerName, cityUpdates] of Object.entries(cityHpUpdates)) {
     const player = gameStore.players.find(p => p.name === playerName)
     if (!player) continue
 
-    for (const [cityIdx, update] of Object.entries(cityUpdates)) {
-      const index = parseInt(cityIdx)
-      const city = player.cities[index]
+    for (const [cityName, update] of Object.entries(cityUpdates)) {
+      const city = player.cities[cityName]
       if (!city) continue
 
       if (update.currentHp !== undefined) {
@@ -117,11 +116,11 @@ function applyCityHpUpdates(gameStore, cityHpUpdates) {
 /**
  * 应用城市转移
  * @param {Object} gameStore - 游戏状态存储
- * @param {Array} cityTransfers - 城市转移列表
+ * @param {Array} cityTransfers - 城市转移列表 [{from, fromCityName, to, toCityName}]
  */
 function applyCityTransfers(gameStore, cityTransfers) {
   for (const transfer of cityTransfers) {
-    const { from, fromIdx, to, toIdx } = transfer
+    const { from, fromCityName, to, toCityName } = transfer
 
     const fromPlayer = gameStore.players.find(p => p.name === from)
     const toPlayer = gameStore.players.find(p => p.name === to)
@@ -129,21 +128,16 @@ function applyCityTransfers(gameStore, cityTransfers) {
     if (!fromPlayer || !toPlayer) continue
 
     // 交换城市
-    const temp = fromPlayer.cities[fromIdx]
-    fromPlayer.cities[fromIdx] = toPlayer.cities[toIdx]
-    toPlayer.cities[toIdx] = temp
+    const temp = fromPlayer.cities[fromCityName]
+    fromPlayer.cities[fromCityName] = toPlayer.cities[toCityName]
+    toPlayer.cities[toCityName] = temp
 
-    // 同步initialCities
-    if (gameStore.initialCities?.[from] && gameStore.initialCities?.[to]) {
-      const tempInitial = gameStore.initialCities[from][fromIdx]
-      gameStore.initialCities[from][fromIdx] = gameStore.initialCities[to][toIdx]
-      gameStore.initialCities[to][toIdx] = tempInitial
-    }
+    // 注意：initialCities 现在按城市名称追踪，无需交换
 
     // 标记为已知城市
     if (gameStore.setCityKnown) {
-      gameStore.setCityKnown(from, fromIdx, to)
-      gameStore.setCityKnown(to, toIdx, from)
+      gameStore.setCityKnown(from, fromCityName, to)
+      gameStore.setCityKnown(to, toCityName, from)
     }
   }
 }
@@ -151,32 +145,30 @@ function applyCityTransfers(gameStore, cityTransfers) {
 /**
  * 应用保护状态更新
  * @param {Object} gameStore - 游戏状态存储
- * @param {Object} protectionUpdates - 保护状态更新映射
+ * @param {Object} protectionUpdates - 保护状态更新映射 {playerName: {cityName: protection}}
  */
 function applyProtectionUpdates(gameStore, protectionUpdates) {
   for (const [playerName, cityProtections] of Object.entries(protectionUpdates)) {
-    for (const [cityIdx, protection] of Object.entries(cityProtections)) {
-      const index = parseInt(cityIdx)
-
+    for (const [cityName, protection] of Object.entries(cityProtections)) {
       if (protection.type === 'iron') {
         // 钢铁城市
         if (!gameStore.ironCities[playerName]) {
           gameStore.ironCities[playerName] = {}
         }
-        gameStore.ironCities[playerName][index] = protection.layers || 2
+        gameStore.ironCities[playerName][cityName] = protection.layers || 2
       } else if (protection.type === 'normal') {
         // 普通保护罩
         if (!gameStore.protections[playerName]) {
           gameStore.protections[playerName] = {}
         }
-        gameStore.protections[playerName][index] = protection.rounds || 10
+        gameStore.protections[playerName][cityName] = protection.rounds || 10
       } else if (protection.type === 'remove') {
         // 移除保护
         if (gameStore.ironCities[playerName]) {
-          delete gameStore.ironCities[playerName][index]
+          delete gameStore.ironCities[playerName][cityName]
         }
         if (gameStore.protections[playerName]) {
-          delete gameStore.protections[playerName][index]
+          delete gameStore.protections[playerName][cityName]
         }
       }
     }
@@ -349,17 +341,17 @@ export function addGoldUpdate(stateChanges, playerName, deltaGold) {
  * 添加城市HP更新
  * @param {Object} stateChanges - 状态变化对象
  * @param {string} playerName - 玩家名称
- * @param {number} cityIdx - 城市索引
+ * @param {string} cityName - 城市名称
  * @param {Object} update - HP更新对象
  */
-export function addCityHpUpdate(stateChanges, playerName, cityIdx, update) {
+export function addCityHpUpdate(stateChanges, playerName, cityName, update) {
   if (!stateChanges.cityHpUpdates) {
     stateChanges.cityHpUpdates = {}
   }
   if (!stateChanges.cityHpUpdates[playerName]) {
     stateChanges.cityHpUpdates[playerName] = {}
   }
-  stateChanges.cityHpUpdates[playerName][cityIdx] = update
+  stateChanges.cityHpUpdates[playerName][cityName] = update
 }
 
 /**

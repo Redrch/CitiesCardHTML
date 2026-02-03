@@ -60,7 +60,7 @@
                style="margin-bottom: 8px; padding: 8px; background: var(--bg); border-radius: 4px; font-size: 11px;">
             <div><strong>{{ playerName }}</strong></div>
             <div class="muted">
-              出战: {{ deployment.cities.length }} 个城市
+              出战: {{ Object.keys(deployment.cities).length }} 个城市
             </div>
           </div>
 

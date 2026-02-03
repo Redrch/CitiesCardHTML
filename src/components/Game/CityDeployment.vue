@@ -4,7 +4,8 @@
     <!-- 左侧：部署主界面 -->
     <div class="deployment-main-area">
       <div class="city-deployment panel">
-        <h3>选择出战城市</h3>
+        <div v-if="roomId" class="room-info">房间号: {{ roomId }}</div>
+        <h3>玩家{{ currentPlayer?.name }}的游戏界面 - 选择出战城市</h3>
         <div class="deployment-info">
       <div class="info-item">
         <span class="label">当前回合:</span>
@@ -21,44 +22,57 @@
     </div>
 
     <div class="muted" style="margin: 10px 0;">
-      💡 从预备城市中选择最多 {{ maxDeployCount }} 个城市出战
+      💡 从所有城市中选择最多 {{ maxDeployCount }} 个城市出战
     </div>
 
-    <!-- 预备城市列表 -->
+    <!-- 所有城市列表 -->
     <div class="roster-cities">
-      <h4>预备城市</h4>
+      <h4>所有城市</h4>
       <div class="city-grid">
         <div
-          v-for="(cityIdx, idx) in rosterCities"
-          :key="idx"
+          v-for="[cityName, city] in Object.entries(currentPlayer?.cities || {})"
+          :key="cityName"
           :class="[
             'city-card',
             {
-              'selected': selectedCities.includes(cityIdx),
-              'dead': (currentPlayer?.cities[cityIdx]?.currentHp !== undefined ? currentPlayer?.cities[cityIdx]?.currentHp : currentPlayer?.cities[cityIdx]?.hp || 0) <= 0 || currentPlayer?.cities[cityIdx]?.isAlive === false,
-              'center': cityIdx === currentPlayer?.centerIndex
+              'selected': selectedCities.includes(cityName),
+              'dead': (city?.currentHp !== undefined ? city?.currentHp : city?.hp || 0) <= 0 || city?.isAlive === false,
+              'center': cityName === currentPlayer?.centerCityName
             }
           ]"
-          @click="toggleCity(cityIdx)"
+          @click="toggleCity(cityName)"
         >
           <div class="city-header">
-            <strong>{{ currentPlayer?.cities[cityIdx]?.name || '未知' }}</strong>
+            <strong>{{ city?.name || '未知' }}</strong>
             <div class="muted" style="font-size: 11px; margin-top: 2px;">
-              {{ getProvinceName(currentPlayer?.cities[cityIdx]?.name) }}
+              {{ getProvinceName(city?.name) }}
             </div>
-            <span v-if="cityIdx === currentPlayer?.centerIndex" class="center-badge">中心</span>
+            <span v-if="cityName === currentPlayer?.centerCityName" class="center-badge">中心</span>
           </div>
-          <div class="city-hp">
-            HP: {{ Math.floor(currentPlayer?.cities[cityIdx]?.currentHp !== undefined ? currentPlayer?.cities[cityIdx]?.currentHp : currentPlayer?.cities[cityIdx]?.hp || 0) }}
-            <span v-if="(currentPlayer?.cities[cityIdx]?.currentHp !== undefined ? currentPlayer?.cities[cityIdx]?.currentHp : currentPlayer?.cities[cityIdx]?.hp || 0) <= 0 || currentPlayer?.cities[cityIdx]?.isAlive === false" class="dead-badge">💀</span>
+
+          <!-- HP水柱可视化 -->
+          <div class="city-hp-visual">
+            <div class="hp-text">
+              HP: {{ Math.floor(city?.currentHp !== undefined ? city?.currentHp : city?.hp || 0) }}
+              <span v-if="(city?.currentHp !== undefined ? city?.currentHp : city?.hp || 0) <= 0 || city?.isAlive === false" class="dead-badge">💀</span>
+            </div>
+            <div class="hp-bar-container">
+              <div
+                class="hp-bar-fill"
+                :style="{
+                  width: getHpPercentage(city) + '%',
+                  backgroundColor: getHpColor(city)
+                }"
+              ></div>
+            </div>
           </div>
           <div
             class="city-skills"
-            :class="{ 'clickable': getCitySkill(currentPlayer?.cities[cityIdx]?.name) }"
-            @click.stop="showSkillInfo(currentPlayer?.cities[cityIdx]?.name)"
+            :class="{ 'clickable': getCitySkill(city?.name) }"
+            @click.stop="showSkillInfo(city?.name)"
           >
-            <template v-if="getCitySkill(currentPlayer?.cities[cityIdx]?.name)">
-              ⚡ {{ getCitySkill(currentPlayer?.cities[cityIdx]?.name).name }}
+            <template v-if="getCitySkill(city?.name)">
+              ⚡ {{ getCitySkill(city?.name).name }}
               <span class="skill-hint">点击查看</span>
             </template>
             <template v-else>
@@ -68,31 +82,61 @@
 
           <!-- 战斗主动技能激活选项 -->
           <div
-            v-if="selectedCities.includes(cityIdx) && getCitySkill(currentPlayer?.cities[cityIdx]?.name)?.type === 'active' && getCitySkill(currentPlayer?.cities[cityIdx]?.name)?.category === 'battle'"
+            v-if="selectedCities.includes(cityName) && getCitySkill(city?.name)?.type === 'active' && getCitySkill(city?.name)?.category === 'battle'"
             class="city-skill-activation"
             @click.stop
           >
             <label class="skill-toggle">
               <input
                 type="checkbox"
-                v-model="activatedCitySkills[cityIdx]"
-                :disabled="getSkillUsageCount(currentPlayer?.cities[cityIdx]?.name) >= getCitySkill(currentPlayer?.cities[cityIdx]?.name)?.limit"
+                v-model="activatedCitySkills[cityName]"
+                :disabled="getSkillUsageCount(city?.name) >= getCitySkill(city?.name)?.limit"
               />
               <span class="skill-toggle-text">
                 激活技能
-                <span class="skill-usage">({{ getSkillUsageCount(currentPlayer?.cities[cityIdx]?.name) }}/{{ getCitySkill(currentPlayer?.cities[cityIdx]?.name)?.limit }}次)</span>
+                <span class="skill-usage">({{ getSkillUsageCount(city?.name) }}/{{ getCitySkill(city?.name)?.limit }}次)</span>
               </span>
             </label>
           </div>
 
           <div class="city-status">
-            {{ selectedCities.includes(cityIdx) ? '✓ 已选择' : ((currentPlayer?.cities[cityIdx]?.currentHp !== undefined ? currentPlayer?.cities[cityIdx]?.currentHp : currentPlayer?.cities[cityIdx]?.hp || 0) <= 0 || currentPlayer?.cities[cityIdx]?.isAlive === false) ? '已阵亡' : '点击选择' }}
+            {{ selectedCities.includes(cityName) ? '✓ 已选择' : ((city?.currentHp !== undefined ? city?.currentHp : city?.hp || 0) <= 0 || city?.isAlive === false) ? '已阵亡' : '点击选择' }}
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 金币技能区域 -->
+    <!-- 非战斗城市技能区域 -->
+    <div v-if="nonBattleCitySkills.length > 0" class="nonbattle-city-skills-section">
+      <h4>非战斗城市专属技能</h4>
+      <div class="city-skills-horizontal-scroll">
+        <div
+          v-for="item in nonBattleCitySkills"
+          :key="item.cityName"
+          class="city-skill-card"
+          @click="showSkillInfo(item.cityName)"
+        >
+          <div class="skill-card-icon">⚡</div>
+          <div class="skill-card-content">
+            <div class="skill-card-city">{{ item.cityName }}</div>
+            <div class="skill-card-name">{{ item.skill.name }}</div>
+            <div class="skill-card-type">
+              <span class="type-badge" :class="item.skill.type">
+                {{ item.skill.type === 'active' ? '主动' : '被动' }}
+              </span>
+            </div>
+            <div v-if="item.skill.limit" class="skill-card-usage">
+              使用: {{ item.usageCount }}/{{ item.skill.limit }}
+            </div>
+            <div v-else class="skill-card-usage unlimited">
+              无限制
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 金币技能和情报区域 -->
     <div class="skills-section">
       <h4>金币技能</h4>
       <div class="skills-buttons">
@@ -103,6 +147,14 @@
           ✨ 使用非战斗金币技能 (当前金币: {{ currentPlayer?.gold || 0 }})
         </button>
       </div>
+    </div>
+
+    <!-- 情报侦查区域 -->
+    <div class="intelligence-section">
+      <h4>情报侦查</h4>
+      <button class="intelligence-btn" @click="showOpponentCities = true">
+        🔍 查看对手已知城市
+      </button>
     </div>
 
     <!-- 确认按钮 -->
@@ -139,6 +191,14 @@
       @skill-used="handleSkillUsed"
       @skill-failed="handleSkillFailed"
       @close="showNonBattleSkills = false"
+    />
+
+    <!-- 对手已知城市查看器 -->
+    <OpponentKnownCities
+      v-if="showOpponentCities"
+      :current-player="currentPlayer"
+      :all-players="allPlayers"
+      @close="showOpponentCities = false"
     />
 
     <!-- 城市技能详情模态框 -->
@@ -202,7 +262,7 @@
 
     <!-- 右侧：固定日志面板 -->
     <div class="deployment-log-area">
-      <GameLogSimple />
+      <GameLogSimple :current-player-name="currentPlayer?.name" />
     </div>
   </div>
 </template>
@@ -217,23 +277,28 @@ import { BATTLE_SKILLS, SKILL_DESCRIPTIONS } from '../../data/goldSkills'
 import { PROVINCE_MAP } from '../../data/cities'
 import SkillSelector from '../Skills/SkillSelector.vue'
 import GameLogSimple from './GameLogSimple.vue'
+import OpponentKnownCities from './OpponentKnownCities.vue'
 
 const props = defineProps({
   currentPlayer: {
     type: Object,
     required: true
   },
-  rosterCities: {
-    type: Array,
-    required: true
-  },
   gameMode: {
     type: String,
     default: '2P'
+  },
+  allPlayers: {
+    type: Array,
+    default: () => []
+  },
+  roomId: {
+    type: String,
+    default: ''
   }
 })
 
-const emit = defineEmits(['confirm', 'cancel'])
+const emit = defineEmits(['deployment-confirmed', 'cancel', 'skill-used'])
 
 const gameStore = useGameStore()
 const { showNotification } = useNotification()
@@ -241,7 +306,8 @@ const { showNotification } = useNotification()
 const selectedCities = ref([])
 const showBattleSkills = ref(false)
 const showNonBattleSkills = ref(false)
-const activatedCitySkills = ref({}) // { cityIdx: true/false } - tracks which city skills are activated
+const showOpponentCities = ref(false)
+const activatedCitySkills = ref({}) // { cityName: true/false } - tracks which city skills are activated
 
 // 城市技能详情显示状态
 const showSkillDetail = ref(false)
@@ -255,16 +321,10 @@ const selectedGoldSkill = ref(null)
 // 诊断日志：检查组件接收到的数据
 console.log('[CityDeployment] ===== 组件数据诊断 =====')
 console.log('[CityDeployment] currentPlayer.name:', props.currentPlayer?.name)
-console.log('[CityDeployment] currentPlayer.cities 长度:', props.currentPlayer?.cities?.length)
+console.log('[CityDeployment] currentPlayer.cities 数量:', Object.keys(props.currentPlayer?.cities || {}).length)
 console.log('[CityDeployment] currentPlayer.cities 详情:')
-props.currentPlayer?.cities?.forEach((city, idx) => {
-  console.log(`  [${idx}] ${city.name} (HP: ${city.currentHp ?? city.hp})`)
-})
-console.log('[CityDeployment] rosterCities:', props.rosterCities)
-console.log('[CityDeployment] roster对应的城市名称:')
-props.rosterCities?.forEach((cityIdx, i) => {
-  const city = props.currentPlayer?.cities?.[cityIdx]
-  console.log(`  roster[${i}] = cityIdx ${cityIdx} -> ${city?.name || 'undefined'}`)
+Object.entries(props.currentPlayer?.cities || {}).forEach(([cityName, city]) => {
+  console.log(`  [${cityName}] ${city.name} (HP: ${city.currentHp ?? city.hp})`)
 })
 console.log('[CityDeployment] ===========================')
 
@@ -305,11 +365,31 @@ const availableBattleSkills = computed(() => {
   })
 })
 
+// 获取所有非战斗类型的城市专属技能
+const nonBattleCitySkills = computed(() => {
+  if (!props.currentPlayer?.cities) return []
+
+  const skills = []
+  Object.entries(props.currentPlayer.cities).forEach(([cityName, city]) => {
+    const skill = getCitySkill(city?.name)
+    if (skill && skill.category === 'nonBattle') {
+      skills.push({
+        cityName,
+        cityDisplayName: city?.name,
+        skill,
+        usageCount: getSkillUsageCount(city?.name)
+      })
+    }
+  })
+
+  return skills
+})
+
 /**
  * 切换城市选择
  */
-function toggleCity(cityIdx) {
-  const city = props.currentPlayer.cities[cityIdx]
+function toggleCity(cityName) {
+  const city = props.currentPlayer.cities[cityName]
 
   // 检查城市是否已阵亡（优先检查currentHp，如果没有则使用hp）
   const currentHp = city?.currentHp !== undefined ? city.currentHp : city?.hp
@@ -318,20 +398,20 @@ function toggleCity(cityIdx) {
     return
   }
 
-  const index = selectedCities.value.indexOf(cityIdx)
+  const index = selectedCities.value.indexOf(cityName)
 
   if (index > -1) {
     // 取消选择
     selectedCities.value.splice(index, 1)
     // 取消选择时也清除技能激活状态
-    delete activatedCitySkills.value[cityIdx]
+    delete activatedCitySkills.value[cityName]
   } else {
     // 选择
     if (selectedCities.value.length >= maxDeployCount.value) {
       showNotification(`最多只能选择 ${maxDeployCount.value} 个城市出战！`, 'warning')
       return
     }
-    selectedCities.value.push(cityIdx)
+    selectedCities.value.push(cityName)
   }
 }
 
@@ -386,12 +466,13 @@ const selectedSkillUsageCount = computed(() => {
  */
 function handleSkillUsed(data) {
   console.log('[CityDeployment] 技能使用成功', data)
-  showNotification(`成功使用技能: ${data.skill}`, 'success')
+  showNotification(`成功使用技能: ${data.skillName || data.skill}`, 'success')
   showBattleSkills.value = false
   showNonBattleSkills.value = false
 
-  // 技能使用成功后可能需要更新玩家数据
-  // 这里可以emit一个事件通知父组件刷新数据
+  // 关键修复：emit 事件给父组件 PlayerModeOnline，让它同步数据到 Firebase
+  console.log('[CityDeployment] emit skill-used 事件给父组件', data)
+  emit('skill-used', data)
 }
 
 /**
@@ -399,7 +480,13 @@ function handleSkillUsed(data) {
  */
 function handleSkillFailed(data) {
   console.log('[CityDeployment] 技能使用失败', data)
-  showNotification(`技能使用失败: ${data.result?.message || data.error || '未知错误'}`, 'error')
+  const message = data.result?.message || data.error || '未知错误'
+
+  // 显示通知
+  showNotification(`技能使用失败: ${message}`, 'error')
+
+  // 显示弹窗提示
+  alert(`❌ 技能使用失败\n\n技能名称：${data.skill}\n失败原因：${message}`)
 }
 
 /**
@@ -421,6 +508,27 @@ function getProvinceName(cityName) {
 }
 
 /**
+ * 计算HP百分比
+ */
+function getHpPercentage(city) {
+  if (!city) return 0
+  const currentHp = city.currentHp !== undefined ? city.currentHp : city.hp || 0
+  const maxHp = city.hp || 1
+  return Math.max(0, Math.min(100, (currentHp / maxHp) * 100))
+}
+
+/**
+ * 根据HP百分比返回颜色
+ */
+function getHpColor(city) {
+  const percentage = getHpPercentage(city)
+  if (percentage > 70) return '#3b82f6' // 蓝色 - 健康
+  if (percentage > 40) return '#f59e0b' // 橙色 - 中等
+  if (percentage > 0) return '#ef4444' // 红色 - 危险
+  return '#6b7280' // 灰色 - 阵亡
+}
+
+/**
  * 确认部署
  */
 function confirmDeployment() {
@@ -432,12 +540,12 @@ function confirmDeployment() {
 
   // 收集被激活的城市技能信息
   const activatedSkills = {}
-  Object.keys(activatedCitySkills.value).forEach(cityIdx => {
-    if (activatedCitySkills.value[cityIdx] && selectedCities.value.includes(Number(cityIdx))) {
-      const city = props.currentPlayer.cities[cityIdx]
+  Object.keys(activatedCitySkills.value).forEach(cityName => {
+    if (activatedCitySkills.value[cityName] && selectedCities.value.includes(cityName)) {
+      const city = props.currentPlayer.cities[cityName]
       const skill = getCitySkill(city?.name)
       if (skill) {
-        activatedSkills[cityIdx] = {
+        activatedSkills[cityName] = {
           cityName: city.name,
           skillName: skill.name,
           skillData: skill
@@ -447,7 +555,7 @@ function confirmDeployment() {
   })
 
   // 确认部署
-  emit('confirm', {
+  emit('deployment-confirmed', {
     cities: selectedCities.value,
     activatedCitySkills: activatedSkills
   })
@@ -455,10 +563,9 @@ function confirmDeployment() {
   // 添加诊断日志
   console.log('[CityDeployment] 确认部署')
   console.log('[CityDeployment] selectedCities:', selectedCities.value)
-  console.log('[CityDeployment] rosterCities:', props.rosterCities)
-  selectedCities.value.forEach(cityIdx => {
-    const city = props.currentPlayer.cities[cityIdx]
-    console.log(`[CityDeployment] 选中城市 cityIdx=${cityIdx}, name=${city?.name}`)
+  selectedCities.value.forEach(cityName => {
+    const city = props.currentPlayer.cities[cityName]
+    console.log(`[CityDeployment] 选中城市 cityName=${cityName}, name=${city?.name}`)
   })
 }
 </script>
@@ -468,6 +575,16 @@ function confirmDeployment() {
   max-width: 1000px;
   margin: 20px auto;
   padding: 20px;
+}
+
+.room-info {
+  font-size: 13px;
+  color: #9ca3af;
+  margin-bottom: 8px;
+  padding: 6px 12px;
+  background: rgba(59, 130, 246, 0.1);
+  border-left: 3px solid #3b82f6;
+  border-radius: 4px;
 }
 
 .deployment-info {
@@ -554,10 +671,34 @@ function confirmDeployment() {
   font-weight: bold;
 }
 
-.city-hp {
+/* HP水柱可视化样式 */
+.city-hp-visual {
+  margin: 8px 0;
+}
+
+.hp-text {
   font-size: 14px;
-  margin: 5px 0;
   color: var(--text);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hp-bar-container {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.hp-bar-fill {
+  height: 100%;
+  transition: width 0.3s ease, background-color 0.3s ease;
+  border-radius: 4px;
+  box-shadow: 0 0 8px currentColor;
 }
 
 .dead-badge {
@@ -651,6 +792,41 @@ function confirmDeployment() {
 .skills-section h4 {
   margin: 0 0 15px 0;
   color: var(--text);
+}
+
+.intelligence-section {
+  margin: 20px 0;
+  padding: 20px;
+  background: linear-gradient(135deg, #1e3a5f 0%, #0f2642 100%);
+  border: 2px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+}
+
+.intelligence-section h4 {
+  margin: 0 0 15px 0;
+  color: #60a5fa;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.intelligence-btn {
+  width: 100%;
+  padding: 15px 20px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);
+}
+
+.intelligence-btn:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 8px rgba(59, 130, 246, 0.4);
 }
 
 .skills-buttons {
@@ -1003,16 +1179,163 @@ function confirmDeployment() {
   color: #fbbf24;
 }
 
+/* 非战斗城市专属技能横向滚动区域 */
+.nonbattle-city-skills-section {
+  margin: 20px 0;
+  padding: 20px;
+  background: linear-gradient(135deg, #1e3a5f 0%, #0f2642 100%);
+  border: 2px solid rgba(139, 92, 246, 0.3);
+  border-radius: 8px;
+}
+
+.nonbattle-city-skills-section h4 {
+  margin: 0 0 15px 0;
+  color: #c084fc;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.city-skills-horizontal-scroll {
+  display: flex;
+  flex-direction: row;
+  gap: 15px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 15px 5px;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 自定义横向滚动条 */
+.city-skills-horizontal-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.city-skills-horizontal-scroll::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 4px;
+}
+
+.city-skills-horizontal-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #8b5cf6 0%, #6366f1 100%);
+  border-radius: 4px;
+  border: 1px solid rgba(15, 23, 42, 0.5);
+}
+
+.city-skills-horizontal-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, #a78bfa 0%, #818cf8 100%);
+}
+
+.city-skill-card {
+  min-width: 220px;
+  max-width: 220px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%);
+  border: 2px solid rgba(139, 92, 246, 0.4);
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.city-skill-card:hover {
+  border-color: rgba(139, 92, 246, 0.8);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(99, 102, 241, 0.25) 100%);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(139, 92, 246, 0.4);
+}
+
+.skill-card-icon {
+  font-size: 28px;
+  text-align: center;
+  filter: drop-shadow(0 2px 4px rgba(139, 92, 246, 0.5));
+}
+
+.skill-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.skill-card-city {
+  font-size: 14px;
+  font-weight: 700;
+  color: #60a5fa;
+  text-align: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.skill-card-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #c084fc;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.skill-card-type {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.skill-card-type .type-badge {
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.skill-card-type .type-badge.active {
+  background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.skill-card-type .type-badge.passive {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.skill-card-usage {
+  font-size: 12px;
+  color: #cbd5e1;
+  text-align: center;
+  padding: 6px;
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.skill-card-usage.unlimited {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
 /* 部署界面带日志布局 */
 .deployment-with-log-layout {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr 500px;
   gap: 20px;
   height: 100vh;
   padding: 20px;
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   overflow: hidden;
   transition: grid-template-columns 0.3s ease;
+}
+
+.deployment-with-log-layout:has(.collapsed) {
+  grid-template-columns: 1fr 60px;
 }
 
 .deployment-main-area {
@@ -1025,12 +1348,8 @@ function confirmDeployment() {
 .deployment-log-area {
   height: 100%;
   overflow: hidden;
-  width: 500px;
-  transition: width 0.3s ease;
-}
-
-.deployment-log-area:has(.collapsed) {
-  width: 60px;
+  position: relative;
+  z-index: 50;
 }
 
 /* 自定义滚动条 */
@@ -1057,16 +1376,20 @@ function confirmDeployment() {
   .deployment-with-log-layout {
     grid-template-columns: 1fr 400px;
   }
+
+  .deployment-with-log-layout:has(.collapsed) {
+    grid-template-columns: 1fr 60px;
+  }
 }
 
 @media (max-width: 1024px) {
   .deployment-with-log-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: 1fr auto;
+    grid-template-rows: 1fr 300px;
   }
 
-  .deployment-log-area {
-    height: 300px;
+  .deployment-with-log-layout:has(.collapsed) {
+    grid-template-rows: 1fr 60px;
   }
 }
 
@@ -1074,10 +1397,11 @@ function confirmDeployment() {
   .deployment-with-log-layout {
     padding: 10px;
     gap: 10px;
+    grid-template-rows: 1fr 250px;
   }
 
-  .deployment-log-area {
-    height: 250px;
+  .deployment-with-log-layout:has(.collapsed) {
+    grid-template-rows: 1fr 60px;
   }
 }
 

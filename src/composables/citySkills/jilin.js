@@ -94,13 +94,13 @@ export function handleTonghuaSkill(attacker, skillData, addPublicLog, gameStore)
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityIndex = attacker.cities.indexOf(targetCity)
+  const cityName = attacker.cities.indexOf(targetCity)
 
   // 设置下次出战效果
   if (!gameStore.nextBattleEffect) gameStore.nextBattleEffect = {}
   if (!gameStore.nextBattleEffect[attacker.name]) gameStore.nextBattleEffect[attacker.name] = {}
 
-  gameStore.nextBattleEffect[attacker.name][cityIndex] = {
+  gameStore.nextBattleEffect[attacker.name][cityName] = {
     active: true,
     powerMultiplier: 1.4,
     hpMultiplier: 0.5,

@@ -25,7 +25,7 @@ export function isBlockedByJianbukecui(gameState, targetPlayer, casterPlayer, sk
     '无知无畏', '进制扭曲', '整齐划一', '人质交换', '时来运转',
     '吸引攻击', '铜墙铁壁', '料事如神', '背水一战', '同归于尽',
     '暗度陈仓', '隔岸观火', '挑拨离间', '清除加成', '釜底抽薪',
-    '劫富济贫', '天灾人祸', '提灯定损', '连续打击', '倒反天罡',
+    '劫富济贫', '天灾人祸', '一落千丈', '连续打击', '倒反天罡',
     '对己方城市的数位反转', '波涛汹涌', '万箭齐发', '连锁反应',
     '御驾亲征', '欲擒故纵', '晕头转向', '草船借箭', '招贤纳士',
     '狂轰滥炸', '横扫一空', '降维打击', '定时爆破', '反戈一击',
@@ -75,7 +75,7 @@ export function checkSkillPreconditions({ caster, target, skillName, gameState, 
     }
   }
 
-  // 4. 检查目不转睛限制
+  // 4. 检查寸步难行限制
   if (gameState.stareDown?.[caster.name]?.roundsLeft > 0) {
     if (skillName !== '当机立断') {
       return {
@@ -92,14 +92,14 @@ export function checkSkillPreconditions({ caster, target, skillName, gameState, 
  * 获取城市的有效省份（考虑拔旗易帜）
  * @param {Object} gameState - 游戏状态
  * @param {string} playerName - 玩家名称
- * @param {number} cityIndex - 城市索引
+ * @param {string} cityName - 城市名称
  * @param {Object} cityObject - 城市对象
  * @returns {string|null} 省份名称
  */
-export function getEffectiveProvince(gameState, playerName, cityIndex, cityObject) {
+export function getEffectiveProvince(gameState, playerName, cityName, cityObject) {
   // 优先检查拔旗易帜标记
-  if (gameState.changeFlagMark?.[playerName]?.[cityIndex]) {
-    return gameState.changeFlagMark[playerName][cityIndex].newProvince
+  if (gameState.changeFlagMark?.[playerName]?.[cityName]) {
+    return gameState.changeFlagMark[playerName][cityName].newProvince
   }
 
   // 使用gameStore的getProvinceOfCity方法
@@ -120,15 +120,15 @@ export function getEffectiveProvince(gameState, playerName, cityIndex, cityObjec
  * 检查城市是否有保护
  * @param {Object} gameState - 游戏状态
  * @param {string} playerName - 玩家名称
- * @param {number} cityIndex - 城市索引
+ * @param {string} cityName - 城市名称
  * @returns {Object} { hasProtection: boolean, type: string, layers: number }
  */
-export function hasProtection(gameState, playerName, cityIndex) {
+export function hasProtection(gameState, playerName, cityName) {
   // 检查普通保护罩
-  const normalProtection = gameState.protections?.[playerName]?.[cityIndex] || 0
+  const normalProtection = gameState.protections?.[playerName]?.[cityName] || 0
 
   // 检查钢铁城市
-  const ironLayers = gameState.ironCities?.[playerName]?.[cityIndex] || 0
+  const ironLayers = gameState.ironCities?.[playerName]?.[cityName] || 0
 
   if (ironLayers > 0) {
     return { hasProtection: true, type: 'iron', layers: ironLayers }
@@ -145,30 +145,30 @@ export function hasProtection(gameState, playerName, cityIndex) {
  * 消耗保护层
  * @param {Object} gameState - 游戏状态
  * @param {string} playerName - 玩家名称
- * @param {number} cityIndex - 城市索引
+ * @param {string} cityName - 城市名称
  * @returns {boolean} 是否成功消耗
  */
-export function consumeProtection(gameState, playerName, cityIndex) {
+export function consumeProtection(gameState, playerName, cityName) {
   // 先检查钢铁城市
-  if (gameState.ironCities?.[playerName]?.[cityIndex]) {
-    const currentLayers = gameState.ironCities[playerName][cityIndex]
+  if (gameState.ironCities?.[playerName]?.[cityName]) {
+    const currentLayers = gameState.ironCities[playerName][cityName]
     if (currentLayers > 1) {
       // 钢铁城市：2层 -> 1层
-      gameState.ironCities[playerName][cityIndex] = 1
+      gameState.ironCities[playerName][cityName] = 1
     } else {
       // 1层 -> 变成普通保护罩
-      delete gameState.ironCities[playerName][cityIndex]
+      delete gameState.ironCities[playerName][cityName]
       if (!gameState.protections[playerName]) {
         gameState.protections[playerName] = {}
       }
-      gameState.protections[playerName][cityIndex] = 10
+      gameState.protections[playerName][cityName] = 10
     }
     return true
   }
 
   // 再检查普通保护罩
-  if (gameState.protections?.[playerName]?.[cityIndex]) {
-    delete gameState.protections[playerName][cityIndex]
+  if (gameState.protections?.[playerName]?.[cityName]) {
+    delete gameState.protections[playerName][cityName]
     return true
   }
 
@@ -241,7 +241,7 @@ export function calculateActualCost(skillName, caster, gameState) {
     '海市蜃楼': 6,
     '暗度陈仓': 6,
     '好高骛远': 7,
-    '提灯定损': 7,
+    '一落千丈': 7,
     '连续打击': 7,
     '同归于尽': 7,
     '欲擒故纵': 7,
@@ -323,7 +323,9 @@ export function calculateActualCost(skillName, caster, gameState) {
  * @returns {Array} 存活城市列表
  */
 export function getAliveCities(player) {
-  return player.cities.filter(city => city && city.isAlive !== false)
+  if (!player.cities) return []
+  // player.cities 现在是对象，需要转换为数组
+  return Object.values(player.cities).filter(city => city && city.isAlive !== false)
 }
 
 /**
@@ -333,9 +335,9 @@ export function getAliveCities(player) {
  * @returns {Array} 预备城市对象列表
  */
 export function getRosterCities(player, gameState) {
-  const rosterIndices = gameState.roster?.[player.name] || []
-  return rosterIndices
-    .map(idx => player.cities[idx])
+  const rosterNames = gameState.roster?.[player.name] || []
+  return rosterNames
+    .map(name => player.cities[name])
     .filter(city => city && city.isAlive !== false)
 }
 
@@ -343,30 +345,30 @@ export function getRosterCities(player, gameState) {
  * 检查城市是否在谨慎交换集合中
  * @param {Object} gameState - 游戏状态
  * @param {string} playerName - 玩家名称
- * @param {number} cityIndex - 城市索引
+ * @param {string} cityName - 城市名称
  * @returns {boolean}
  */
-export function isInCautiousSet(gameState, playerName, cityIndex) {
-  const cautiousSet = gameState.cautiousExchange?.[playerName] || []
-  return cautiousSet.includes(cityIndex)
+export function isInCautiousSet(gameState, playerName, cityName) {
+  const cautiousSet = gameState.cautiousExchange?.[playerName]
+  if (!cautiousSet) return false
+  // cautiousExchange 现在是 Set
+  return cautiousSet.has ? cautiousSet.has(cityName) : cautiousSet.includes(cityName)
 }
 
 /**
  * 添加城市到谨慎交换集合
  * @param {Object} gameState - 游戏状态
  * @param {string} playerName - 玩家名称
- * @param {number} cityIndex - 城市索引
+ * @param {string} cityName - 城市名称
  */
-export function addToCautiousSet(gameState, playerName, cityIndex) {
+export function addToCautiousSet(gameState, playerName, cityName) {
   if (!gameState.cautiousExchange) {
     gameState.cautiousExchange = {}
   }
   if (!gameState.cautiousExchange[playerName]) {
-    gameState.cautiousExchange[playerName] = []
+    gameState.cautiousExchange[playerName] = new Set()
   }
-  if (!gameState.cautiousExchange[playerName].includes(cityIndex)) {
-    gameState.cautiousExchange[playerName].push(cityIndex)
-  }
+  gameState.cautiousExchange[playerName].add(cityName)
 }
 
 /**

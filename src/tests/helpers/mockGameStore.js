@@ -138,48 +138,58 @@ export function createMockGameStore() {
 }
 
 export function createMockPlayer(name, config = {}) {
+  // 默认城市数组
+  const defaultCitiesArray = [
+    {
+      name: '北京',
+      hp: 30000,
+      currentHp: 30000,
+      baseHp: 30000,
+      isCenter: true,
+      isAlive: true,
+      red: 3,
+      blue: 3,
+      green: 3,
+      yellow: 3
+    },
+    {
+      name: '上海',
+      hp: 25000,
+      currentHp: 25000,
+      baseHp: 25000,
+      isCenter: false,
+      isAlive: true,
+      red: 2,
+      blue: 2,
+      green: 2,
+      yellow: 2
+    },
+    {
+      name: '广州',
+      hp: 20000,
+      currentHp: 20000,
+      baseHp: 20000,
+      isCenter: false,
+      isAlive: true,
+      red: 1,
+      blue: 1,
+      green: 1,
+      yellow: 1
+    }
+  ]
+
+  // 将城市数组转换为对象（以城市名称为key）
+  const citiesArray = config.cities || defaultCitiesArray
+  const citiesObj = {}
+  citiesArray.forEach(city => {
+    citiesObj[city.name] = city
+  })
+
   return {
     name: name || 'Player1',
     gold: config.gold !== undefined ? config.gold : 10,
-    cities: config.cities || [
-      {
-        name: '北京',
-        hp: 30000,
-        currentHp: 30000,
-        baseHp: 30000,
-        isCenter: true,
-        isAlive: true,
-        red: 3,
-        blue: 3,
-        green: 3,
-        yellow: 3
-      },
-      {
-        name: '上海',
-        hp: 25000,
-        currentHp: 25000,
-        baseHp: 25000,
-        isCenter: false,
-        isAlive: true,
-        red: 2,
-        blue: 2,
-        green: 2,
-        yellow: 2
-      },
-      {
-        name: '广州',
-        hp: 20000,
-        currentHp: 20000,
-        baseHp: 20000,
-        isCenter: false,
-        isAlive: true,
-        red: 1,
-        blue: 1,
-        green: 1,
-        yellow: 1
-      }
-    ],
-    centerIndex: 0,
+    cities: citiesObj,  // 使用对象而非数组
+    centerCityName: citiesArray[0].name,  // 使用城市名称而非索引
     battleModifiers: [],
     streaks: {},
     team: config.team || 0

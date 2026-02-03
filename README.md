@@ -50,8 +50,11 @@ npm run test
 ### 开始游玩
 
 ```
-主菜单 → 玩家模式 → 输入昵称 → 选择模式 → 抽取城市 → 开始游戏！
+主菜单 → 开始游戏 → 选择模式（单机/在线） → 开始对战！
 ```
+
+- **单机模式**: 与AI对战，适合练习技能和熟悉游戏
+- **在线对战**: 与真实玩家对战，需要创建/加入房间
 
 详细游玩指南请查看 [QUICK_START.md](QUICK_START.md)
 
@@ -292,17 +295,29 @@ UI组件: 15+
 
 ## 📚 文档
 
-### 用户文档
+### 核心文档
 
+- **[综合文档](docs/CONSOLIDATED_DOCUMENTATION.md)** - 📖 完整项目文档（推荐阅读）
 - **[快速开始指南](QUICK_START.md)** - 5分钟上手
-- **[项目完成总结](PROJECT_SUMMARY.md)** - 完整项目概览
+- **[用户指南](docs/USER_GUIDE.md)** - 详细游戏说明
+- **[分享给朋友指南](分享给朋友指南.md)** - 在线对战指南
 
 ### 技术文档
 
-- **[最终验证报告](FINAL_VERIFICATION_REPORT.md)** - 完整功能验证
-- **[游戏逻辑文档](GAME_LOGIC_COMPLETION_REPORT.md)** - 游戏逻辑详解
-- **[UI开发文档](UI_DEVELOPMENT_REPORT.md)** - UI组件说明
-- **[测试达成记录](100_PERCENT_ACHIEVEMENT.md)** - 测试历程
+- **[重构进度报告](docs/REFACTORING_PROGRESS_REPORT.md)** - 重构历程
+- **[技能实现状态](docs/SKILL_IMPLEMENTATION_STATUS.md)** - 技能完成情况
+- **[金币系统审计](docs/GOLD_SYSTEM_AUDIT.md)** - 金币系统详解
+- **[游戏日志使用说明](docs/GameLog使用说明.md)** - 日志系统
+
+### Bug修复记录
+
+- **[在线对战界面UI重新设计](UI_REDESIGN_ONLINE_INTERFACES.md)** - UI统一（2026-01-21）
+- **[游戏模式选择界面](FEATURE_MODE_SELECTION.md)** - 新功能（2026-01-21）
+- **[主界面UI优化](UI_OPTIMIZATION_MAIN_MENU.md)** - UI优化（2026-01-20）
+- **[高级治疗技能修复](BUGFIX_REPORT_ADVANCED_HEALING.md)** - 最新修复（2026-01-20）
+- **[技能失败提示功能](FEATURE_SKILL_FAILURE_ALERT.md)** - 新功能（2026-01-20）
+- **[技能冷却系统修复](BUGFIX_REPORT_SKILL_COOLDOWNS.md)** - 修复（2026-01-20）
+- **[疲劳系统和快速治疗修复](BUGFIX_REPORT_FATIGUE_AND_HEAL.md)** - 修复（2026-01-20）
 
 ---
 
@@ -589,7 +604,7 @@ npm run dev
 
 # 3. 开始游玩
 打开浏览器: http://localhost:5175/
-主菜单 → 玩家模式 → 开始游戏！
+主菜单 → 开始游戏 → 选择模式（单机/在线） → 开始对战！
 ```
 
 **祝游戏愉快！** 🎉🎮
@@ -598,6 +613,6 @@ npm run dev
 
 **项目状态**: 🟢 **完成并可玩**
 **当前版本**: v1.0.0
-**最后更新**: 2025-12-28
+**最后更新**: 2026-01-21
 
 **享受游戏！** ✨

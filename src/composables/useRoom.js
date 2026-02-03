@@ -1,5 +1,5 @@
 import { ref, reactive, onUnmounted } from 'vue'
-import { getDatabase, ref as dbRef, set, get, onValue, off, remove } from 'firebase/database'
+import { getDatabase, ref as dbRef, set, get, onValue, off, remove, update } from 'firebase/database'
 import { isFirebaseReady } from './useFirebase'
 
 // 房间过期时间配置（24小时内无活动则自动过期）
@@ -39,6 +39,21 @@ export function useRoom() {
       lastActivityString: new Date().toLocaleString('zh-CN')
     }
 
+    console.log('[Firebase] 准备保存到Firebase的数据:', {
+      roomId: id,
+      hasGameState: !!updatedData.gameState,
+      gameStateKeys: updatedData.gameState ? Object.keys(updatedData.gameState) : 'undefined',
+      hasPendingSwaps: !!updatedData.gameState?.pendingSwaps,
+      pendingSwapsLength: updatedData.gameState?.pendingSwaps?.length || 0,
+      pendingSwaps: updatedData.gameState?.pendingSwaps,
+      hasKnownCities: !!updatedData.gameState?.knownCities,
+      knownCitiesKeys: updatedData.gameState?.knownCities ? Object.keys(updatedData.gameState.knownCities) : 'undefined'
+    })
+    console.log('[Firebase] 完整gameState对象:', JSON.stringify(updatedData.gameState, null, 2))
+    console.log('[Firebase] ===== knownCities 详细诊断 =====')
+    console.log('[Firebase] knownCities存在:', !!updatedData.gameState?.knownCities)
+    console.log('[Firebase] knownCities内容:', JSON.stringify(updatedData.gameState?.knownCities, null, 2))
+
     if (isFirebaseReady()) {
       // 使用 Firebase
       console.log(`[Firebase] 正在保存房间数据到 Firebase: ${id}`)
@@ -46,6 +61,15 @@ export function useRoom() {
         const db = getDatabase()
         await set(dbRef(db, 'rooms/' + id), updatedData)
         console.log(`[Firebase] ✓ 房间数据保存成功: ${id}`)
+        console.log('[Firebase] ✓ 保存后验证gameState:', updatedData.gameState ? '存在' : '不存在')
+
+        // 关键诊断：立即读取验证knownCities是否真的保存到Firebase
+        console.log('[Firebase] ===== 保存后立即验证 =====')
+        const verifySnapshot = await get(dbRef(db, 'rooms/' + id + '/gameState/knownCities'))
+        const savedKnownCities = verifySnapshot.val()
+        console.log('[Firebase] 验证读取knownCities:', savedKnownCities ? JSON.stringify(savedKnownCities, null, 2) : 'null/undefined')
+        console.log('[Firebase] ========================================')
+
         return true
       } catch (error) {
         console.error('[Firebase] ✗ Firebase save error:', error)
@@ -55,6 +79,86 @@ export function useRoom() {
       // 使用 localStorage
       console.log(`[localStorage] 正在保存房间数据到本地存储: ${id}`)
       localStorage.setItem(`room_${id}`, JSON.stringify(updatedData))
+      return true
+    }
+  }
+
+  /**
+   * 更新房间gameState的部分字段（不覆盖整个gameState）
+   * @param {string} id - 房间ID
+   * @param {Object} updates - 要更新的字段 {pendingSwaps: [...], ...}
+   */
+  async function updateRoomGameState(id, updates) {
+    console.log('[Firebase] 准备部分更新gameState:', {
+      roomId: id,
+      updateKeys: Object.keys(updates),
+      updates
+    })
+
+    if (isFirebaseReady()) {
+      try {
+        const db = getDatabase()
+
+        // 关键修复：确保 gameState 节点存在
+        // 现在 createRoom 会初始化 gameState，但为了兼容旧房间，仍保留此检查
+        const roomRef = dbRef(db, `rooms/${id}`)
+        const snapshot = await get(roomRef)
+        const roomData = snapshot.val()
+
+        if (!roomData) {
+          console.error('[Firebase] 房间不存在:', id)
+          return false
+        }
+
+        // 如果 gameState 不存在（旧房间），先初始化它
+        if (!roomData.gameState) {
+          console.log('[Firebase] gameState不存在（旧房间），先初始化')
+          // 合并初始化和更新操作，减少写入次数
+          await set(dbRef(db, `rooms/${id}/gameState`), {
+            currentRound: 1,
+            playerStates: {},
+            knownCities: {},
+            battleLogs: [],
+            pendingSwaps: [],
+            ...updates  // 同时应用传入的更新
+          })
+          console.log(`[Firebase] ✓ gameState初始化并更新成功: ${id}`, Object.keys(updates))
+          return true
+        }
+
+        // gameState 已存在，只更新指定字段
+        const updatePath = {}
+        Object.keys(updates).forEach(key => {
+          updatePath[`rooms/${id}/gameState/${key}`] = updates[key]
+        })
+
+        await update(dbRef(db), updatePath)
+        console.log(`[Firebase] ✓ gameState部分更新成功: ${id}`, Object.keys(updates))
+        return true
+      } catch (error) {
+        console.error('[Firebase] ✗ gameState更新失败:', error)
+        return false
+      }
+    } else {
+      // localStorage模式：需要读取完整数据再更新
+      const data = await getRoomData(id)
+      if (!data) return false
+
+      if (!data.gameState) {
+        data.gameState = {
+          currentRound: 1,
+          playerStates: {},
+          knownCities: {},
+          battleLogs: [],
+          pendingSwaps: []
+        }
+      }
+      Object.assign(data.gameState, updates)
+
+      localStorage.setItem(`room_${id}`, JSON.stringify({
+        ...data,
+        lastActivity: Date.now()
+      }))
       return true
     }
   }
@@ -131,7 +235,13 @@ export function useRoom() {
       onValue(roomRef, (snapshot) => {
         const data = snapshot.val()
         if (data) {
-          console.log(`[Firebase] 收到房间数据更新: ${id}`)
+          console.log(`[Firebase] 收到房间数据更新: ${id}`, {
+            hasGameState: !!data.gameState,
+            gameStateKeys: data.gameState ? Object.keys(data.gameState) : 'undefined',
+            hasPendingSwaps: !!data.gameState?.pendingSwaps,
+            pendingSwapsLength: data.gameState?.pendingSwaps?.length || 0,
+            timestamp: Date.now()
+          })
           callback(data)
         }
       })
@@ -327,7 +437,15 @@ export function useRoom() {
       spectators: [], // 围观者列表
       heartbeats: {}, // 玩家心跳状态
       createdAt: Date.now(),
-      roomStatus: 'waiting' // 等待玩家加入
+      roomStatus: 'waiting', // 等待玩家加入
+      // 关键修复：创建房间时就初始化 gameState
+      gameState: {
+        currentRound: 1,
+        playerStates: {},
+        knownCities: {},
+        battleLogs: [],
+        pendingSwaps: []
+      }
     }
 
     await saveRoomData(id, data)
@@ -616,6 +734,7 @@ export function useRoom() {
     createRoom,
     joinRoom,
     saveRoomData,
+    updateRoomGameState,
     getRoomData,
     listenToRoomData,
     stopListeningToRoom,

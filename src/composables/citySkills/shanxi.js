@@ -7,7 +7,6 @@
 import {
   getAliveCities,
   getCurrentHp,
-  getCityIndex
 } from './skillHelpers'
 
 /**
@@ -57,8 +56,8 @@ export function handleTaiyuanSkill(player, skillData, addPublicLog, gameStore) {
  * 限1次，获得一个与该城市HP相同的屏障
  */
 export function handleDatongSkill(player, skillData, addPublicLog, gameStore) {
-  const datongIndex = getCityIndex(player, skillData.cityName)
-  const datongCity = player.cities[datongIndex]
+  const datongName = skillData.cityName.name || skillData.cityName
+  const datongCity = player.cities[datongName]
 
   if (!datongCity || datongCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"北岳恒山"，城市已阵亡！`)
@@ -85,13 +84,13 @@ export function handleDatongSkill(player, skillData, addPublicLog, gameStore) {
  * 晋中市 - 平遥古城
  * 限1次，恢复一个初始HP≤10000的己方城市状态至5回合前
  */
-export function handleJinzhongSkill(player, skillData, addPublicLog, gameStore, selectedCityIndex = null) {
-  if (selectedCityIndex === null) {
+export function handleJinzhongSkill(player, skillData, addPublicLog, gameStore, selectedCityName = null) {
+  if (selectedCityName === null) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"平遥古城"，需要选择一座城市！`)
     return
   }
 
-  const targetCity = player.cities[selectedCityIndex]
+  const targetCity = player.cities[selectedCityName]
   if (!targetCity) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"平遥古城"，目标城市无效！`)
     return
@@ -105,12 +104,12 @@ export function handleJinzhongSkill(player, skillData, addPublicLog, gameStore, 
   }
 
   // 检查历史记录
-  if (!gameStore.cityHistory || !gameStore.cityHistory[player.name] || !gameStore.cityHistory[player.name][selectedCityIndex]) {
+  if (!gameStore.cityHistory || !gameStore.cityHistory[player.name] || !gameStore.cityHistory[player.name][selectedCityName]) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"平遥古城"，没有找到目标城市5回合前的状态！`)
     return
   }
 
-  const history = gameStore.cityHistory[player.name][selectedCityIndex]
+  const history = gameStore.cityHistory[player.name][selectedCityName]
   const targetRound = gameStore.currentRound - 5
 
   // 找到5回合前的状态
@@ -135,13 +134,13 @@ export function handleJinzhongSkill(player, skillData, addPublicLog, gameStore, 
  * 运城市 - 鹳雀楼
  * 冷却1回合，将一个对方未知的己方城市更换为GDP排名比其高1名的城市
  */
-export function handleYunchengSkill(player, skillData, addPublicLog, gameStore, selectedCityIndex = null) {
-  if (selectedCityIndex === null) {
+export function handleYunchengSkill(player, skillData, addPublicLog, gameStore, selectedCityName = null) {
+  if (selectedCityName === null) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"鹳雀楼"，需要选择一座城市！`)
     return
   }
 
-  const targetCity = player.cities[selectedCityIndex]
+  const targetCity = player.cities[selectedCityName]
   if (!targetCity || targetCity.isAlive === false) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"鹳雀楼"，目标城市无效或已阵亡！`)
     return
@@ -149,7 +148,7 @@ export function handleYunchengSkill(player, skillData, addPublicLog, gameStore, 
 
   // 检查是否对对方未知
   const isUnknown = !gameStore.knownCities || Object.values(gameStore.knownCities).every(playerKnown => {
-    return !playerKnown[player.name] || !playerKnown[player.name].has(selectedCityIndex)
+    return !playerKnown[player.name] || !playerKnown[player.name].has(selectedCityName)
   })
 
   if (!isUnknown) {
@@ -181,7 +180,7 @@ export function handleYunchengSkill(player, skillData, addPublicLog, gameStore, 
   }
 
   // 检查是否已拥有这座城市
-  const alreadyOwned = player.cities.some(c => c.name === higherRankCity.name)
+  const alreadyOwned = Object.values(player.cities).some(c => c.name === higherRankCity.name)
   if (alreadyOwned) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"鹳雀楼"，己方已拥有${higherRankCity.name}！`)
     return
