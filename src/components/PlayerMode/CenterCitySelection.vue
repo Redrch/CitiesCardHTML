@@ -88,7 +88,7 @@
       <!-- 确认按钮 -->
       <button
         class="confirm-btn"
-        :disabled="centerIndex === null"
+        :disabled="centerCityName === null"
         @click="confirmCenter"
       >
         <span class="confirm-icon">✓</span>

@@ -24,6 +24,44 @@ describe('非战斗技能单元测试', () => {
     caster = createMockPlayer('玩家1', { gold: 50 })
     target = createMockPlayer('玩家2', { gold: 50 })
 
+    // Add additional cities needed by tests
+    target.cities['天津'] = {
+      name: '天津',
+      hp: 20000,
+      currentHp: 20000,
+      baseHp: 20000,
+      isCenter: false,
+      isAlive: true,
+      red: 1,
+      blue: 1,
+      green: 1,
+      yellow: 1
+    }
+    target.cities['石家庄'] = {
+      name: '石家庄',
+      hp: 18000,
+      currentHp: 18000,
+      baseHp: 18000,
+      isCenter: false,
+      isAlive: true,
+      red: 1,
+      blue: 1,
+      green: 1,
+      yellow: 1
+    }
+    caster.cities['重庆'] = {
+      name: '重庆',
+      hp: 30000,
+      currentHp: 30000,
+      baseHp: 30000,
+      isCenter: false,
+      isAlive: true,
+      red: 2,
+      blue: 2,
+      green: 2,
+      yellow: 2
+    }
+
     gameStore.players = [caster, target]
     gameStore.gameMode = '2P'
     gameStore.currentRound = 1
@@ -138,7 +176,7 @@ describe('非战斗技能单元测试', () => {
 
   describe('快速治疗 - executeKuaiSuZhiLiao', () => {
     it('应该将城市HP恢复至满血', () => {
-      const city = caster.cities[1]
+      const city = caster.cities['上海']
       city.currentHp = 10000  // 受伤状态
 
       const result = nonBattleSkills.executeKuaiSuZhiLiao(caster, city)
@@ -148,7 +186,7 @@ describe('非战斗技能单元测试', () => {
     })
 
     it('应该在城市已满血时返回失败', () => {
-      const city = caster.cities[1]
+      const city = caster.cities['上海']
 
       const result = nonBattleSkills.executeKuaiSuZhiLiao(caster, city)
 
@@ -159,18 +197,18 @@ describe('非战斗技能单元测试', () => {
 
   describe('城市保护 - executeCityProtection', () => {
     it('应该成功为城市添加10回合保护', () => {
-      const city = caster.cities[1]
+      const city = caster.cities['上海']
 
       const result = nonBattleSkills.executeCityProtection(caster, city)
 
       expect(result.success).toBe(true)
       expect(gameStore.protections[caster.name]).toBeDefined()
-      expect(gameStore.protections[caster.name][1]).toBe(10)
+      expect(gameStore.protections[caster.name]['上海']).toBe(10)
     })
 
     it('应该在城市已有保护时返回失败', () => {
-      const city = caster.cities[1]
-      gameStore.protections[caster.name] = { 1: 5 }
+      const city = caster.cities['上海']
+      gameStore.protections[caster.name] = { '上海': 5 }
 
       const result = nonBattleSkills.executeCityProtection(caster, city)
 
@@ -181,18 +219,18 @@ describe('非战斗技能单元测试', () => {
 
   describe('钢铁城市 - executeGangTieChengShi', () => {
     it('应该成功为城市添加永久钢铁护盾', () => {
-      const city = caster.cities[1]
+      const city = caster.cities['上海']
 
       const result = nonBattleSkills.executeGangTieChengShi(caster, city)
 
       expect(result.success).toBe(true)
       expect(gameStore.ironCities[caster.name]).toBeDefined()
-      expect(gameStore.ironCities[caster.name][1]).toBe(2)  // 钢铁护盾有2层
+      expect(gameStore.ironCities[caster.name]['上海']).toBe(2)  // 钢铁护盾有2层
     })
 
     it('应该在城市已有钢铁护盾时返回失败', () => {
-      const city = caster.cities[1]
-      gameStore.ironCities[caster.name] = { 1: true }
+      const city = caster.cities['上海']
+      gameStore.ironCities[caster.name] = { '上海': true }
 
       const result = nonBattleSkills.executeGangTieChengShi(caster, city)
 
@@ -217,13 +255,13 @@ describe('非战斗技能单元测试', () => {
 
   describe('定海神针 - executeDingHaiShenZhen', () => {
     it('应该成功锁定城市3回合', () => {
-      const city = caster.cities[1]
+      const city = caster.cities['上海']
 
       const result = nonBattleSkills.executeDingHaiShenZhen(caster, city)
 
       expect(result.success).toBe(true)
       expect(gameStore.anchored[caster.name]).toBeDefined()
-      expect(gameStore.anchored[caster.name][1]).toBe(10)  // 实际是10回合
+      expect(gameStore.anchored[caster.name]['上海']).toBe(10)  // 实际是10回合
     })
   })
 
@@ -232,7 +270,7 @@ describe('非战斗技能单元测试', () => {
       // 设置合理的初始金币
       caster.gold = 10
 
-      const targetCity = target.cities[0]
+      const targetCity = target.cities['北京']
 
       // 给目标城市添加modifiers
       targetCity.modifiers = [
@@ -255,14 +293,14 @@ describe('非战斗技能单元测试', () => {
 
   describe('狐假虎威 - executeHuJiaHuWei', () => {
     it('应该成功伪装城市2回合', () => {
-      const city = caster.cities[1]
+      const city = caster.cities['上海']
 
       const result = nonBattleSkills.executeHuJiaHuWei(caster, city)
 
       expect(result.success).toBe(true)
       expect(gameStore.disguisedCities[caster.name]).toBeDefined()
-      expect(gameStore.disguisedCities[caster.name][1]).toBeDefined()
-      expect(gameStore.disguisedCities[caster.name][1].roundsLeft).toBe(3)  // 实际是3回合
+      expect(gameStore.disguisedCities[caster.name]['上海']).toBeDefined()
+      expect(gameStore.disguisedCities[caster.name]['上海'].roundsLeft).toBe(3)  // 实际是3回合
     })
   })
 
@@ -289,24 +327,24 @@ describe('非战斗技能单元测试', () => {
       // 设置合理的初始金币
       caster.gold = 10
 
-      const cityIdx = 0
+      const cityName = '北京'
       const correctCount = 3  // 答对3题
 
-      const initialHp = caster.cities[cityIdx].currentHp
+      const initialHp = caster.cities[cityName].currentHp
 
-      const result = nonBattleSkills.executeBoXueDuoCai(caster, cityIdx, correctCount)
+      const result = nonBattleSkills.executeBoXueDuoCai(caster, cityName, correctCount)
 
       expect(result.success).toBe(true)
-      expect(caster.cities[cityIdx].currentHp).toBeGreaterThan(initialHp)
+      expect(caster.cities[cityName].currentHp).toBeGreaterThan(initialHp)
       expect(result.data.multiplier).toBe(2.0)  // 3题正确 = 2.0倍
     })
 
     it('应该在原始HP<25000时返回失败', () => {
-      const cityIdx = 2
+      const cityName = '重庆'
       // 修改 initialCities 中的原始HP
-      gameStore.initialCities[caster.name][cityIdx].hp = 20000
+      gameStore.initialCities[caster.name][cityName].hp = 20000
 
-      const result = nonBattleSkills.executeBoXueDuoCai(caster, cityIdx, 3)
+      const result = nonBattleSkills.executeBoXueDuoCai(caster, cityName, 3)
 
       expect(result.success).toBe(false)
       expect(result.message).toContain('原始HP≥25000')
@@ -334,18 +372,18 @@ describe('非战斗技能单元测试', () => {
 
   describe('生于紫室 - executeShengYuZiShi', () => {
     it('应该成功给城市添加紫室加成', () => {
-      const cityIdx = 1
+      const cityName = '上海'
 
-      const result = nonBattleSkills.executeShengYuZiShi(caster, caster.cities[cityIdx])
+      const result = nonBattleSkills.executeShengYuZiShi(caster, caster.cities[cityName])
 
       expect(result.success).toBe(true)
-      expect(gameStore.purpleChamber[caster.name]).toBe(cityIdx)
+      expect(gameStore.purpleChamber[caster.name]).toBe(cityName)
     })
 
     it('应该禁止对中心城市使用', () => {
-      const cityIdx = 0  // 中心城市
+      const cityName = '北京'  // 中心城市
 
-      const result = nonBattleSkills.executeShengYuZiShi(caster, caster.cities[cityIdx])
+      const result = nonBattleSkills.executeShengYuZiShi(caster, caster.cities[cityName])
 
       expect(result.success).toBe(false)
       expect(result.message).toContain('不能对中心城市')
@@ -409,8 +447,8 @@ describe('非战斗技能单元测试', () => {
       // 设置合理的初始金币
       caster.gold = 10
 
-      const cityIdx = 1
-      const city = caster.cities[cityIdx]
+      const cityName = '上海'
+      const city = caster.cities[cityName]
       // 确保HP大于10000才能存储
       city.currentHp = 20000
 
@@ -425,8 +463,8 @@ describe('非战斗技能单元测试', () => {
     })
 
     it('应该在HP不足10000时返回失败', () => {
-      const cityIdx = 1
-      const city = caster.cities[cityIdx]
+      const cityName = '上海'
+      const city = caster.cities[cityName]
       city.currentHp = 8000  // 低于10000
 
       const result = nonBattleSkills.executeXueLiangCunChu(caster, city, 'deposit')
@@ -441,15 +479,15 @@ describe('非战斗技能单元测试', () => {
       // 设置合理的初始金币
       caster.gold = 10
 
-      const targetCityIdx = 1
+      const targetCityName = '天津'
 
-      // 使用正确的knownCities结构：knownCities[观察者][被观察者] = [城市索引]
+      // 使用正确的knownCities结构：knownCities[观察者][被观察者] = [城市名称]
       if (!gameStore.knownCities[caster.name]) {
         gameStore.knownCities[caster.name] = {}
       }
-      gameStore.knownCities[caster.name][target.name] = [targetCityIdx]
+      gameStore.knownCities[caster.name][target.name] = [targetCityName]
 
-      const result = nonBattleSkills.executeCityDetective(caster, target, targetCityIdx)
+      const result = nonBattleSkills.executeCityDetective(caster, target, targetCityName)
 
       expect(result.success).toBe(true)
       expect(result.data).toBeDefined()
@@ -459,9 +497,9 @@ describe('非战斗技能单元测试', () => {
     })
 
     it('应该在城市未知时返回失败', () => {
-      const targetCityIdx = 1
+      const targetCityName = '天津'
 
-      const result = nonBattleSkills.executeCityDetective(caster, target, targetCityIdx)
+      const result = nonBattleSkills.executeCityDetective(caster, target, targetCityName)
 
       expect(result.success).toBe(false)
       expect(result.message).toContain('尚未已知')
@@ -470,7 +508,7 @@ describe('非战斗技能单元测试', () => {
 
   describe('进制扭曲 - executeJinZhiNiuQu', () => {
     it('应该成功扭曲城市HP进制', () => {
-      const city = target.cities[1]
+      const city = target.cities['天津']
       const fromBase = 10
       const toBase = 8
 
@@ -487,7 +525,7 @@ describe('非战斗技能单元测试', () => {
       // 设置合理的初始金币
       caster.gold = 10
 
-      const city = target.cities[1]
+      const city = target.cities['天津']
       city.currentHp = 15000  // 设置初始HP
 
       const result = nonBattleSkills.executeTiDengDingSun(caster, target, city)
@@ -499,20 +537,19 @@ describe('非战斗技能单元测试', () => {
 
   describe('连续打击 - executeLianXuDaJi', () => {
     it('应该成功对2个城市造成HP减半', () => {
-      const cityIndices = [1, 2]
+      const cityNames = ['天津', '石家庄']
 
-      const result = nonBattleSkills.executeLianXuDaJi(caster, target, cityIndices)
+      const result = nonBattleSkills.executeLianXuDaJi(caster, target, cityNames)
 
       expect(result.success).toBe(true)
-      target.cities.forEach((city, idx) => {
-        if (cityIndices.includes(idx)) {
-          expect(city.currentHp).toBeLessThan(city.hp)
-        }
+      cityNames.forEach(cityName => {
+        const city = target.cities[cityName]
+        expect(city.currentHp).toBeLessThan(city.hp)
       })
     })
 
     it('应该在未选择2个城市时返回失败', () => {
-      const result = nonBattleSkills.executeLianXuDaJi(caster, target, [1])
+      const result = nonBattleSkills.executeLianXuDaJi(caster, target, ['天津'])
 
       expect(result.success).toBe(false)
       expect(result.message).toContain('需要选择2个城市')

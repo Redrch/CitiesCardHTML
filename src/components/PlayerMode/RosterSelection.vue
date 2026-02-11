@@ -22,7 +22,7 @@
           <strong>{{ city.name }}</strong>
           <div class="muted" style="font-size: 11px; margin-top: 2px;">
             {{ getProvinceName(city.name) }}
-            {{ centerIndex === idx ? ' • 中心' : '' }}
+            {{ centerCityName === idx ? ' • 中心' : '' }}
           </div>
         </div>
         <div>
@@ -131,7 +131,7 @@ function confirmRoster() {
   }
 }
 
-// 监听centerIndex变化
+// 监听centerCityName变化
 watch(() => props.centerCityName, (newVal) => {
   if (newVal !== null && newVal !== undefined && !roster.value.includes(newVal)) {
     roster.value.push(newVal)

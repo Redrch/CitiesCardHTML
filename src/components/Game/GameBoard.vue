@@ -55,11 +55,11 @@
           </button>
         </template>
 
-        <template #city-actions="{ city, index: cityIndex }">
+        <template #city-actions="{ city, index: cityName }">
           <button
             v-if="city.currentHp < city.hp"
             class="btn-small btn-small--heal"
-            @click="$emit('heal-city', player, cityIndex)"
+            @click="$emit('heal-city', player, cityName)"
           >
             治疗
           </button>
@@ -157,8 +157,8 @@ function isCurrentPlayer(player) {
   return player.name === gameStore.currentPlayer
 }
 
-function handleCityClick(player, cityIndex) {
-  console.log('City clicked:', player.name, cityIndex)
+function handleCityClick(player, cityName) {
+  console.log('City clicked:', player.name, cityName)
 }
 
 function canUseSkill(skill) {

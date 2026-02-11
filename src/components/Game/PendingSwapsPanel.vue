@@ -168,7 +168,7 @@ function canSelectCity(city, idx) {
   // 排除谨慎交换集合（包括cautionSet和cautiousExchange）
   if (gameStore.isInCautiousSet(props.currentPlayer.name, idx)) return false
 
-  // 排除中心城市（使用centerIndex判断）
+  // 排除中心城市（使用centerCityName判断）
   if (idx === props.currentPlayer.centerCityName) return false
 
   // 排除定海神针城市
@@ -211,20 +211,22 @@ async function handleAccept(swap) {
     return
   }
 
-  const selectedCity = props.currentPlayer.cities[selectedCityIdx.value]
+  const targetCity = props.currentPlayer.cities[selectedCityIdx.value]
 
-  if (!selectedCity || !canSelectCity(selectedCity, selectedCityIdx.value)) {
+  if (!targetCity || !canSelectCity(targetCity, selectedCityIdx.value)) {
     alert('选择的城市无效')
     return
   }
 
+  const targetCityName = targetCity.name
+
   console.log('[PendingSwapsPanel] 接受交换', {
     swapId: swap.id,
-    targetCityIdx: selectedCityIdx.value
+    targetCityName: targetCityName
   })
 
   // 调用acceptPreemptiveStrike
-  const result = acceptPreemptiveStrike(swap.id, selectedCityIdx.value)
+  const result = acceptPreemptiveStrike(swap.id, targetCityName)
 
   if (result.success) {
     emit('swap-accepted', { swap, result })

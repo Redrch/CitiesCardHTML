@@ -294,9 +294,9 @@ async function playAnimationSequence() {
 async function playFatigueAnimation(fatiguedCities) {
   console.log('[BattleAnimation] 播放疲劳减半动画', fatiguedCities)
 
-  for (const { player, cityIndex, hpBefore, hpAfter } of fatiguedCities) {
+  for (const { player, cityName, hpBefore, hpAfter } of fatiguedCities) {
     const playerData = player === 1 ? player1.value : player2.value
-    const city = playerData.cities[cityIndex]
+    const city = playerData.cities[cityName]
 
     if (city) {
       city.fatigued = true
@@ -321,9 +321,9 @@ async function playFatigueAnimation(fatiguedCities) {
 async function playHpChangeAnimation(hpChanges) {
   console.log('[BattleAnimation] 播放HP变化动画', hpChanges)
 
-  for (const { player, cityIndex, change, finalHp } of hpChanges) {
+  for (const { player, cityName, change, finalHp } of hpChanges) {
     const playerData = player === 1 ? player1.value : player2.value
-    const city = playerData.cities[cityIndex]
+    const city = playerData.cities[cityName]
 
     if (city) {
       const initialHp = city.currentHp
@@ -348,9 +348,9 @@ async function playHpChangeAnimation(hpChanges) {
 async function playDestroyAnimation(destroyedCities) {
   console.log('[BattleAnimation] 播放城市阵亡动画', destroyedCities)
 
-  for (const { player, cityIndex } of destroyedCities) {
+  for (const { player, cityName } of destroyedCities) {
     const playerData = player === 1 ? player1.value : player2.value
-    const city = playerData.cities[cityIndex]
+    const city = playerData.cities[cityName]
 
     if (city) {
       city.isDestroyed = true
@@ -367,9 +367,9 @@ async function playSurrenderAnimation() {
 
   // 这里需要根据 specialEvent 中的信息找到归顺的城市
   if (specialEvent.value.surrenderedCity) {
-    const { fromPlayer, cityIndex } = specialEvent.value.surrenderedCity
+    const { fromPlayer, cityName } = specialEvent.value.surrenderedCity
     const fromData = fromPlayer === 1 ? player2.value : player1.value
-    const city = fromData.cities[cityIndex]
+    const city = fromData.cities[cityName]
 
     if (city) {
       city.surrendering = true

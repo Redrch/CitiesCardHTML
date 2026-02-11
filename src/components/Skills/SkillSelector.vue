@@ -91,9 +91,9 @@
               'mini-city-card',
               {
                 'selected': selectedSkill.requiresMultipleSelfCities
-                  ? selectedSelfCities.includes(item.idx)
-                  : selfCity === item.idx,
-                'disabled': !canSelectCity(item.city, item.idx),
+                  ? selectedSelfCities.includes(item.city.name)
+                  : selfCity === item.city.name,
+                'disabled': !canSelectCity(item.city, item.city.name),
                 'dead': item.city.isAlive === false
               }
             ]"
@@ -103,12 +103,12 @@
             <div class="city-hp">HP: {{ Math.floor(item.city.currentHp !== undefined ? item.city.currentHp : item.city.hp) }}</div>
             <div v-if="item.city.isAlive === false" class="city-status dead">已阵亡</div>
             <!-- 禁用原因标记（先声夺人技能专用） -->
-            <div v-if="selectedSkill.name === '先声夺人' && !canSelectCity(item.city, item.idx) && item.city.isAlive !== false" class="disabled-reason">
-              <span v-if="item.idx === props.currentPlayer.centerIndex" class="reason-badge center">中心</span>
+            <div v-if="selectedSkill.name === '先声夺人' && !canSelectCity(item.city, item.city.name) && item.city.isAlive !== false" class="disabled-reason">
+              <span v-if="item.city.name === props.currentPlayer.centerCityName" class="reason-badge center">中心</span>
               <span v-else class="reason-badge cautious">谨慎交换</span>
             </div>
-            <div v-if="selectedSkill.requiresMultipleSelfCities && selectedSelfCities.includes(item.idx)" class="check-mark">✓</div>
-            <div v-else-if="!selectedSkill.requiresMultipleSelfCities && selfCity === item.idx" class="check-mark">✓</div>
+            <div v-if="selectedSkill.requiresMultipleSelfCities && selectedSelfCities.includes(item.city.name)" class="check-mark">✓</div>
+            <div v-else-if="!selectedSkill.requiresMultipleSelfCities && selfCity === item.city.name" class="check-mark">✓</div>
           </div>
         </div>
         <div v-if="getSelectableSelfCities().length === 0" class="no-cities-hint">
@@ -126,7 +126,7 @@
             :class="[
               'mini-city-card',
               {
-                'selected': targetCity === item.originalIndex,
+                'selected': targetCity === item.city.name,
                 'disabled': item.city.isAlive === false
               }
             ]"
@@ -135,7 +135,7 @@
             <div class="city-name">{{ item.city.name }}</div>
             <div class="city-hp">HP: {{ Math.floor(item.city.currentHp || item.city.hp) }}</div>
             <div v-if="item.city.isAlive === false" class="city-status dead">已阵亡</div>
-            <div v-if="targetCity === item.originalIndex" class="check-mark">✓</div>
+            <div v-if="targetCity === item.city.name" class="check-mark">✓</div>
           </div>
         </div>
         <div v-if="getTargetCities().length === 0" class="no-cities-hint">
@@ -282,11 +282,11 @@ const SKILL_METADATA = {
   '转账给他人': { emoji: '💸', category: 'resource', description: '转账金币给其他玩家', requiresTarget: true, requiresAmount: true, amountLabel: '金额' },
   '无知无畏': { emoji: '⚔️', category: 'damage', description: '最低HP城市自毁攻击对方中心', requiresTarget: true },
   '先声夺人': { emoji: '⚡', category: 'control', description: '与对手交换一张卡牌（双方自选）', requiresTarget: true, requiresSelfCity: true },
-  '金币贷款': { emoji: '🏦', category: 'resource', description: '贷款5金币，5回合无自动金币', requiresTarget: false },
+  '金币贷款': { emoji: '🏦', category: 'resource', description: '贷款5金币，2回合无自动金币', requiresTarget: false },
   '定海神针': { emoji: '⚓', category: 'protection', description: '城市锁定位置，免疫交换', requiresSelfCity: true },
   '焕然一新': { emoji: '✨', category: 'control', description: '重置城市专属技能使用次数', requiresSelfCity: true },
-  '抛砖引玉': { emoji: '💎', category: 'resource', description: '禁用城市5回合，每回合+2金币', requiresTarget: false },
-  '改弦更张': { emoji: '🔄', category: 'control', description: '重新选择战斗预备城市', requiresTarget: false },
+  '抛砖引玉': { emoji: '💎', category: 'resource', description: '随机自毁一座己方2000以下城市，随机获得1-5金币', requiresTarget: false },
+  '改弦更张': { emoji: '🔄', category: 'control', description: '重新进行己方本回合战斗部署', requiresTarget: false },
   '拔旗易帜': { emoji: '🚩', category: 'control', description: '更换城市的省份归属', requiresSelfCity: true },
   '城市保护': { emoji: '🛡️', category: 'protection', description: '10回合免疫技能伤害', requiresSelfCity: true },
   '快速治疗': { emoji: '💊', category: 'protection', description: '城市恢复满血', requiresSelfCity: true },
@@ -300,7 +300,7 @@ const SKILL_METADATA = {
   '整齐划一': { emoji: '📏', category: 'control', description: '所有城市HP统一为平均值', requiresTarget: false },
   '苟延残喘': { emoji: '💀', category: 'protection', description: '所有城市最低保留1HP', requiresTarget: false },
   '代行省权': { emoji: '🏛️', category: 'control', description: '控制对手省会城市', requiresTarget: true },
-  '众志成城': { emoji: '🤝', category: 'protection', description: '合并所有城市HP到中心', requiresTarget: false },
+  '众志成城': { emoji: '🤝', category: 'protection', description: '平均分配3-5个城市的HP', requiresMultipleSelfCities: true, targetCount: 3, maxTargetCount: 5 },
   '清除加成': { emoji: '🧹', category: 'control', description: '清除对手所有增益状态', requiresTarget: true },
   '钢铁城市': { emoji: '🏰', category: 'protection', description: '城市免疫技能伤害', requiresSelfCity: true },
   '时来运转': { emoji: '🎲', category: 'resource', description: '交换双方一座城市', requiresTarget: true },
@@ -324,7 +324,7 @@ const SKILL_METADATA = {
   '倒反天罡': { emoji: '🔄', category: 'control', description: '永久移除对手省会效果', requiresTarget: true },
   '解除封锁': { emoji: '🔓', category: 'control', description: '解除被事半功倍禁用的技能', requiresTarget: false },
   '一落千丈': { emoji: '📉', category: 'damage', description: '对手所有城市-2000HP', requiresTarget: true },
-  '好高骛远': { emoji: '🎯', category: 'buff', description: '城市HP上限+20000', requiresSelfCity: true },
+  '点石成金': { emoji: '🎯', category: 'buff', description: '城市HP上限+20000', requiresSelfCity: true },
   '寸步难行': { emoji: '🚫', category: 'control', description: '对手3回合只能用当机立断', requiresTarget: true },
   '数位反转': { emoji: '🔢', category: 'control', description: '反转对手城市数位', requiresTarget: true },
   '波涛汹涌': { emoji: '🌊', category: 'damage', description: '对手全体城市-5000HP', requiresTarget: true },
@@ -508,7 +508,10 @@ const opponents = computed(() => {
     return []
   }
   const opps = gameStore.players.filter(p => p && p.name !== props.currentPlayer?.name)
-  console.log('[SkillSelector] opponents:', opps.map(p => p.name))
+  console.log('[SkillSelector] opponents 完整对象:', JSON.stringify(opps, null, 2))
+  console.log('[SkillSelector] opponents 名称:', opps.map(p => p.name))
+  console.log('[SkillSelector] opponents[0] 的类型:', typeof opps[0])
+  console.log('[SkillSelector] opponents[0] 的 cities:', opps[0]?.cities)
   console.log('[SkillSelector] currentPlayer:', props.currentPlayer?.name)
   console.log('[SkillSelector] gameStore.players:', gameStore.players.map(p => p?.name))
   return opps
@@ -568,7 +571,8 @@ function resetParams() {
 }
 
 // 处理城市卡牌点击
-function handleCityClick(cityIdx, city, type) {
+// 注意：cityNameOrIdx 现在统一使用城市名称（字符串），不再使用数组索引
+function handleCityClick(cityNameOrIdx, city, type) {
   // 判断城市是否阵亡：currentHp <= 0 或 isAlive === false
   const isCityDead = city.currentHp <= 0 || city.isAlive === false
 
@@ -580,14 +584,17 @@ function handleCityClick(cityIdx, city, type) {
     if (isCityDead) return
   }
 
+  // 使用城市名称而不是索引
+  const cityName = city.name
+
   if (type === 'self') {
     if (selectedSkill.value.requiresMultipleSelfCities) {
-      toggleCitySelection(cityIdx, city)
+      toggleCitySelection(cityName, city)
     } else {
-      selfCity.value = cityIdx
+      selfCity.value = cityName
     }
   } else if (type === 'target') {
-    targetCity.value = cityIdx
+    targetCity.value = cityName
   }
 }
 
@@ -633,23 +640,37 @@ function getAvailableSkillsForSelection() {
 }
 
 // 切换城市选择状态
-function toggleCitySelection(cityIdx, city) {
-  if (!canSelectCity(city, cityIdx)) return
+function toggleCitySelection(cityName, city) {
+  console.log('[SkillSelector] toggleCitySelection 被调用:', { cityName, city: city.name })
+  console.log('[SkillSelector] canSelectCity 结果:', canSelectCity(city, cityName))
 
-  const index = selectedSelfCities.value.indexOf(cityIdx)
+  if (!canSelectCity(city, cityName)) {
+    console.log('[SkillSelector] 城市不可选择，返回')
+    return
+  }
+
+  const index = selectedSelfCities.value.indexOf(cityName)
+  console.log('[SkillSelector] 当前 selectedSelfCities:', selectedSelfCities.value)
+  console.log('[SkillSelector] cityName 在数组中的位置:', index)
+
   if (index > -1) {
     // 取消选择
     selectedSelfCities.value.splice(index, 1)
+    console.log('[SkillSelector] 取消选择后:', selectedSelfCities.value)
   } else {
     // 添加选择
-    if (selectedSelfCities.value.length < selectedSkill.value.targetCount) {
-      selectedSelfCities.value.push(cityIdx)
+    const maxCount = selectedSkill.value.maxTargetCount || selectedSkill.value.targetCount
+    if (selectedSelfCities.value.length < maxCount) {
+      selectedSelfCities.value.push(cityName)
+      console.log('[SkillSelector] 添加选择后:', selectedSelfCities.value)
+    } else {
+      console.log('[SkillSelector] 已达到最大选择数量')
     }
   }
 }
 
 // 检查城市是否可以被选择
-function canSelectCity(city, cityIdx) {
+function canSelectCity(city, cityName) {
   if (!city) return false
 
   // 判断城市是否阵亡：currentHp <= 0 或 isAlive === false
@@ -667,28 +688,28 @@ function canSelectCity(city, cityIdx) {
   // 针对先声夺人技能：排除谨慎交换集合中的城市
   if (selectedSkill.value && selectedSkill.value.name === '先声夺人') {
     // 检查谨慎交换集合（包括cautionSet和cautiousExchange）
-    if (gameStore.isInCautiousSet(props.currentPlayer.name, cityIdx)) {
+    if (gameStore.isInCautiousSet(props.currentPlayer.name, cityName)) {
       return false
     }
 
-    // 检查中心城市（使用centerIndex判断）
-    if (cityIdx === props.currentPlayer.centerIndex) {
+    // 检查中心城市（使用centerCityName判断）
+    if (cityName === props.currentPlayer.centerCityName) {
       return false
     }
 
     // 检查定海神针
     if (gameStore.anchored[props.currentPlayer.name] &&
-        gameStore.anchored[props.currentPlayer.name][cityIdx]) {
+        gameStore.anchored[props.currentPlayer.name][cityName]) {
       return false
     }
 
     // 检查钢铁城市
-    if (gameStore.hasIronShield(props.currentPlayer.name, cityIdx)) {
+    if (gameStore.hasIronShield(props.currentPlayer.name, cityName)) {
       return false
     }
 
     // 检查城市保护
-    if (gameStore.hasProtection(props.currentPlayer.name, cityIdx)) {
+    if (gameStore.hasProtection(props.currentPlayer.name, cityName)) {
       return false
     }
   }
@@ -721,78 +742,185 @@ function canSelectCity(city, cityIdx) {
  * 获取可选择的己方城市列表（根据技能类型过滤）
  */
 function getSelectableSelfCities() {
-  if (!props.currentPlayer || !props.currentPlayer.cities) return []
+  if (!props.currentPlayer || !props.currentPlayer.cities) {
+    console.log('[SkillSelector] getSelectableSelfCities: currentPlayer或cities不存在')
+    return []
+  }
 
   const cities = props.currentPlayer.cities
+  console.log('[SkillSelector] getSelectableSelfCities: cities类型:', typeof cities)
+  console.log('[SkillSelector] getSelectableSelfCities: cities是否为数组:', Array.isArray(cities))
+  console.log('[SkillSelector] getSelectableSelfCities: cities内容:', cities)
+
   const result = []
 
-  // 遍历所有城市
-  for (let idx = 0; idx < cities.length; idx++) {
-    const city = cities[idx]
-    if (!city) continue
+  // 迁移后cities是对象，需要使用Object.entries遍历
+  if (typeof cities === 'object' && !Array.isArray(cities)) {
+    // cities是对象：{ '北京市': {...}, '上海市': {...} }
+    Object.entries(cities).forEach(([cityName, city]) => {
+      if (!city) return
 
-    const isCityDead = (city.currentHp !== undefined ? city.currentHp : city.hp) <= 0 || city.isAlive === false
+      const isCityDead = (city.currentHp !== undefined ? city.currentHp : city.hp) <= 0 || city.isAlive === false
 
-    // 借尸还魂技能：只显示已阵亡的城市
-    if (selectedSkill.value && selectedSkill.value.name === '借尸还魂') {
-      if (isCityDead) {
-        result.push({ city, idx })
+      // 借尸还魂技能：只显示已阵亡的城市
+      if (selectedSkill.value && selectedSkill.value.name === '借尸还魂') {
+        if (isCityDead) {
+          result.push({ city, idx: cityName })  // idx现在是城市名称
+        }
+      } else if (selectedSkill.value && selectedSkill.value.name === '博学多才') {
+        // 博学多才技能：只显示原始HP≥25000的存活城市
+        if (!isCityDead) {
+          // 获取原始HP
+          const initialCityData = gameStore.initialCities?.[props.currentPlayer.name]?.[cityName]
+          const originalHp = initialCityData ? initialCityData.hp : (city.baseHp || city.hp)
+
+          if (originalHp >= 25000) {
+            result.push({ city, idx: cityName })
+          }
+        }
+      } else {
+        // 其他技能：只显示存活的城市（除非该技能允许选择阵亡城市）
+        if (!isCityDead) {
+          result.push({ city, idx: cityName })  // idx现在是城市名称
+        }
       }
-    } else {
-      // 其他技能：只显示存活的城市（除非该技能允许选择阵亡城市）
-      if (!isCityDead) {
-        result.push({ city, idx })
+    })
+  } else {
+    // 兼容旧版本：cities是数组
+    for (let idx = 0; idx < cities.length; idx++) {
+      const city = cities[idx]
+      if (!city) continue
+
+      const isCityDead = (city.currentHp !== undefined ? city.currentHp : city.hp) <= 0 || city.isAlive === false
+
+      // 借尸还魂技能：只显示已阵亡的城市
+      if (selectedSkill.value && selectedSkill.value.name === '借尸还魂') {
+        if (isCityDead) {
+          result.push({ city, idx })
+        }
+      } else if (selectedSkill.value && selectedSkill.value.name === '博学多才') {
+        // 博学多才技能：只显示原始HP≥25000的存活城市
+        if (!isCityDead) {
+          // 获取原始HP
+          const initialCityData = gameStore.initialCities?.[props.currentPlayer.name]?.[idx]
+          const originalHp = initialCityData ? initialCityData.hp : (city.baseHp || city.hp)
+
+          if (originalHp >= 25000) {
+            result.push({ city, idx })
+          }
+        }
+      } else {
+        // 其他技能：只显示存活的城市（除非该技能允许选择阵亡城市）
+        if (!isCityDead) {
+          result.push({ city, idx })
+        }
       }
     }
   }
 
+  console.log('[SkillSelector] getSelectableSelfCities: 返回结果数量:', result.length)
   return result
 }
 
 function getTargetCities() {
-  if (!targetPlayer.value) return []
-  const player = opponents.value.find(p => p.name === targetPlayer.value)
-  if (!player || !player.cities) return []
+  console.log('[SkillSelector] getTargetCities 开始')
+  console.log('[SkillSelector] targetPlayer.value:', targetPlayer.value)
+  console.log('[SkillSelector] opponents.value:', opponents.value)
 
-  const centerIdx = player.centerIndex || 0
+  if (!targetPlayer.value) {
+    console.log('[SkillSelector] targetPlayer.value 为空，返回空数组')
+    return []
+  }
+
+  const player = opponents.value.find(p => p.name === targetPlayer.value)
+  console.log('[SkillSelector] 找到的player:', player)
+
+  if (!player || !player.cities) {
+    console.log('[SkillSelector] player不存在或没有cities，返回空数组')
+    return []
+  }
+
+  const centerCityName = player.centerCityName
 
   console.log('[SkillSelector] ===== getTargetCities 诊断 =====')
   console.log('[SkillSelector] 当前玩家:', props.currentPlayer.name)
   console.log('[SkillSelector] 目标玩家:', player.name)
+  console.log('[SkillSelector] player.cities类型:', typeof player.cities)
+  console.log('[SkillSelector] player.cities是否为数组:', Array.isArray(player.cities))
+  console.log('[SkillSelector] player.cities:', player.cities)
+  console.log('[SkillSelector] centerCityName:', centerCityName)
   console.log('[SkillSelector] gameStore.knownCities:', JSON.stringify(gameStore.knownCities, null, 2))
   console.log('[SkillSelector] gameStore.knownCities[当前玩家]:', gameStore.knownCities[props.currentPlayer.name])
   console.log('[SkillSelector] gameStore.knownCities[当前玩家][目标玩家]:', gameStore.knownCities[props.currentPlayer.name]?.[player.name])
 
-  // 返回已知城市，同时保留原始索引
-  const result = player.cities
-    .map((city, idx) => ({ city, originalIndex: idx }))
-    .filter(item => {
+  const result = []
+
+  // 迁移后cities是对象，需要使用Object.entries遍历
+  if (typeof player.cities === 'object' && !Array.isArray(player.cities)) {
+    // cities是对象：{ '北京市': {...}, '上海市': {...} }
+    Object.entries(player.cities).forEach(([cityName, city]) => {
+      if (!city) return
+
       // 过滤掉已阵亡的城市
-      if (!item.city || item.city.currentHp <= 0 || item.city.isAlive === false) {
-        return false
+      if (city.currentHp <= 0 || city.isAlive === false) {
+        return
       }
 
       // 对于言听计从和以礼来降，过滤掉中心城市
       if ((selectedSkill.value?.name === '言听计从' || selectedSkill.value?.name === '以礼来降') &&
-          item.originalIndex === centerIdx) {
-        return false
+          cityName === centerCityName) {
+        return
       }
 
       // 主持人模式或knownCities未初始化时，显示所有城市（除中心外）
       // 玩家模式才检查已知城市
-      // 关键修复：使用getKnownCitiesForPlayer来检查（内部会处理前缀）
       const knownCitiesList = gameStore.getKnownCitiesForPlayer(props.currentPlayer.name, player.name)
       if (!knownCitiesList || knownCitiesList.length === 0) {
         // 未初始化或没有已知城市：显示所有非中心城市
         console.log(`[SkillSelector] knownCities未初始化或为空，显示所有城市`)
-        return true
+        result.push({ city, originalIndex: cityName })
+        return
       }
 
       // 检查城市是否为当前玩家所知
-      const isKnown = gameStore.isCityKnown(player.name, item.originalIndex, props.currentPlayer.name)
-      console.log(`[SkillSelector] 检查城市 ${item.city.name} (idx=${item.originalIndex}): isKnown=${isKnown}`)
-      return isKnown
+      const isKnown = gameStore.isCityKnown(player.name, cityName, props.currentPlayer.name)
+      console.log(`[SkillSelector] 检查城市 ${cityName}: isKnown=${isKnown}`)
+      if (isKnown) {
+        result.push({ city, originalIndex: cityName })
+      }
     })
+  } else {
+    // 兼容旧版本：cities是数组
+    player.cities
+      .map((city, idx) => ({ city, originalIndex: idx }))
+      .forEach(item => {
+        // 过滤掉已阵亡的城市
+        if (!item.city || item.city.currentHp <= 0 || item.city.isAlive === false) {
+          return
+        }
+
+        // 对于言听计从和以礼来降，过滤掉中心城市
+        if ((selectedSkill.value?.name === '言听计从' || selectedSkill.value?.name === '以礼来降') &&
+            item.city.name === centerCityName) {
+          return
+        }
+
+        // 主持人模式或knownCities未初始化时，显示所有城市（除中心外）
+        const knownCitiesList = gameStore.getKnownCitiesForPlayer(props.currentPlayer.name, player.name)
+        if (!knownCitiesList || knownCitiesList.length === 0) {
+          console.log(`[SkillSelector] knownCities未初始化或为空，显示所有城市`)
+          result.push(item)
+          return
+        }
+
+        // 检查城市是否为当前玩家所知
+        const isKnown = gameStore.isCityKnown(player.name, item.city.name, props.currentPlayer.name)
+        console.log(`[SkillSelector] 检查城市 ${item.city.name}: isKnown=${isKnown}`)
+        if (isKnown) {
+          result.push(item)
+        }
+      })
+  }
 
   console.log('[SkillSelector] 最终返回城市数量:', result.length)
   console.log('[SkillSelector] ==========================================')
@@ -805,7 +933,15 @@ function canExecuteSkill() {
   if (selectedSkill.value.requiresTargetCity && targetCity.value === '') return false
   if (selectedSkill.value.requiresSelfCity && selfCity.value === '') return false
   if (selectedSkill.value.requiresAmount && !amount.value) return false
-  if (selectedSkill.value.requiresMultipleSelfCities && selectedSelfCities.value.length !== selectedSkill.value.targetCount) return false
+
+  // 检查多城市选择：如果有 maxTargetCount，允许在 targetCount 到 maxTargetCount 之间
+  if (selectedSkill.value.requiresMultipleSelfCities) {
+    const minCount = selectedSkill.value.targetCount
+    const maxCount = selectedSkill.value.maxTargetCount || selectedSkill.value.targetCount
+    const selectedCount = selectedSelfCities.value.length
+    if (selectedCount < minCount || selectedCount > maxCount) return false
+  }
+
   if (selectedSkill.value.requiresSkillSelection && !selectedSkillName.value) return false
   return true
 }
@@ -843,7 +979,12 @@ const SKILL_EXECUTOR_MAP = {
   // 非战斗技能
   '转账给他人': () => nonBattleSkills.executeTransferGold(getCasterPlayer(), getTargetPlayer(), amount.value),
   '无知无畏': () => nonBattleSkills.executeWuZhiWuWei(getCasterPlayer(), getTargetPlayer()),
-  '先声夺人': () => nonBattleSkills.executeXianShengDuoRen(getCasterPlayer(), getTargetPlayer(), { casterCityIdx: selfCity.value }),
+  '先声夺人': () => {
+    const caster = getCasterPlayer()
+    // selfCity.value 现在是城市名称，直接使用
+    const casterCity = caster?.cities[selfCity.value]
+    return nonBattleSkills.executeXianShengDuoRen(getCasterPlayer(), getTargetPlayer(), { casterCityName: casterCity?.name })
+  },
   '金币贷款': () => nonBattleSkills.executeJinBiDaiKuan(getCasterPlayer()),
   '快速治疗': () => nonBattleSkills.executeKuaiSuZhiLiao(getCasterPlayer(), getSelfCityObject()),
   '城市保护': () => nonBattleSkills.executeCityProtection(getCasterPlayer(), getSelfCityObject()),
@@ -947,14 +1088,26 @@ function getTargetPlayer() {
   return opponents.value.find(p => p.name === targetPlayer.value)
 }
 
+// 获取己方选中的城市对象
+// selfCity.value 现在是城市名称（字符串），不是数组索引
 function getSelfCityObject() {
   const caster = getCasterPlayer()
-  return caster?.cities[selfCity.value]
+  if (!caster || !caster.cities) return null
+
+  // cities 现在是对象：{ '北京市': {...}, '上海市': {...} }
+  // selfCity.value 是城市名称，例如 '北京市'
+  return caster.cities[selfCity.value]
 }
 
+// 获取目标玩家选中的城市对象
+// targetCity.value 现在是城市名称（字符串），不是数组索引
 function getTargetCityObject() {
   const target = getTargetPlayer()
-  return target?.cities[targetCity.value]
+  if (!target || !target.cities) return null
+
+  // cities 现在是对象：{ '北京市': {...}, '上海市': {...} }
+  // targetCity.value 是城市名称，例如 '上海市'
+  return target.cities[targetCity.value]
 }
 
 // 执行城市专属技能（作为非战斗技能使用）
@@ -1011,8 +1164,8 @@ function executeSkill() {
         skillName: skill.name,
         result,
         targetPlayerName: targetPlayer.value,
-        targetCityIdx: targetCity.value,
-        selfCityIdx: selfCity.value,
+        targetCityName: targetCity.value,  // 使用城市名称而不是索引
+        selfCityName: selfCity.value,      // 使用城市名称而不是索引
         amount: amount.value
       })
       selectedSkill.value = null

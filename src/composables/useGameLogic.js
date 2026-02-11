@@ -80,19 +80,19 @@ export function useGameLogic() {
   /**
    * 检查城市是否有保护罩
    */
-  function hasCityProtection(player, cityIndex, gameState) {
+  function hasCityProtection(player, cityName, gameState) {
     if (!gameState.protections) return false
     if (!gameState.protections[player.name]) return false
-    return gameState.protections[player.name][cityIndex] > 0
+    return gameState.protections[player.name][cityName] > 0
   }
 
   /**
    * 检查城市是否为钢铁城市
    */
-  function isIronCity(player, cityIndex, gameState) {
+  function isIronCity(player, cityName, gameState) {
     if (!gameState.ironCities) return false
     if (!gameState.ironCities[player.name]) return false
-    return gameState.ironCities[player.name][cityIndex] > 0
+    return gameState.ironCities[player.name][cityName] > 0
   }
 
   /**
@@ -100,15 +100,15 @@ export function useGameLogic() {
    * @param {Object} city - 城市对象
    * @param {number} damage - 伤害值
    * @param {Object} player - 玩家对象
-   * @param {number} cityIndex - 城市索引
+   * @param {number} cityName - 城市索引
    * @param {Object} gameState - 游戏状态
    * @returns {Object} { actualDamage, blocked, reason }
    */
-  function applyCityDamage(city, damage, player, cityIndex, gameState) {
+  function applyCityDamage(city, damage, player, cityName, gameState) {
     // 检查城市保护
-    if (hasCityProtection(player, cityIndex, gameState)) {
+    if (hasCityProtection(player, cityName, gameState)) {
       // 移除保护罩
-      delete gameState.protections[player.name][cityIndex]
+      delete gameState.protections[player.name][cityName]
       return {
         actualDamage: 0,
         blocked: true,
@@ -117,10 +117,10 @@ export function useGameLogic() {
     }
 
     // 检查钢铁城市
-    if (isIronCity(player, cityIndex, gameState)) {
-      gameState.ironCities[player.name][cityIndex]--
-      if (gameState.ironCities[player.name][cityIndex] <= 0) {
-        delete gameState.ironCities[player.name][cityIndex]
+    if (isIronCity(player, cityName, gameState)) {
+      gameState.ironCities[player.name][cityName]--
+      if (gameState.ironCities[player.name][cityName] <= 0) {
+        delete gameState.ironCities[player.name][cityName]
       }
       return {
         actualDamage: 0,

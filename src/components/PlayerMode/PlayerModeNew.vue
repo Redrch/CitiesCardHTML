@@ -231,8 +231,8 @@ function handleEndTurn(player) {
   }
 }
 
-function handleHealCity(player, cityIndex) {
-  const result = gameLogic.healCity(player, cityIndex)
+function handleHealCity(player, cityName) {
+  const result = gameLogic.healCity(player, cityName)
   if (!result.success) {
     alert(result.message)
   }

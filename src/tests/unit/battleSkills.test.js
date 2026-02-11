@@ -64,10 +64,10 @@ describe('战斗技能单元测试', () => {
 
   describe('越战越勇 - executeYueZhanYueYong', () => {
     it('应该成功给疲劳城市添加忽略疲劳modifier', () => {
-      const selfCity = caster.cities[1]  // 选择非中心城市
+      const selfCity = caster.cities['上海']  // 选择非中心城市
 
       // 设置上轮出战记录
-      caster.streaks = { 1: 1 }  // 城市索引1上轮出战过
+      caster.streaks = { '上海': 1 }  // 城市索引1上轮出战过
 
       const result = battleSkills.executeYueZhanYueYong(caster, selfCity)
 
@@ -115,7 +115,7 @@ describe('战斗技能单元测试', () => {
   describe('潜能激发 - executeQianNengJiFa', () => {
     it('应该将所有存活城市HP翻倍（上限100000）', () => {
       // 设置初始HP
-      caster.cities.forEach(city => {
+      Object.values(caster.cities).forEach(city => {
         city.currentHp = 10000
       })
 
@@ -123,27 +123,27 @@ describe('战斗技能单元测试', () => {
 
       expect(result.success).toBe(true)
       expect(result.message).toContain('翻倍')
-      caster.cities.forEach(city => {
+      Object.values(caster.cities).forEach(city => {
         expect(city.currentHp).toBe(20000)
       })
     })
 
     it('应该限制HP上限为100000', () => {
-      caster.cities[0].currentHp = 60000
+      caster.cities['北京'].currentHp = 60000
 
       const result = battleSkills.executeQianNengJiFa(caster)
 
       expect(result.success).toBe(true)
-      expect(caster.cities[0].currentHp).toBe(100000)  // 限制上限
+      expect(caster.cities['北京'].currentHp).toBe(100000)  // 限制上限
     })
   })
 
   describe('御驾亲征 - executeYuJiaQinZheng', () => {
     it('应该设置御驾亲征标记', () => {
       // 设置不同血量
-      target.cities[0].currentHp = 10000
-      target.cities[1].currentHp = 25000  // 最高
-      target.cities[2].currentHp = 15000
+      target.cities['北京'].currentHp = 10000
+      target.cities['上海'].currentHp = 25000  // 最高
+      target.cities['广州'].currentHp = 15000
 
       const result = battleSkills.executeYuJiaQinZheng(caster, target)
 
@@ -156,7 +156,7 @@ describe('战斗技能单元测试', () => {
     })
 
     it('应该在没有中心城市时返回失败', () => {
-      caster.cities[0].isCenter = false
+      caster.cities['北京'].isCenter = false
 
       const result = battleSkills.executeYuJiaQinZheng(caster, target)
 
@@ -167,7 +167,7 @@ describe('战斗技能单元测试', () => {
 
   describe('狂暴模式 - executeKuangBaoMoShi', () => {
     it('应该成功设置攻击力×5的狂暴modifier', () => {
-      const selfCity = caster.cities[1]
+      const selfCity = caster.cities['上海']
 
       const result = battleSkills.executeKuangBaoMoShi(caster, selfCity)
 
@@ -179,16 +179,16 @@ describe('战斗技能单元测试', () => {
     })
 
     it('应该记录狂暴模式使用状态', () => {
-      const selfCity = caster.cities[1]
+      const selfCity = caster.cities['上海']
 
       battleSkills.executeKuangBaoMoShi(caster, selfCity)
 
       expect(gameStore.berserkFired[caster.name]).toBeDefined()
-      expect(gameStore.berserkFired[caster.name][1]).toBeDefined()
+      expect(gameStore.berserkFired[caster.name]['上海']).toBeDefined()
     })
 
     it('应该禁止同一城市再次使用狂暴模式', () => {
-      const selfCity = caster.cities[1]
+      const selfCity = caster.cities['上海']
 
       // 第一次使用
       battleSkills.executeKuangBaoMoShi(caster, selfCity)
@@ -222,37 +222,37 @@ describe('战斗技能单元测试', () => {
 
   describe('玉碎瓦全 - executeYuSuiWaQuan', () => {
     it('应该成功设置玉碎瓦全标记', () => {
-      const targetCityIdx = 1
+      const targetCityName = '上海'
 
-      const result = battleSkills.executeYuSuiWaQuan(caster, target, targetCityIdx)
+      const result = battleSkills.executeYuSuiWaQuan(caster, target, targetCityName)
 
       expect(result.success).toBe(true)
       expect(result.message).toContain('玉碎瓦全')
       expect(gameStore.yswq[caster.name]).toBeDefined()
       expect(gameStore.yswq[caster.name].targetPlayer).toBe(target.name)
-      expect(gameStore.yswq[caster.name].targetCityIdx).toBe(targetCityIdx)
+      expect(gameStore.yswq[caster.name].targetCityIdx).toBe(targetCityName)
       expect(gameStore.yswq[caster.name].bannedProtection).toBe(true)
     })
 
     it('应该清除目标城市的保护罩', () => {
-      const targetCityIdx = 1
+      const targetCityName = '上海'
 
       // 设置保护罩
-      gameStore.protections[target.name] = { 1: 5 }
+      gameStore.protections[target.name] = { '上海': 5 }
 
-      const result = battleSkills.executeYuSuiWaQuan(caster, target, targetCityIdx)
+      const result = battleSkills.executeYuSuiWaQuan(caster, target, targetCityName)
 
       expect(result.success).toBe(true)
-      expect(gameStore.protections[target.name][1]).toBeUndefined()
+      expect(gameStore.protections[target.name]['上海']).toBeUndefined()
     })
 
     it('应该限制每局最多使用2次', () => {
       // 第一次
-      battleSkills.executeYuSuiWaQuan(caster, target, 1)
+      battleSkills.executeYuSuiWaQuan(caster, target, '上海')
       // 第二次
-      battleSkills.executeYuSuiWaQuan(caster, target, 2)
+      battleSkills.executeYuSuiWaQuan(caster, target, '广州')
       // 第三次应该失败
-      const result3 = battleSkills.executeYuSuiWaQuan(caster, target, 0)
+      const result3 = battleSkills.executeYuSuiWaQuan(caster, target, '北京')
 
       expect(result3.success).toBe(false)
       expect(result3.message).toContain('最多使用2次')

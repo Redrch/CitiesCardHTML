@@ -509,9 +509,31 @@ export function useGameLogic() {
 
   /**
    * 检查玩家是否失败
+   * 规则：中心城市阵亡则玩家失败
    */
   function isPlayerDefeated(player) {
-    return Object.values(player.cities).every(city => !city.isAlive)
+    // 获取中心城市
+    const centerCity = player.cities[player.centerCityName]
+
+    if (!centerCity) {
+      console.warn(`[isPlayerDefeated] 玩家 ${player.name} 没有中心城市`)
+      return true
+    }
+
+    // 检查中心城市是否阵亡
+    const centerDead = centerCity.isAlive === false
+
+    console.log(`[isPlayerDefeated] 检查玩家 ${player.name}:`, {
+      centerCityName: player.centerCityName,
+      centerCity: {
+        name: centerCity.name,
+        isAlive: centerCity.isAlive,
+        currentHp: centerCity.currentHp
+      },
+      centerDead
+    })
+
+    return centerDead
   }
 
   /**

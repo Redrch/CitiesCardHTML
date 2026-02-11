@@ -265,7 +265,7 @@ async function handleAllReady(players) {
       Object.entries(playerData.cities).forEach(([cityName, city]) => {
         console.log(`  ${cityName}: ${city.name} (HP: ${city.hp})`)
       })
-      console.log('[PlayerMode] centerIndex (from Firebase):', playerData.centerCityName)
+      console.log('[PlayerMode] centerCityName (from Firebase):', playerData.centerCityName)
       console.log('[PlayerMode] 这是用户将在选择界面看到的初始城市列表')
       console.log('[PlayerMode] ========================================')
 
@@ -823,7 +823,12 @@ async function handleSkillSelected(skillData) {
   }
 
   // 准备技能参数
+  // 注意：虽然变量名是 targetCityIdx/selfCityIdx，但实际上现在存储的是城市名称（cityName）
   const { skillName, targetPlayerName, targetCityIdx, selfCityIdx, amount } = skillData
+
+  // 为了代码清晰，重命名为更准确的名称
+  const targetCityName = targetCityIdx
+  const selfCityName = selfCityIdx
 
   // 找到目标玩家（如果需要）
   let target = null
@@ -837,14 +842,14 @@ async function handleSkillSelected(skillData) {
 
   // 找到目标城市（如果需要）
   let targetCity = null
-  if (target && targetCityIdx !== undefined && targetCityIdx !== null) {
-    targetCity = target.cities[targetCityIdx]
+  if (target && targetCityName !== undefined && targetCityName !== null) {
+    targetCity = target.cities[targetCityName]
   }
 
   // 找到自己的城市（如果需要）
   let selfCity = null
-  if (selfCityIdx !== undefined && selfCityIdx !== null) {
-    selfCity = caster.cities[selfCityIdx]
+  if (selfCityName !== undefined && selfCityName !== null) {
+    selfCity = caster.cities[selfCityName]
   }
 
   // 动态导入技能模块
@@ -881,7 +886,7 @@ async function handleSkillSelected(skillData) {
       '隔岸观火': () => battleSkills.useBattleSkills().executeGeAnGuanHuo(caster, target),
       '挑拨离间': () => battleSkills.useBattleSkills().executeTiaoBoBaoLiJian(caster, target),
       '趁火打劫': () => battleSkills.useBattleSkills().executeChenHuoDaJie(caster, target),
-      '玉碎瓦全': () => battleSkills.useBattleSkills().executeYuSuiWaQuan(caster, target, targetCityIdx),
+      '玉碎瓦全': () => battleSkills.useBattleSkills().executeYuSuiWaQuan(caster, target, targetCityName),
       '合纵连横': () => battleSkills.useBattleSkills().executeHeZongLianHeng(caster, target),
       '寸步难行': () => battleSkills.useBattleSkills().executeMuBuZhuanJing(caster, target),
       '抛砖引玉': () => battleSkills.useBattleSkills().executePaoZhuanYinYu(caster)
@@ -895,7 +900,7 @@ async function handleSkillSelected(skillData) {
       '金融危机': () => nonBattleSkills.useNonBattleSkills().executeFinancialCrisis(caster),
       '釜底抽薪': () => nonBattleSkills.useNonBattleSkills().executeFuDiChouXin(caster, target),
       '趁火打劫': () => nonBattleSkills.useNonBattleSkills().executeChenHuoDaJie(caster, target),
-      '计划单列': () => nonBattleSkills.useNonBattleSkills().executeJiHuaDanLie(caster, selfCityIdx),
+      '计划单列': () => nonBattleSkills.useNonBattleSkills().executeJiHuaDanLie(caster, selfCityName),
       '无中生有': () => nonBattleSkills.useNonBattleSkills().executeWuZhongShengYou(caster),
 
       // ========== 2. 治疗/HP增强类 (10个) ==========
@@ -911,84 +916,84 @@ async function handleSkillSelected(skillData) {
       '血量存储': () => nonBattleSkills.useNonBattleSkills().executeHpBank(caster, selfCityIdx, amount),
 
       // ========== 3. 保护/防御类 (12个) ==========
-      '城市保护': () => nonBattleSkills.useNonBattleSkills().executeCityProtection(caster, selfCityIdx),
-      '钢铁城市': () => nonBattleSkills.useNonBattleSkills().executeIronCity(caster, selfCityIdx),
-      '定海神针': () => nonBattleSkills.useNonBattleSkills().executeDingHaiShenZhen(caster, selfCityIdx),
+      '城市保护': () => nonBattleSkills.useNonBattleSkills().executeCityProtection(caster, selfCityName),
+      '钢铁城市': () => nonBattleSkills.useNonBattleSkills().executeIronCity(caster, selfCityName),
+      '定海神针': () => nonBattleSkills.useNonBattleSkills().executeDingHaiShenZhen(caster, selfCityName),
       '坚不可摧': () => nonBattleSkills.useNonBattleSkills().executeJianBuKeCui(caster),
-      '步步高升': () => nonBattleSkills.useNonBattleSkills().executeBuBuGaoSheng(caster, selfCityIdx),
+      '步步高升': () => nonBattleSkills.useNonBattleSkills().executeBuBuGaoSheng(caster, selfCityName),
       '海市蜃楼': () => nonBattleSkills.useNonBattleSkills().executeHaiShiShenLou(caster),
-      '副中心制': () => nonBattleSkills.useNonBattleSkills().executeFuZhongXinZhi(caster, selfCityIdx),
-      '生于紫室': () => nonBattleSkills.useNonBattleSkills().executeShengYuZiShi(caster, selfCityIdx),
+      '副中心制': () => nonBattleSkills.useNonBattleSkills().executeFuZhongXinZhi(caster, selfCityName),
+      '生于紫室': () => nonBattleSkills.useNonBattleSkills().executeShengYuZiShi(caster, selfCityName),
       '深藏不露': () => nonBattleSkills.useNonBattleSkills().executeShenCangBuLu(caster, selfCity),
       '技能保护': () => nonBattleSkills.useNonBattleSkills().executeJiNengBaoHu(caster, skillName),
 
       // ========== 4. 攻击/伤害类 (18个) ==========
-      '无知无畏': () => nonBattleSkills.useNonBattleSkills().executeWuZhiWuWei(caster, target, selfCityIdx),
-      '一落千丈': () => nonBattleSkills.useNonBattleSkills().executeTiDengDingSun(caster, target, targetCityIdx),
+      '无知无畏': () => nonBattleSkills.useNonBattleSkills().executeWuZhiWuWei(caster, target, selfCityName),
+      '一落千丈': () => nonBattleSkills.useNonBattleSkills().executeTiDengDingSun(caster, target, targetCityName),
       '连续打击': () => nonBattleSkills.useNonBattleSkills().executeLianXuDaJi(caster, target),
       '波涛汹涌': () => nonBattleSkills.useNonBattleSkills().executeBotaoXiongYong(caster, target),
       '狂轰滥炸': () => nonBattleSkills.useNonBattleSkills().executeKuangHongLanZha(caster, target),
       '横扫一空': () => nonBattleSkills.useNonBattleSkills().executeHengSaoYiKong(caster, target),
       '万箭齐发': () => nonBattleSkills.useNonBattleSkills().executeWanJianQiFa(caster, target),
-      '降维打击': () => nonBattleSkills.useNonBattleSkills().executeJiangWeiDaJi(caster, target, targetCityIdx),
-      '定时爆破': () => nonBattleSkills.useNonBattleSkills().executeDingShiBaoPo(caster, target, targetCityIdx),
-      '永久摧毁': () => nonBattleSkills.useNonBattleSkills().executeYongJiuCuiHui(caster, target, targetCityIdx),
-      '连锁反应': () => nonBattleSkills.useNonBattleSkills().executeLianSuoFanYing(caster, target, targetCityIdx),
-      '进制扭曲': () => nonBattleSkills.useNonBattleSkills().executeJinZhiNiuQu(caster, target, targetCityIdx),
+      '降维打击': () => nonBattleSkills.useNonBattleSkills().executeJiangWeiDaJi(caster, target, targetCityName),
+      '定时爆破': () => nonBattleSkills.useNonBattleSkills().executeDingShiBaoPo(caster, target, targetCityName),
+      '永久摧毁': () => nonBattleSkills.useNonBattleSkills().executeYongJiuCuiHui(caster, target, targetCityName),
+      '连锁反应': () => nonBattleSkills.useNonBattleSkills().executeLianSuoFanYing(caster, target, targetCityName),
+      '进制扭曲': () => nonBattleSkills.useNonBattleSkills().executeJinZhiNiuQu(caster, target, targetCityName),
       '整齐划一': () => nonBattleSkills.useNonBattleSkills().executeZhengQiHuaYi(caster, target),
       '天灾人祸': () => nonBattleSkills.useNonBattleSkills().executeTianZaiRenHuo(caster, target),
       '自相残杀': () => nonBattleSkills.useNonBattleSkills().executeZiXiangCanSha(caster, target),
       '中庸之道': () => nonBattleSkills.useNonBattleSkills().executeZhongYongZhiDao(caster, target),
-      '夷为平地': () => nonBattleSkills.useNonBattleSkills().executeYiWeiPingDi(caster, target, targetCityIdx),
-      '招贤纳士': () => nonBattleSkills.useNonBattleSkills().executeZhaoXianNaShi(caster, target, targetCityIdx),
+      '夷为平地': () => nonBattleSkills.useNonBattleSkills().executeYiWeiPingDi(caster, target, targetCityName),
+      '招贤纳士': () => nonBattleSkills.useNonBattleSkills().executeZhaoXianNaShi(caster, target, targetCityName),
 
       // ========== 5. 控制/交换类 (15个) ==========
-      '先声夺人': () => nonBattleSkills.useNonBattleSkills().executeXianShengDuoRen(caster, target, { casterCityIdx: selfCityIdx }),
-      '时来运转': () => nonBattleSkills.useNonBattleSkills().executeShiLaiYunZhuan(caster, selfCityIdx),
-      '人质交换': () => nonBattleSkills.useNonBattleSkills().executeRenZhiJiaoHuan(caster, target, selfCityIdx, targetCityIdx),
+      '先声夺人': () => nonBattleSkills.useNonBattleSkills().executeXianShengDuoRen(caster, target, { casterCityName: selfCityName }),
+      '时来运转': () => nonBattleSkills.useNonBattleSkills().executeShiLaiYunZhuan(caster, selfCityName),
+      '人质交换': () => nonBattleSkills.useNonBattleSkills().executeRenZhiJiaoHuan(caster, target, selfCityName, targetCityName),
       '改弦更张': () => nonBattleSkills.useNonBattleSkills().executeGaiXianGengZhang(caster),
-      '拔旗易帜': () => nonBattleSkills.useNonBattleSkills().executeBaQiYiZhi(caster, selfCityIdx),
-      '避而不见': () => nonBattleSkills.useNonBattleSkills().executeBiErBuJian(caster, selfCityIdx),
-      '狐假虎威': () => nonBattleSkills.useNonBattleSkills().executeHuJiaHuWei(caster, selfCityIdx),
-      '李代桃僵': () => nonBattleSkills.useNonBattleSkills().executeLiDaiTaoJiang(caster, selfCityIdx, targetCityIdx),
-      '好高骛远': () => nonBattleSkills.useNonBattleSkills().executeHaoGaoWuYuan(caster, target, selfCityIdx, targetCityIdx),
-      '数位反转': () => nonBattleSkills.useNonBattleSkills().executeShuWeiFanZhuan(caster, selfCityIdx),
-      '战略转移': () => nonBattleSkills.useNonBattleSkills().executeZhanLueZhuanYi(caster, selfCityIdx, targetCityIdx),
-      '倒反天罡': () => nonBattleSkills.useNonBattleSkills().executeDaoFanTianGang(caster, target, targetCityIdx),
+      '拔旗易帜': () => nonBattleSkills.useNonBattleSkills().executeBaQiYiZhi(caster, selfCityName),
+      '避而不见': () => nonBattleSkills.useNonBattleSkills().executeBiErBuJian(caster, selfCityName),
+      '狐假虎威': () => nonBattleSkills.useNonBattleSkills().executeHuJiaHuWei(caster, selfCityName),
+      '李代桃僵': () => nonBattleSkills.useNonBattleSkills().executeLiDaiTaoJiang(caster, selfCityName, targetCityName),
+      '好高骛远': () => nonBattleSkills.useNonBattleSkills().executeHaoGaoWuYuan(caster, target, selfCityName, targetCityName),
+      '数位反转': () => nonBattleSkills.useNonBattleSkills().executeShuWeiFanZhuan(caster, selfCityName),
+      '战略转移': () => nonBattleSkills.useNonBattleSkills().executeZhanLueZhuanYi(caster, selfCityName, targetCityName),
+      '倒反天罡': () => nonBattleSkills.useNonBattleSkills().executeDaoFanTianGang(caster, target, targetCityName),
 
       // ========== 6. 情报/侦查类 (6个) ==========
-      '城市侦探': () => nonBattleSkills.useNonBattleSkills().executeCityDetective(caster, target, targetCityIdx),
+      '城市侦探': () => nonBattleSkills.useNonBattleSkills().executeCityDetective(caster, target, targetCityName),
       '城市预言': () => nonBattleSkills.useNonBattleSkills().executeCityProphecy(caster, target),
       '明察秋毫': () => nonBattleSkills.useNonBattleSkills().executeMingChaQiuHao(caster, target),
       '一举两得': () => nonBattleSkills.useNonBattleSkills().executeYiJuLiangDe(caster, target),
-      '不露踪迹': () => nonBattleSkills.useNonBattleSkills().executeBuLuZongJi(caster, selfCityIdx),
-      '博学多才': () => nonBattleSkills.useNonBattleSkills().executeBoXueDuoCai(caster, selfCityIdx),
+      '不露踪迹': () => nonBattleSkills.useNonBattleSkills().executeBuLuZongJi(caster, selfCityName),
+      '博学多才': () => nonBattleSkills.useNonBattleSkills().executeBoXueDuoCai(caster, selfCityName),
 
       // ========== 7. 省份相关类 (11个) ==========
       '四面楚歌': () => nonBattleSkills.useNonBattleSkills().executeSiMianChuGe(caster, target),
-      '搬运救兵·普通': () => nonBattleSkills.useNonBattleSkills().executeBanYunJiuBing(caster, selfCityIdx, false),
-      '搬运救兵·高级': () => nonBattleSkills.useNonBattleSkills().executeBanYunJiuBing(caster, selfCityIdx, true),
-      '大义灭亲': () => nonBattleSkills.useNonBattleSkills().executeDaYiMieQin(caster, selfCityIdx),
-      '强制搬运': () => nonBattleSkills.useNonBattleSkills().executeQiangZhiBanYun(caster, target, targetCityIdx),
-      '代行省权': () => nonBattleSkills.useNonBattleSkills().executeDaiXingShengQuan(caster, selfCityIdx),
-      '守望相助': () => nonBattleSkills.useNonBattleSkills().executeShouWangXiangZhu(caster, selfCityIdx),
-      '行政中心': () => nonBattleSkills.useNonBattleSkills().executeXingZhengZhongXin(caster, selfCityIdx),
-      '以礼来降': () => nonBattleSkills.useNonBattleSkills().executeYiLiLaiJiang(caster, target, targetCityIdx),
+      '搬运救兵·普通': () => nonBattleSkills.useNonBattleSkills().executeBanYunJiuBing(caster, selfCityName, false),
+      '搬运救兵·高级': () => nonBattleSkills.useNonBattleSkills().executeBanYunJiuBing(caster, selfCityName, true),
+      '大义灭亲': () => nonBattleSkills.useNonBattleSkills().executeDaYiMieQin(caster, selfCityName),
+      '强制搬运': () => nonBattleSkills.useNonBattleSkills().executeQiangZhiBanYun(caster, target, targetCityName),
+      '代行省权': () => nonBattleSkills.useNonBattleSkills().executeDaiXingShengQuan(caster, selfCityName),
+      '守望相助': () => nonBattleSkills.useNonBattleSkills().executeShouWangXiangZhu(caster, selfCityName),
+      '行政中心': () => nonBattleSkills.useNonBattleSkills().executeXingZhengZhongXin(caster, selfCityName),
+      '以礼来降': () => nonBattleSkills.useNonBattleSkills().executeYiLiLaiJiang(caster, target, targetCityName),
       '趁其不备·随机': () => nonBattleSkills.useNonBattleSkills().executeChenQiBuBei(caster, target, null),
-      '趁其不备·指定': () => nonBattleSkills.useNonBattleSkills().executeChenQiBuBei(caster, target, targetCityIdx),
+      '趁其不备·指定': () => nonBattleSkills.useNonBattleSkills().executeChenQiBuBei(caster, target, targetCityName),
 
       // ========== 8. 特殊机制类 (14个) ==========
       '无懈可击': () => nonBattleSkills.useNonBattleSkills().executeWuXieKeJi(caster, target),
       '事半功倍': () => nonBattleSkills.useNonBattleSkills().executeShiBanGongBei(caster, target, skillName),
       '过河拆桥': () => nonBattleSkills.useNonBattleSkills().executeGuoHeChaiQiao(caster),
       '解除封锁': () => nonBattleSkills.useNonBattleSkills().executeJieChuFengSuo(caster),
-      '一触即发': () => nonBattleSkills.useNonBattleSkills().executeYiChuJiFa(caster, target, targetCityIdx),
-      '突破瓶颈': () => nonBattleSkills.useNonBattleSkills().executeTuPoiPingJing(caster, selfCityIdx),
+      '一触即发': () => nonBattleSkills.useNonBattleSkills().executeYiChuJiFa(caster, target, targetCityName),
+      '突破瓶颈': () => nonBattleSkills.useNonBattleSkills().executeTuPoiPingJing(caster, selfCityName),
       '当机立断': () => nonBattleSkills.useNonBattleSkills().executeDangJiLiDuan(caster, target),
       '强制迁都·普通': () => nonBattleSkills.useNonBattleSkills().executeQiangZhiQianDu(caster, target, false),
       '强制迁都·高级版': () => nonBattleSkills.useNonBattleSkills().executeQiangZhiQianDu(caster, target, true),
-      '言听计从': () => nonBattleSkills.useNonBattleSkills().executeYanTingJiCong(caster, target, targetCityIdx),
-      '电磁感应': () => nonBattleSkills.useNonBattleSkills().executeDianCiGanYing(caster, target, targetCityIdx)
+      '言听计从': () => nonBattleSkills.useNonBattleSkills().executeYanTingJiCong(caster, target, targetCityName),
+      '电磁感应': () => nonBattleSkills.useNonBattleSkills().executeDianCiGanYing(caster, target, targetCityName)
     }
 
     // 查找并执行技能
@@ -1619,6 +1624,22 @@ function syncRoomDataToGameStore(roomData) {
       gameStore.pendingSwaps = roomData.gameState.pendingSwaps
       console.log(`[PlayerMode] syncRoomDataToGameStore中同步pendingSwaps: ${gameStore.pendingSwaps.length}条`)
     }
+
+    // 关键修复：同步knownCities到gameStore
+    // Firebase存储的是数组，gameStore需要Set
+    if (roomData.gameState.knownCities) {
+      console.log('[PlayerMode] syncRoomDataToGameStore - 同步knownCities')
+      Object.keys(roomData.gameState.knownCities).forEach(observer => {
+        if (!gameStore.knownCities[observer]) {
+          gameStore.knownCities[observer] = {}
+        }
+        Object.keys(roomData.gameState.knownCities[observer]).forEach(owner => {
+          const cities = roomData.gameState.knownCities[observer][owner]
+          gameStore.knownCities[observer][owner] = new Set(Array.isArray(cities) ? cities : [])
+          console.log(`[PlayerMode] 同步knownCities[${observer}][${owner}] = [${Array.from(gameStore.knownCities[observer][owner]).join(', ')}]`)
+        })
+      })
+    }
   }
 
   console.log('[PlayerMode] gameStore已更新，玩家数量:', gameStore.players.length)
@@ -1690,8 +1711,8 @@ function startRoomDataListener() {
       // 诊断：显示更新后的状态
       console.log('[PlayerMode] 更新后本地centerCityName:', currentPlayer.value.centerCityName)
       if (currentPlayer.value.centerCityName !== null && currentPlayer.value.centerCityName !== undefined) {
-        console.log('[PlayerMode] 更新后本地centerIndex指向的城市:', currentPlayer.value.cities[currentPlayer.value.centerCityName]?.name)
-        console.log('[PlayerMode] ⚠️ 如果这个城市名称与Firebase centerIndex指向的城市不同，说明数组顺序不一致！')
+        console.log('[PlayerMode] 更新后本地centerCityName指向的城市:', currentPlayer.value.cities[currentPlayer.value.centerCityName]?.name)
+        console.log('[PlayerMode] ⚠️ 如果这个城市名称与Firebase centerCityName指向的城市不同，说明数据不一致！')
       }
       console.log('[PlayerMode] ==========================================')
 
@@ -2325,12 +2346,14 @@ async function processBattle(roomData) {
         gameStore.knownCities[observer] = {}
       }
       Object.keys(roomData.gameState.knownCities[observer]).forEach(owner => {
-        gameStore.knownCities[observer][owner] = [...roomData.gameState.knownCities[observer][owner]]
-        console.log(`[PlayerMode] 同步: knownCities[${observer}][${owner}] = [${gameStore.knownCities[observer][owner].join(', ')}]`)
+        // Firebase存储的是数组，gameStore需要Set
+        const cities = roomData.gameState.knownCities[observer][owner]
+        gameStore.knownCities[observer][owner] = new Set(Array.isArray(cities) ? cities : [])
+        console.log(`[PlayerMode] 同步: knownCities[${observer}][${owner}] = [${Array.from(gameStore.knownCities[observer][owner]).join(', ')}]`)
       })
     })
   }
-  console.log('[PlayerMode] gameStore.knownCities同步完成:', JSON.stringify(gameStore.knownCities, null, 2))
+  console.log('[PlayerMode] gameStore.knownCities同步完成:', JSON.stringify(roomData.gameState.knownCities, null, 2))
 
   // 关键修复：执行战斗计算（会调用setCityKnown标记出战城市）
   // 这样gameStore.knownCities会被更新
@@ -2347,7 +2370,9 @@ async function processBattle(roomData) {
       roomData.gameState.knownCities[observer] = {}
     }
     Object.keys(gameStore.knownCities[observer]).forEach(owner => {
-      roomData.gameState.knownCities[observer][owner] = [...gameStore.knownCities[observer][owner]]
+      // gameStore存储的是Set，Firebase需要数组
+      const cities = gameStore.knownCities[observer][owner]
+      roomData.gameState.knownCities[observer][owner] = Array.from(cities instanceof Set ? cities : [])
       console.log(`[PlayerMode] 反向同步: knownCities[${observer}][${owner}] = [${roomData.gameState.knownCities[observer][owner].join(', ')}]`)
     })
   })
@@ -2433,7 +2458,13 @@ async function processBattle(roomData) {
     }
   })
 
-  // 检查游戏是否结束
+  // 关键修复：先同步 roomData 到 gameStore，确保 gameStore 有最新的战斗后数据（包括isAlive状态）
+  // 必须在检查游戏结束之前同步，否则 isPlayerDefeated 会使用旧的 isAlive 状态
+  console.log('[PlayerMode] 战斗后同步 roomData 到 gameStore')
+  syncRoomDataToGameStore(roomData)
+  console.log('[PlayerMode] 同步完成，gameStore.players 已更新')
+
+  // 检查游戏是否结束（必须在同步 isAlive 状态之后）
   if (gameLogic.isGameOver.value) {
     console.log('[PlayerMode] 游戏结束')
     // 保存游戏结束状态到Firebase
@@ -2453,11 +2484,6 @@ async function processBattle(roomData) {
   // 该函数在 battle2P/battle3P/battle2v2 中被调用
   // 不需要在此处重复增加金币，否则会导致双倍增加
   console.log(`[PlayerMode] 金币已由 battle 函数处理`)
-
-  // 关键修复：先同步 roomData 到 gameStore，确保 gameStore 有最新的战斗后数据
-  console.log('[PlayerMode] 战斗后同步 roomData 到 gameStore')
-  syncRoomDataToGameStore(roomData)
-  console.log('[PlayerMode] 同步完成，gameStore.players 已更新')
 
   // 关键修复：调用 updateRoundStates() 处理金币贷款扣除等回合状态更新
   console.log('[PlayerMode] 调用 gameStore.updateRoundStates() 处理回合状态更新')

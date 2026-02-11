@@ -314,6 +314,100 @@ export function useBattle() {
     // 屏障由 gameStore.barrier 管理，需要时在 gameStore 中重置
   }
 
+  /**
+   * 两个特定城市之间的战斗（用于先声夺人技能）
+   * @param {Object} player1 - 玩家1对象
+   * @param {string} city1Name - 玩家1的城市名称
+   * @param {Object} player2 - 玩家2对象
+   * @param {string} city2Name - 玩家2的城市名称
+   * @returns {Object} 战斗结果
+   */
+  function battleBetweenCities(player1, city1Name, player2, city2Name) {
+    const city1 = player1.cities[city1Name]
+    const city2 = player2.cities[city2Name]
+
+    if (!city1 || !city2) {
+      console.error('[useBattle] 城市不存在', { city1Name, city2Name })
+      return null
+    }
+
+    if (!city1.isAlive || !city2.isAlive) {
+      console.log('[useBattle] 城市已阵亡，无法战斗', { city1Name, city2Name })
+      return null
+    }
+
+    // 计算城市1的攻击力
+    const city1Power = calculateCityPower(city1)
+    const city1Defense = getGreenDefense(city1.green || 0)
+
+    // 计算城市2的攻击力
+    const city2Power = calculateCityPower(city2)
+    const city2Defense = getGreenDefense(city2.green || 0)
+
+    // 城市1攻击城市2
+    const damage1to2 = Math.max(0, city1Power - city2Defense)
+    const city2CurrentHp = city2.currentHp || city2.hp
+    const actualDamage1to2 = Math.min(damage1to2, city2CurrentHp)
+    city2.currentHp = city2CurrentHp - actualDamage1to2
+
+    // 城市2攻击城市1
+    const damage2to1 = Math.max(0, city2Power - city1Defense)
+    const city1CurrentHp = city1.currentHp || city1.hp
+    const actualDamage2to1 = Math.min(damage2to1, city1CurrentHp)
+    city1.currentHp = city1CurrentHp - actualDamage2to1
+
+    // 检查城市是否阵亡
+    const casualties = []
+    if (city1.currentHp <= 0) {
+      city1.isAlive = false
+      casualties.push({ player: player1.name, city: city1Name })
+    }
+    if (city2.currentHp <= 0) {
+      city2.isAlive = false
+      casualties.push({ player: player2.name, city: city2Name })
+    }
+
+    // 记录战斗结果
+    const battleResult = {
+      round: gameStore.currentRound,
+      type: 'city-vs-city',
+      player1: player1.name,
+      city1: city1Name,
+      city1Power: city1Power,
+      city1Defense: city1Defense,
+      damage1to2: actualDamage1to2,
+      player2: player2.name,
+      city2: city2Name,
+      city2Power: city2Power,
+      city2Defense: city2Defense,
+      damage2to1: actualDamage2to1,
+      casualties: casualties,
+      timestamp: Date.now()
+    }
+
+    battleHistory.value.push(battleResult)
+
+    // 更新游戏日志
+    let logMessage = `⚔️ 先声夺人战斗：${player1.name}的${city1Name}（攻击力${Math.floor(city1Power)}）vs ${player2.name}的${city2Name}（攻击力${Math.floor(city2Power)}）`
+
+    if (actualDamage1to2 > 0 || actualDamage2to1 > 0) {
+      logMessage += `\n  ${city1Name}对${city2Name}造成${Math.floor(actualDamage1to2)}伤害，${city2Name}对${city1Name}造成${Math.floor(actualDamage2to1)}伤害`
+    }
+
+    if (casualties.length > 0) {
+      const deadCities = casualties.map(c => `${c.player}的${c.city}`).join('、')
+      logMessage += `\n  ${deadCities}已阵亡`
+    }
+
+    gameStore.addLog(logMessage)
+
+    // 标记城市为已知
+    gameStore.setCityKnown(player1.name, city1Name, player2.name)
+    gameStore.setCityKnown(player2.name, city2Name, player1.name)
+
+    return battleResult
+  }
+
   return {
     // 状态
     battleDeployments,
@@ -330,6 +424,7 @@ export function useBattle() {
     executeBattleRound,
     getAliveCitiesCount,
     checkGameOver,
-    resetBattle
+    resetBattle,
+    battleBetweenCities
   }
 }
