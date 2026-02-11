@@ -111,7 +111,7 @@ describe('技能组合集成测试', () => {
   describe('城市保护 + 铜墙铁壁 组合', () => {
     it('应该能够叠加城市保护和战斗免疫效果', () => {
       // 玩家1先使用城市保护（传递city对象，不是索引）
-      const protection = nonBattleSkills.executeCityProtection(player1, player1.cities[1])
+      const protection = nonBattleSkills.executeCityProtection(player1, player1.cities['上海'])
       expect(protection.success).toBe(true)
 
       // 玩家1再对玩家2使用铜墙铁壁
@@ -119,7 +119,7 @@ describe('技能组合集成测试', () => {
       expect(wall.success).toBe(true)
 
       // 验证两种保护都生效
-      expect(gameStore.protections[player1.name][1]).toBe(10)
+      expect(gameStore.protections[player1.name]['上海']).toBe(10)
       // 铜墙铁壁是给player1添加免疫，不是给player2
       expect(player1.battleModifiers).toHaveLength(1)
       expect(player1.battleModifiers[0].type).toBe('damage_immunity')
@@ -159,7 +159,7 @@ describe('技能组合集成测试', () => {
       expect(qnf.success).toBe(true)
 
       // 城市HP应该翻倍
-      player1.cities.forEach(city => {
+      Object.values(player1.cities).forEach(city => {
         expect(city.currentHp).toBe(city.hp * 2)
       })
 
@@ -190,23 +190,23 @@ describe('技能组合集成测试', () => {
 
   describe('清除加成 + 城市保护 组合', () => {
     it('清除加成后应该能重新添加城市保护', () => {
-      const targetCity = player2.cities[1]
+      const targetCity = player2.cities['上海']
 
       // 玩家2先给自己城市添加保护（传递city对象）
       nonBattleSkills.executeCityProtection(player2, targetCity)
-      expect(gameStore.protections[player2.name][1]).toBe(10)
+      expect(gameStore.protections[player2.name]['上海']).toBe(10)
 
       // 玩家1清除玩家2的加成（需要传递targetCity参数）
       const clear = nonBattleSkills.executeQingChuJiaCheng(player1, player2, targetCity)
       expect(clear.success).toBe(true)
 
       // 保护会被消耗（不是被清除），所以它应该不存在了
-      expect(gameStore.protections[player2.name][1]).toBeUndefined()
+      expect(gameStore.protections[player2.name]['上海']).toBeUndefined()
 
       // 玩家2可以重新添加保护
       const protection2 = nonBattleSkills.executeCityProtection(player2, targetCity)
       expect(protection2.success).toBe(true)
-      expect(gameStore.protections[player2.name][1]).toBe(10)
+      expect(gameStore.protections[player2.name]['上海']).toBe(10)
     })
   })
 

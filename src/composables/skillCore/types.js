@@ -8,7 +8,7 @@
  * @property {string} name - 玩家名称
  * @property {number} gold - 金币数量
  * @property {City[]} cities - 城市列表
- * @property {number} centerIndex - 中心城市索引
+ * @property {string} centerCityName - 中心城市名称
  * @property {BattleModifier[]} [battleModifiers] - 战斗修饰符
  * @property {number} [team] - 队伍编号（2v2模式）
  */

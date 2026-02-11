@@ -90,8 +90,8 @@ export function useCitySkills() {
         if (!gameStore.cityShields[player.name]) {
           gameStore.cityShields[player.name] = {}
         }
-        const cityIndex = player.cities.indexOf(city)
-        gameStore.cityShields[player.name][cityIndex] = {
+        const cityName = city.name
+        gameStore.cityShields[player.name][cityName] = {
           hp: skill.shieldHp,
           maxHp: skill.shieldHp,
           duration: skill.duration || 3,
@@ -294,11 +294,11 @@ export function useCitySkills() {
     if (gameStore.cityShields) {
       Object.keys(gameStore.cityShields).forEach(playerName => {
         const playerShields = gameStore.cityShields[playerName]
-        Object.keys(playerShields).forEach(cityIndex => {
-          const shield = playerShields[cityIndex]
+        Object.keys(playerShields).forEach(cityName => {
+          const shield = playerShields[cityName]
           const elapsed = currentRound - shield.startRound
           if (elapsed >= shield.duration || shield.hp <= 0) {
-            delete playerShields[cityIndex]
+            delete playerShields[cityName]
             gameStore.addLog(`${playerName} 的城市护盾消失`)
           }
         })

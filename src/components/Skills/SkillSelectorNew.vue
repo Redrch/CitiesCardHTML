@@ -451,7 +451,7 @@ function getTargetCities() {
   const player = opponents.value.find(p => p.name === targetPlayer.value)
   if (!player || !player.cities) return []
 
-  const centerIdx = player.centerIndex || 0
+  const centerIdx = player.centerCityName || 0
 
   return player.cities
     .map((city, idx) => ({ city, originalIndex: idx }))
@@ -461,7 +461,7 @@ function getTargetCities() {
       }
 
       if ((selectedSkill.value?.name === '言听计从' || selectedSkill.value?.name === '以礼来降') &&
-          item.originalIndex === centerIdx) {
+          item.originalIndex === centerCityName) {
         return false
       }
 

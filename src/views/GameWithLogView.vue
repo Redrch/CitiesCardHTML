@@ -64,12 +64,12 @@ function handleEndTurn(player) {
   gameStore.nextRound()
 }
 
-function handleHealCity(player, cityIndex) {
-  console.log('治疗城市', player, cityIndex)
+function handleHealCity(player, cityName) {
+  console.log('治疗城市', player, cityName)
 }
 
-function handleCityClick(player, cityIndex) {
-  console.log('点击城市', player, cityIndex)
+function handleCityClick(player, cityName) {
+  console.log('点击城市', player, cityName)
 }
 </script>
 

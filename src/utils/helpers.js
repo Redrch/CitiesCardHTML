@@ -121,7 +121,7 @@ function isInCautiousSet(roomData, playerName, cityIdx) {
   // 检查是否为中心城市（2P/2v2）
   if (mode === '2p' || mode === '2v2') {
     const centerIdx = player.centerCity !== undefined ? player.centerCity : 0;
-    if (cityIdx === centerIdx) return true;
+    if (cityIdx === centerCityName) return true;
   }
 
   // 检查是否为钢铁城市

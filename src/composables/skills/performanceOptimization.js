@@ -449,7 +449,7 @@ export function executeShiLaiYunZhuanOptimized(caster, target, gameStore) {
 export function executeShengYuZiShiOptimized(caster, selfCity, gameStore) {
   const startTime = performance.now()
 
-  const cityIdx = caster.cities.indexOf(selfCity)
+  const cityName = selfCity.name
 
   // 提前退出：无效城市
   if (cityIdx === -1 || !selfCity || selfCity.isAlive === false) {

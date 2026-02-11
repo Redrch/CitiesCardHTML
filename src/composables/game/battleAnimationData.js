@@ -310,7 +310,7 @@ function detectSpecialEvent(roomData, gameState, player1, player2, state1, state
       surrenderedCity: {
         fromPlayer: surrender.fromPlayerIdx,
         toPlayer: surrender.toPlayerIdx,
-        cityIndex: surrender.cityIdx
+        cityName: surrender.cityIdx
       }
     }
   }
@@ -486,7 +486,7 @@ function collectFatigueData(battleAnimationData, roomData, battleResults) {
     if (animCityIdx !== -1) {
       battleResults.fatigued.push({
         player: playerNum,
-        cityIndex: animCityIdx,  // 动画数据中的索引，不是原始cityName
+        cityName: animCityIdx,  // 动画数据中的索引，不是原始cityName
         hpBefore: fatigue.hpBefore,
         hpAfter: fatigue.hpAfter,
         streak: fatigue.streak
@@ -515,7 +515,7 @@ function collectHpChanges(battleAnimationData, player1, player2, battleResults) 
     if (hpChange !== 0) {
       battleResults.hpChanges.push({
         player: 1,
-        cityIndex: idx,
+        cityName: idx,
         change: hpChange,
         finalHp: actualCity.currentHp || 0
       })
@@ -529,7 +529,7 @@ function collectHpChanges(battleAnimationData, player1, player2, battleResults) 
     if (hpChange !== 0) {
       battleResults.hpChanges.push({
         player: 2,
-        cityIndex: idx,
+        cityName: idx,
         change: hpChange,
         finalHp: actualCity.currentHp || 0
       })
@@ -546,7 +546,7 @@ function collectDestroyedCities(battleAnimationData, player1, player2, battleRes
     if (actualCity.currentHp <= 0 || actualCity.isAlive === false) {
       battleResults.destroyed.push({
         player: 1,
-        cityIndex: idx,
+        cityName: idx,
         cityName: city.name
       })
     }
@@ -557,7 +557,7 @@ function collectDestroyedCities(battleAnimationData, player1, player2, battleRes
     if (actualCity.currentHp <= 0 || actualCity.isAlive === false) {
       battleResults.destroyed.push({
         player: 2,
-        cityIndex: idx,
+        cityName: idx,
         cityName: city.name
       })
     }
