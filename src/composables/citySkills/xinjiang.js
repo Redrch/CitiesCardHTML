@@ -20,7 +20,7 @@ import {
 export function handleWulumuqiSkill(attacker, skillData, addPublicLog, gameStore) {
   // 被动技能：检查是否为中心
   const cityName = skillData.cityName
-  const centerCityName = attacker.centerCityName ?? 0
+  const centerCityName = attacker.centerCityName
   const isCenter = cityName === centerCityName
 
   if (!gameStore.asiaCenter) gameStore.asiaCenter = {}
@@ -54,7 +54,6 @@ export function handleKelamayiSkill(attacker, defender, skillData, addPublicLog,
 
   if (selfHp > enemyHp) {
     // 获得敌方城市
-    const enemyIndex = defender.cities.indexOf(enemyCity)
     enemyCity.isAlive = false
     enemyCity.currentHp = 0
     enemyCity.hp = 0
@@ -102,7 +101,7 @@ export function handleTulufanSkill(attacker, defender, skillData, addPublicLog, 
 
   if (!targetCity) return
 
-  const cityName = defender.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   if (!gameStore.burnEffect) gameStore.burnEffect = {}
   if (!gameStore.burnEffect[defender.name]) gameStore.burnEffect[defender.name] = {}
@@ -143,7 +142,7 @@ export function handleHamiSkill(attacker, skillData, addPublicLog, gameStore) {
   const aliveCities = getAliveCities(attacker)
   for (let i = 0; i < 3; i++) {
     const city = getRandomElement(aliveCities)
-    const cityName = attacker.cities.indexOf(city)
+    const cityName = city.name
     if (!gameStore.melonTokens[attacker.name].cityTokens[cityName]) {
       gameStore.melonTokens[attacker.name].cityTokens[cityName] = 0
     }
@@ -201,7 +200,7 @@ export function handleBayinguolengSkill(attacker, defender, skillData, addPublic
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityName = defender.cities.indexOf(targetCity)
+  const cityName = targetCity.name
   const targetHp = getCurrentHp(targetCity)
 
   if (!gameStore.missingState) gameStore.missingState = {}

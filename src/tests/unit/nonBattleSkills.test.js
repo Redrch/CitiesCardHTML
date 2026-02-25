@@ -307,13 +307,13 @@ describe('非战斗技能单元测试', () => {
   describe('四面楚歌 - executeSiMianChuGe', () => {
     it('应该成功归顺同省非特殊城市', () => {
       // 添加更多同省城市测试
-      target.cities.push({
+      target.cities['保定'] = {
         name: '保定',
         hp: 15000,
         currentHp: 15000,
         isAlive: true,
         province: '河北省'
-      })
+      }
 
       const result = nonBattleSkills.executeSiMianChuGe(caster, target)
 
@@ -454,7 +454,7 @@ describe('非战斗技能单元测试', () => {
 
       const initialHp = city.currentHp
 
-      const result = nonBattleSkills.executeXueLiangCunChu(caster, city, 'deposit')
+      const result = nonBattleSkills.executeXueLiangCunChu(caster, city, 'deposit', 10000)
 
       expect(result.success).toBe(true)
       expect(city.currentHp).toBe(initialHp - 10000)  // 固定扣除10000HP
@@ -520,7 +520,7 @@ describe('非战斗技能单元测试', () => {
     })
   })
 
-  describe('一落千丈 - executeTiDengDingSun', () => {
+  describe('一落千丈 - executeYiLuoQianZhang', () => {
     it('应该成功将城市HP降至1/3', () => {
       // 设置合理的初始金币
       caster.gold = 10
@@ -528,7 +528,7 @@ describe('非战斗技能单元测试', () => {
       const city = target.cities['天津']
       city.currentHp = 15000  // 设置初始HP
 
-      const result = nonBattleSkills.executeTiDengDingSun(caster, target, city)
+      const result = nonBattleSkills.executeYiLuoQianZhang(caster, target, city)
 
       expect(result.success).toBe(true)
       expect(city.currentHp).toBe(Math.floor(15000 / 3))  // HP应该降至1/3
@@ -544,7 +544,8 @@ describe('非战斗技能单元测试', () => {
       expect(result.success).toBe(true)
       cityNames.forEach(cityName => {
         const city = target.cities[cityName]
-        expect(city.currentHp).toBeLessThan(city.hp)
+        // 连续打击同时减半currentHp和hp，所以用原始值比较
+        expect(city.currentHp).toBeLessThan(20000)
       })
     })
 

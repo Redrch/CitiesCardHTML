@@ -45,7 +45,7 @@ export function handleNanchangSkill(player, skillData, addPublicLog, gameStore) 
  * HPx2，原中心不淘汰且HP增加50%
  */
 export function handleGanzhouSkill(player, skillData, addPublicLog, gameStore, newCenterName = null) {
-  const centerCityName = player.centerCityName || 0
+  const centerCityName = player.centerCityName
   const centerCity = player.cities[centerCityName]
 
   if (!centerCity) {
@@ -80,8 +80,8 @@ export function handleGanzhouSkill(player, skillData, addPublicLog, gameStore, n
   newCenterCity.currentHp = newCenterCity.currentHp * 2
   newCenterCity.hp = newCenterCity.hp * 2
 
-  // 更新中心索引
-  player.centerCityName = newCenterIndex
+  // 更新中心城市名称
+  player.centerCityName = newCenterName
 
   addPublicLog(`${player.name}的${skillData.cityName}激活"长征伊始"，${centerCity.name}（原中心）HP增加50%（${Math.floor(oldCenterHp)} → ${Math.floor(centerCity.currentHp)}），${newCenterCity.name}成为新中心且HP×2（${Math.floor(oldNewCenterHp)} → ${Math.floor(newCenterCity.currentHp)}）！`)
   gameStore.recordSkillUsage(player.name, skillData.cityName)
@@ -169,13 +169,13 @@ export function handleJianSkill(player, skillData, addPublicLog, gameStore) {
  * 上饶市 - 鄱阳湖
  * 限1次，对对方3座城市造成3000HP的伤害，若有n座城市阵亡，则另外n座城市再受到1000点伤害
  */
-export function handleShangraoSkill(player, skillData, addPublicLog, gameStore, targetPlayer = null, targetCityIndices = null) {
-  if (!targetPlayer || !targetCityIndices || targetCityIndices.length !== 3) {
+export function handleShangraoSkill(player, skillData, addPublicLog, gameStore, targetPlayer = null, targetCityNames = null) {
+  if (!targetPlayer || !targetCityNames || targetCityNames.length !== 3) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"鄱阳湖"，需要选择对方3座城市！`)
     return
   }
 
-  const validTargets = targetCityIndices.filter(idx => {
+  const validTargets = targetCityNames.filter(cityName => {
     const city = targetPlayer.cities[cityName]
     return city && city.isAlive !== false
   })
@@ -189,7 +189,7 @@ export function handleShangraoSkill(player, skillData, addPublicLog, gameStore, 
   let killCount = 0
   const damagedCities = []
 
-  validTargets.forEach(idx => {
+  validTargets.forEach(cityName => {
     const city = targetPlayer.cities[cityName]
     const oldHp = city.currentHp
     city.currentHp -= 3000
@@ -200,7 +200,7 @@ export function handleShangraoSkill(player, skillData, addPublicLog, gameStore, 
       killCount++
       addPublicLog(`${targetPlayer.name}的${city.name}被${skillData.cityName}的鄱阳湖摧毁！`)
     } else {
-      damagedCities.push(idx)
+      damagedCities.push(cityName)
       addPublicLog(`${targetPlayer.name}的${city.name}受到3000点伤害（${oldHp} → ${city.currentHp}）`)
     }
   })
@@ -209,7 +209,7 @@ export function handleShangraoSkill(player, skillData, addPublicLog, gameStore, 
   if (killCount > 0 && damagedCities.length > 0) {
     const extraDamage = 1000 * killCount
 
-    damagedCities.forEach(idx => {
+    damagedCities.forEach(cityName => {
       const city = targetPlayer.cities[cityName]
       const oldHp = city.currentHp
       city.currentHp -= extraDamage
@@ -257,7 +257,7 @@ export function handleJiujiangSkill(player, skillData, addPublicLog, gameStore, 
   }
 
   // 检查目标城市是否为中心城市
-  const centerCityName = player.centerCityName || 0
+  const centerCityName = player.centerCityName
   if (selectedCityName === centerCityName) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"庐山胜境"，不能选择中心城市！`)
     return

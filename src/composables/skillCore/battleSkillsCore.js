@@ -206,7 +206,7 @@ export function executeTongQiangTieBiCore(params) {
 
 /**
  * 设置屏障 - 核心逻辑
- * 创建15000HP的屏障，持续5回合
+ * 创建25000HP的屏障，持续5回合
  *
  * @param {Object} params - 技能参数
  * @param {Object} params.caster - 施法者玩家对象
@@ -230,19 +230,19 @@ export function executeSetBarrierCore(params) {
 
   // 创建屏障
   gameStore.barrier[caster.name] = {
-    hp: 15000,
-    maxHp: 15000,
+    hp: 25000,
+    maxHp: 25000,
     roundsLeft: 5
   }
 
-  gameStore.addLog(`${caster.name} 设置了屏障（15000HP，持续5回合）`)
+  gameStore.addLog(`${caster.name} 设置了屏障（25000HP，持续5回合）`)
 
   return {
     success: true,
-    message: '设置了15000HP的屏障，持续5回合',
+    message: '设置了25000HP的屏障，持续5回合',
     data: {
-      hp: 15000,
-      maxHp: 15000,
+      hp: 25000,
+      maxHp: 25000,
       rounds: 5
     }
   }

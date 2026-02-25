@@ -41,7 +41,7 @@ export function handleLuoyangSkill(attacker, skillData, addPublicLog, gameStore)
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityName = attacker.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   if (!gameStore.reflectDamage) gameStore.reflectDamage = {}
   if (!gameStore.reflectDamage[attacker.name]) gameStore.reflectDamage[attacker.name] = {}
@@ -63,7 +63,7 @@ export function handleLuoyangSkill(attacker, skillData, addPublicLog, gameStore)
  * 限2次，给己方中心城市附加一个持续2回合的护盾，护盾存在期间，该城市每次受到攻击时，都会反弹20%的伤害给攻击者，若自身为中心，可以反弹50%
  */
 export function handleKaifengSkill(attacker, skillData, addPublicLog, gameStore) {
-  const centerCityName = attacker.centerCityName ?? 0
+  const centerCityName = attacker.centerCityName
   const centerCity = attacker.cities[centerCityName]
 
   // 判断开封是否是中心
@@ -142,7 +142,7 @@ export function handleHebiSkill(attacker, skillData, addPublicLog, gameStore) {
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityName = attacker.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   if (!gameStore.battleHealing) gameStore.battleHealing = {}
   if (!gameStore.battleHealing[attacker.name]) gameStore.battleHealing[attacker.name] = {}
@@ -168,7 +168,7 @@ export function handleXinxiangSkill(attacker, defender, skillData, addPublicLog,
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityName = attacker.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   if (!gameStore.explosiveShield) gameStore.explosiveShield = {}
   if (!gameStore.explosiveShield[attacker.name]) gameStore.explosiveShield[attacker.name] = {}
@@ -196,7 +196,7 @@ export function handleJiaozuoSkill(attacker, defender, skillData, addPublicLog, 
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityName = defender.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   if (!gameStore.attackDisabled) gameStore.attackDisabled = {}
   if (!gameStore.attackDisabled[defender.name]) gameStore.attackDisabled[defender.name] = {}
@@ -220,7 +220,7 @@ export function handleXuchangSkill(attacker, skillData, addPublicLog, gameStore)
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityName = attacker.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   if (!gameStore.confuseCounter) gameStore.confuseCounter = {}
   if (!gameStore.confuseCounter[attacker.name]) gameStore.confuseCounter[attacker.name] = {}
@@ -253,7 +253,7 @@ export function handleSanmenxiaSkill(attacker, defender, skillData, addPublicLog
   if (!gameStore.yellowRiverRage[defender.name]) gameStore.yellowRiverRage[defender.name] = {}
 
   targets.forEach(city => {
-    const cityName = defender.cities.indexOf(city)
+    const cityName = city.name
     gameStore.yellowRiverRage[defender.name][cityName] = {
       active: true,
       damage: 750,

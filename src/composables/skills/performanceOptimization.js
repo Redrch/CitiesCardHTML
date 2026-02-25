@@ -29,13 +29,13 @@ export function createProvinceCityCache(players) {
   players.forEach(player => {
     const playerMap = new Map()
 
-    player.cities.forEach((city, idx) => {
+    Object.entries(player.cities).forEach(([cityName, city]) => {
       const province = getProvince(city.name)
       if (province) {
         if (!playerMap.has(province)) {
           playerMap.set(province, [])
         }
-        playerMap.get(province).push({ city, idx })
+        playerMap.get(province).push({ city, cityName })
       }
     })
 
@@ -214,21 +214,21 @@ export function batchCheckCityStatus(cities, checks) {
     immune: []
   }
 
-  cities.forEach((city, idx) => {
+  Object.entries(cities).forEach(([cityName, city]) => {
     if (checks.alive && city.isAlive !== false) {
-      results.alive.push({ city, idx })
+      results.alive.push({ city, cityName })
     }
 
     if (checks.special && isSpecialCity(city.name)) {
-      results.special.push({ city, idx })
+      results.special.push({ city, cityName })
     }
 
     if (checks.normal && !isSpecialCity(city.name) && city.isAlive !== false) {
-      results.normal.push({ city, idx })
+      results.normal.push({ city, cityName })
     }
 
     if (checks.immune && hasImmunity(city, checks.immuneSkill)) {
-      results.immune.push({ city, idx })
+      results.immune.push({ city, cityName })
     }
   })
 
@@ -279,7 +279,7 @@ export function executeSiMianChuGeOptimized(caster, target, gameStore) {
   const startTime = performance.now()
 
   // 提前检查：如果没有城市，直接返回
-  if (!target.cities || target.cities.length === 0) {
+  if (!target.cities || Object.keys(target.cities).length === 0) {
     return {
       success: false,
       message: '对手没有城市',
@@ -307,13 +307,13 @@ export function executeSiMianChuGeOptimized(caster, target, gameStore) {
 
   // 使用Map缓存省份分组
   const provinceGroups = new Map()
-  cityStatus.normal.forEach(({ city, idx }) => {
+  cityStatus.normal.forEach(({ city, cityName }) => {
     const province = getProvince(city.name)
     if (province) {
       if (!provinceGroups.has(province)) {
         provinceGroups.set(province, [])
       }
-      provinceGroups.get(province).push({ city, idx })
+      provinceGroups.get(province).push({ city, cityName })
     }
   })
 
@@ -321,7 +321,7 @@ export function executeSiMianChuGeOptimized(caster, target, gameStore) {
   const halvedCities = []
 
   // 阶段1：特殊城市HP减半（批量处理）
-  cityStatus.special.forEach(({ city, idx }) => {
+  cityStatus.special.forEach(({ city, cityName }) => {
     const currentHp = city.currentHp || city.hp
     city.currentHp = Math.floor(currentHp / 2)
     halvedCities.push(city.name)
@@ -329,11 +329,11 @@ export function executeSiMianChuGeOptimized(caster, target, gameStore) {
 
   // 阶段2：普通城市归顺（按省份批量处理）
   provinceGroups.forEach((cities, province) => {
-    cities.forEach(({ city, idx }) => {
+    cities.forEach(({ city, cityName }) => {
       // 检查免疫（已在批量检查中完成）
       // 转移城市
-      target.cities.splice(idx, 1)
-      caster.cities.push(city)
+      delete target.cities[cityName]
+      caster.cities[city.name] = city
       transferredCities.push(city.name)
     })
   })
@@ -365,12 +365,12 @@ export function executeShiLaiYunZhuanOptimized(caster, target, gameStore) {
 
   // 获取可交换城市（排除中心、钢铁、定海神针）
   const getSwappableCities = (player) => {
-    return player.cities
-      .map((city, idx) => ({ city, idx }))
-      .filter(({ city, idx }) => {
+    return Object.entries(player.cities)
+      .map(([cityName, city]) => ({ city, cityName }))
+      .filter(({ city, cityName }) => {
         if (city.isCenter) return false
-        if (gameStore.hasIronShield?.(player.name, idx)) return false
-        if (gameStore.anchored?.[player.name]?.[idx]) return false
+        if (gameStore.hasIronShield?.(player.name, cityName)) return false
+        if (gameStore.anchored?.[player.name]?.[cityName]) return false
         return true
       })
   }
@@ -402,26 +402,35 @@ export function executeShiLaiYunZhuanOptimized(caster, target, gameStore) {
   // 批量交换（避免多次splice）
   const swappedPairs = []
   for (let i = 0; i < 3; i++) {
-    const { idx: cIdx } = shuffledCaster[i]
-    const { idx: tIdx } = shuffledTarget[i]
+    const { cityName: cKey } = shuffledCaster[i]
+    const { cityName: tKey } = shuffledTarget[i]
 
     // 直接引用交换，避免深拷贝
-    const temp = caster.cities[cIdx]
-    caster.cities[cIdx] = target.cities[tIdx]
-    target.cities[tIdx] = temp
+    const temp = caster.cities[cKey]
+    caster.cities[cKey] = target.cities[tKey]
+    target.cities[tKey] = temp
+
+    // 交换后需要更新键名以匹配新的城市名
+    // 从旧键中删除，用新城市名作为键重新插入
+    const casterNewCity = caster.cities[cKey]
+    const targetNewCity = target.cities[tKey]
+    delete caster.cities[cKey]
+    delete target.cities[tKey]
+    caster.cities[casterNewCity.name] = casterNewCity
+    target.cities[targetNewCity.name] = targetNewCity
 
     // 同步initialCities交换
     if (gameStore.initialCities) {
-      const tempInitial = gameStore.initialCities[caster.name]?.[cIdx]
+      const tempInitial = gameStore.initialCities[caster.name]?.[cKey]
       if (gameStore.initialCities[caster.name] && gameStore.initialCities[target.name]) {
-        gameStore.initialCities[caster.name][cIdx] = gameStore.initialCities[target.name][tIdx]
-        gameStore.initialCities[target.name][tIdx] = tempInitial
+        gameStore.initialCities[caster.name][cKey] = gameStore.initialCities[target.name][tKey]
+        gameStore.initialCities[target.name][tKey] = tempInitial
       }
     }
 
     swappedPairs.push({
-      caster: target.cities[tIdx].name,  // 交换后的名称
-      target: caster.cities[cIdx].name
+      caster: targetNewCity.name,  // 交换后的名称
+      target: casterNewCity.name
     })
   }
 
@@ -442,7 +451,7 @@ export function executeShiLaiYunZhuanOptimized(caster, target, gameStore) {
 /**
  * 优化版生于紫室
  * 性能优化：
- * 1. 缓存中心城市索引查找
+ * 1. 缓存中心城市名称查找
  * 2. 避免重复的HP计算
  * 3. 提前退出条件检查
  */
@@ -452,7 +461,7 @@ export function executeShengYuZiShiOptimized(caster, selfCity, gameStore) {
   const cityName = selfCity.name
 
   // 提前退出：无效城市
-  if (cityIdx === -1 || !selfCity || selfCity.isAlive === false) {
+  if (!selfCity || selfCity.isAlive === false) {
     return {
       success: false,
       message: '无效城市',
@@ -469,12 +478,12 @@ export function executeShengYuZiShiOptimized(caster, selfCity, gameStore) {
     }
   }
 
-  // 缓存当前紫室城市索引（避免重复查找）
+  // 缓存当前紫室城市名称（避免重复查找）
   const currentPurple = gameStore.purpleChamber?.[caster.name]
 
   // 如果已有紫室城市，检查是否需要转移
   if (currentPurple !== undefined) {
-    const centerCity = caster.cities.find(c => c.isCenter)
+    const centerCity = Object.values(caster.cities).find(c => c.isCenter)
     const oldCity = caster.cities[currentPurple]
     const newCity = selfCity
 
@@ -484,7 +493,7 @@ export function executeShengYuZiShiOptimized(caster, selfCity, gameStore) {
 
     // 转移条件：中心HP > 旧城市HP > 新城市HP
     if (centerHp > oldCityHp && oldCityHp > newCityHp) {
-      gameStore.purpleChamber[caster.name] = cityIdx
+      gameStore.purpleChamber[caster.name] = cityName
 
       const executionTime = performance.now() - startTime
       return {
@@ -496,7 +505,7 @@ export function executeShengYuZiShiOptimized(caster, selfCity, gameStore) {
   }
 
   // 设置紫室
-  gameStore.purpleChamber[caster.name] = cityIdx
+  gameStore.purpleChamber[caster.name] = cityName
 
   const executionTime = performance.now() - startTime
 

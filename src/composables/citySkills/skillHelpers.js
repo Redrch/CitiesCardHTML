@@ -244,7 +244,7 @@ export function findCity(player, cityName) {
 }
 
 /**
- * 获取城市名称（兼容函数，用于替代getCityIndex）
+ * 获取城市名称
  * @param {Object} player - 玩家对象
  * @param {Object|string} cityOrName - 城市对象或城市名称
  * @returns {string|null} 城市名称，如果未找到则返回null
@@ -260,17 +260,6 @@ export function getCityName(player, cityOrName) {
   return null
 }
 
-/**
- * 获取城市索引（已废弃，仅为向后兼容保留）
- * @deprecated 请使用 getCityName 或直接使用城市名称
- * @param {Object} player - 玩家对象
- * @param {Object|string} cityOrName - 城市对象或城市名称
- * @returns {string|null} 城市名称
- */
-export function getCityIndex(player, cityOrName) {
-  console.warn('[skillHelpers] getCityIndex已废弃，请改用getCityName或直接使用城市名称')
-  return getCityName(player, cityOrName)
-}
 
 /**
  * 从数组中随机获取一个元素

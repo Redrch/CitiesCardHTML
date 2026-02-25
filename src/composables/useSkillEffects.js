@@ -114,15 +114,15 @@ export function useSkillEffects() {
           return nonBattleSkills.executeGouYanCanChuan(caster)
 
         case '高级治疗':
-          return nonBattleSkills.executeGaoJiZhiLiao(caster, params.cityIndices)
+          return nonBattleSkills.executeGaoJiZhiLiao(caster, params.cityNames)
 
         case '众志成城':
-          return nonBattleSkills.executeZhongZhiChengCheng(caster, params.cityIndices)
+          return nonBattleSkills.executeZhongZhiChengCheng(caster, params.cityNames)
 
         case '无中生有':
           return nonBattleSkills.executeWuZhongShengYou(caster)
 
-        case '好高骛远':
+        case '点石成金':
           return nonBattleSkills.executeHaoGaoWuYuan(caster, selfCity)
 
         case '狐假虎威':
@@ -150,7 +150,7 @@ export function useSkillEffects() {
           return nonBattleSkills.executeTiDengDingSun(caster, target, targetCity)
 
         case '连续打击':
-          return nonBattleSkills.executeLianXuDaJi(caster, target, params.cityIndices)
+          return nonBattleSkills.executeLianXuDaJi(caster, target, params.cityNames)
 
         case '波涛汹涌':
           return nonBattleSkills.executeBoTaoXiongYong(caster, target)
@@ -173,7 +173,7 @@ export function useSkillEffects() {
         case '定时爆破':
           return nonBattleSkills.executeDingShiBaoPo(caster, target, targetCity)
 
-        case '永久摧毁':
+        case '灰飞烟灭':
           return nonBattleSkills.executeYongJiuCuiHui(caster, target, targetCity)
 
         case '战略转移':

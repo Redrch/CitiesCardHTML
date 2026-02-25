@@ -103,35 +103,35 @@ export function createMockGameStore() {
       return false
     },
 
-    consumeProtection(playerName, cityIdx) {
+    consumeProtection(playerName, cityName) {
       // 检查城市保护
-      if (this.protections[playerName] && this.protections[playerName][cityIdx]) {
-        delete this.protections[playerName][cityIdx]
+      if (this.protections[playerName] && this.protections[playerName][cityName]) {
+        delete this.protections[playerName][cityName]
         return true
       }
 
       // 检查钢铁护盾
-      if (this.ironShields[playerName] && this.ironShields[playerName][cityIdx]) {
-        delete this.ironShields[playerName][cityIdx]
+      if (this.ironShields[playerName] && this.ironShields[playerName][cityName]) {
+        delete this.ironShields[playerName][cityName]
         return true
       }
 
       return false
     },
 
-    hasIronShield(playerName, cityIdx) {
-      return this.ironShields[playerName] && this.ironShields[playerName][cityIdx]
+    hasIronShield(playerName, cityName) {
+      return this.ironShields[playerName] && this.ironShields[playerName][cityName]
     },
 
-    setCityKnown(playerName, cityIdx, knownBy) {
+    setCityKnown(playerName, cityName, knownBy) {
       if (!this.knownCities[playerName]) {
         this.knownCities[playerName] = {}
       }
-      if (!this.knownCities[playerName][cityIdx]) {
-        this.knownCities[playerName][cityIdx] = []
+      if (!this.knownCities[playerName][cityName]) {
+        this.knownCities[playerName][cityName] = []
       }
-      if (!this.knownCities[playerName][cityIdx].includes(knownBy)) {
-        this.knownCities[playerName][cityIdx].push(knownBy)
+      if (!this.knownCities[playerName][cityName].includes(knownBy)) {
+        this.knownCities[playerName][cityName].push(knownBy)
       }
     }
   })

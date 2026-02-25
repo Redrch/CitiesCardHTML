@@ -108,7 +108,7 @@
 
               <!-- 存活城市 -->
               <div style="margin-bottom: 8px; font-size: 14px; color: #9ca3af;">
-                存活城市：{{ player.cities?.filter(c => c.isAlive !== false).length || 0 }} / {{ player.cities?.length || 0 }}
+                存活城市：{{ Object.values(player.cities || {}).filter(c => c.isAlive !== false).length || 0 }} / {{ Object.keys(player.cities || {}).length || 0 }}
               </div>
 
               <!-- 当前出战城市 -->
@@ -117,9 +117,9 @@
                   ⚔️ 出战城市
                 </div>
                 <div v-if="roomData.gameState.playerStates[player.name].currentBattleCities && roomData.gameState.playerStates[player.name].currentBattleCities.length > 0" style="font-size: 12px; color: #e5e7eb;">
-                  <div v-for="battleCity in roomData.gameState.playerStates[player.name].currentBattleCities" :key="battleCity.cityIdx" style="margin: 3px 0;">
-                    • {{ player.cities[battleCity.cityIdx]?.name || '未知' }}
-                    <span style="color: #fbbf24;">(HP: {{ Math.floor(player.cities[battleCity.cityIdx]?.currentHp || player.cities[battleCity.cityIdx]?.hp || 0) }})</span>
+                  <div v-for="battleCity in roomData.gameState.playerStates[player.name].currentBattleCities" :key="battleCity.cityName" style="margin: 3px 0;">
+                    • {{ player.cities[battleCity.cityName]?.name || '未知' }}
+                    <span style="color: #fbbf24;">(HP: {{ Math.floor(player.cities[battleCity.cityName]?.currentHp || player.cities[battleCity.cityName]?.hp || 0) }})</span>
                   </div>
                 </div>
                 <div v-else style="font-size: 12px; color: #6b7280;">

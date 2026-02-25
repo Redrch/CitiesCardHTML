@@ -251,6 +251,11 @@ export function useGameLogic() {
       attempts++
     }
 
+    // 检查生于紫室继承（必须在checkGameOver之前）
+    gameStore.players.forEach(player => {
+      gameStore.checkCenterDeathAndPurpleChamberInheritance(player)
+    })
+
     // 检查游戏是否结束
     if (checkGameOver()) {
       return
@@ -314,15 +319,29 @@ export function useGameLogic() {
       })
     }
 
-    // 4. 屏障倒计时-1
-    const barrierKey = player.name
-    if (gameStore.barrier && gameStore.barrier[barrierKey]) {
-      gameStore.barrier[barrierKey].roundsLeft--
-      if (gameStore.barrier[barrierKey].roundsLeft <= 0) {
-        delete gameStore.barrier[barrierKey]
-        gameStore.addLog(`${player.name} 的屏障消失了`)
+    // 4. 屏障倒计时 - 已在gameStore.advanceRound()中处理，此处不再重复
+
+    // 4.5 高级治疗城市modifier倒计时
+    Object.entries(player.cities).forEach(([cityName, city]) => {
+      if (!city.modifiers || !Array.isArray(city.modifiers)) return
+      const healingIdx = city.modifiers.findIndex(m => m.type === 'healing')
+      if (healingIdx === -1) return
+      const healing = city.modifiers[healingIdx]
+      if (healing.roundsLeft > 0) {
+        healing.roundsLeft--
+        if (healing.roundsLeft <= 0) {
+          // 治疗完成，满血返回
+          city.currentHp = healing.returnHp || city.hp
+          city.isInHealing = false
+          city.modifiers.splice(healingIdx, 1)
+          // 移除bannedCities记录
+          if (gameStore.bannedCities[player.name] && gameStore.bannedCities[player.name][cityName]) {
+            delete gameStore.bannedCities[player.name][cityName]
+          }
+          addPublicLog(`${player.name}的${city.name}高级治疗完成，满血返回战场`)
+        }
       }
-    }
+    })
 
     // 5. 钢铁城市倒计时-1
     if (gameStore.ironCities && gameStore.ironCities[player.name]) {
@@ -347,15 +366,17 @@ export function useGameLogic() {
     // 7. 金币贷款倒计时-1 (已移至gameStore.updateRoundStates()统一管理)
     // 不再使用player.loanCooldown,改用gameStore.goldLoanRounds
 
-    // 8. 生于紫室：每回合HP增加（初始HP的10%）
+    // 8. 生于紫室：每回合该城市HP增加（初始HP的10%）
     if (gameStore.purpleChamber && gameStore.purpleChamber[player.name]) {
-      Object.values(player.cities).forEach(city => {
-        if (city.isAlive) {
-          const hpGain = Math.floor(city.baseHp * 0.1)
-          city.currentHp += hpGain
-          city.hp += hpGain  // 最大HP也增加
-        }
-      })
+      const chamberCityName = gameStore.purpleChamber[player.name]
+      const chamberCity = player.cities[chamberCityName]
+      if (chamberCity && chamberCity.isAlive) {
+        const hpGain = Math.floor(chamberCity.baseHp * 0.1)
+        chamberCity.currentHp += hpGain
+        chamberCity.hp += hpGain  // 最大HP也增加
+        // 使用私有日志，仅该玩家可见
+        gameStore.addPrivateLog(player.name, `(生于紫室) ${chamberCity.name} HP+${hpGain}（每回合+10%）`)
+      }
     }
 
     // 9. 深藏不露：每5回合未出战+10000HP
@@ -379,7 +400,7 @@ export function useGameLogic() {
         bomb.roundsLeft--
         if (bomb.roundsLeft <= 0) {
           // 引爆
-          const targetCity = player.cities.find(c => c.name === bomb.cityName)
+          const targetCity = player.cities[bomb.cityName]
           if (targetCity && targetCity.isAlive) {
             targetCity.currentHp = 0
             targetCity.isAlive = false
@@ -440,14 +461,7 @@ export function useGameLogic() {
     // 调试日志：输出goldLoanRounds状态
     console.log('[processNewRound] goldLoanRounds状态:', JSON.stringify(gameStore.goldLoanRounds))
 
-    // 1. 屏障回血（+3000，上限15000）
-    if (gameStore.barrier) {
-      Object.keys(gameStore.barrier).forEach(playerName => {
-        const barrier = gameStore.barrier[playerName]
-        barrier.hp = Math.min(15000, barrier.hp + 3000)
-        gameStore.addLog(`${playerName} 的屏障回血 +3000 (当前${barrier.hp})`)
-      })
-    }
+    // 1. 屏障回血 - 已在gameStore.advanceRound()中处理，此处不再重复
 
     // 2. 坚不可摧护盾递减轮数
     if (gameStore.jianbukecui) {

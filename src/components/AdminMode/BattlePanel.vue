@@ -119,7 +119,7 @@ function deployBattle() {
 
   emit('deploy-cities', {
     playerName: selectedPlayer.value,
-    cityIndices: selectedCities.value
+    cityNames: selectedCities.value
   })
 
   // 重置选择

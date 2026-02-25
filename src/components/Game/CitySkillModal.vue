@@ -1,5 +1,6 @@
 <template>
-  <div v-if="isVisible" class="modal-overlay" @click.self="closeModal">
+  <!-- 城市专属技能模态框（暂时隐藏，重做中） -->
+  <div v-if="false && isVisible" class="modal-overlay" @click.self="closeModal">
     <div class="modal-content">
       <div class="modal-header">
         <h3 class="modal-title">

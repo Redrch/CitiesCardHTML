@@ -17,32 +17,46 @@
         </div>
       </div>
 
-      <!-- 辅助功能 -->
+      <!-- 辅助功能按钮 -->
       <div class="menu-buttons">
-        <button class="menu-btn secondary" @click="$emit('show-skill-guide')">
+        <button class="menu-btn" @click="$emit('show-game-intro')">
+          <span class="btn-icon">📜</span>
+          <span class="btn-text">游戏介绍</span>
+        </button>
+        <button class="menu-btn" @click="$emit('show-skill-guide')">
           <span class="btn-icon">📖</span>
           <span class="btn-text">技能介绍</span>
         </button>
-        <button class="menu-btn secondary" @click="$emit('show-question-bank')">
+        <button class="menu-btn" @click="$emit('show-question-bank')">
           <span class="btn-icon">🏙️</span>
           <span class="btn-text">城市题库</span>
         </button>
-        <button class="menu-btn secondary" @click="$emit('show-city-info')">
+        <button class="menu-btn" @click="$emit('show-city-info')">
           <span class="btn-icon">ℹ️</span>
           <span class="btn-text">城市介绍</span>
         </button>
+        <button class="menu-btn" @click="$emit('show-changelog')">
+          <span class="btn-icon">📋</span>
+          <span class="btn-text">更新日志</span>
+        </button>
       </div>
 
-      <!-- 版本信息 -->
-      <div class="version-info">
-        <p>Version 1.0.0 | Vue 3 Edition</p>
+      <!-- 底部信息栏 -->
+      <div class="footer-info">
+        <div class="footer-left">
+          <p>QQ交流群：1073827457</p>
+        </div>
+        <div class="footer-right">
+          <p>Version 1.0.5</p>
+        </div>
       </div>
+
     </div>
   </div>
 </template>
 
 <script setup>
-defineEmits(['enter-player-mode', 'show-skill-guide', 'show-question-bank', 'show-city-info'])
+defineEmits(['enter-player-mode', 'show-game-intro', 'show-skill-guide', 'show-question-bank', 'show-city-info', 'show-changelog'])
 </script>
 
 <style scoped>
@@ -77,14 +91,14 @@ defineEmits(['enter-player-mode', 'show-skill-guide', 'show-question-bank', 'sho
 .menu-container {
   position: relative;
   z-index: 1;
-  max-width: 900px;
+  max-width: 600px;
   width: 100%;
   text-align: center;
 }
 
 /* 游戏标题 */
 .game-title {
-  margin-bottom: 60px;
+  margin-bottom: 48px;
   animation: fadeInDown 0.8s ease-out;
 }
 
@@ -111,15 +125,15 @@ defineEmits(['enter-player-mode', 'show-skill-guide', 'show-question-bank', 'sho
 
 /* 游戏模式卡片 */
 .game-modes {
-  margin-bottom: 40px;
+  margin-bottom: 24px;
   animation: fadeInUp 0.8s ease-out 0.2s both;
 }
 
 .mode-card {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(37, 99, 235, 0.1) 100%);
   border: 2px solid rgba(59, 130, 246, 0.3);
-  border-radius: 24px;
-  padding: 48px 40px;
+  border-radius: 20px;
+  padding: 28px 32px;
   cursor: pointer;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
@@ -155,8 +169,8 @@ defineEmits(['enter-player-mode', 'show-skill-guide', 'show-question-bank', 'sho
 }
 
 .mode-icon {
-  font-size: 72px;
-  margin-bottom: 20px;
+  font-size: 48px;
+  margin-bottom: 12px;
   animation: bounce 2s ease-in-out infinite;
 }
 
@@ -166,15 +180,15 @@ defineEmits(['enter-player-mode', 'show-skill-guide', 'show-question-bank', 'sho
 }
 
 .mode-title {
-  font-size: 36px;
+  font-size: 26px;
   font-weight: 700;
   color: #f1f5f9;
-  margin: 0 0 12px 0;
+  margin: 0 0 8px 0;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .mode-desc {
-  font-size: 18px;
+  font-size: 15px;
   color: #cbd5e1;
   margin: 0;
   font-weight: 400;
@@ -182,13 +196,13 @@ defineEmits(['enter-player-mode', 'show-skill-guide', 'show-question-bank', 'sho
 
 .mode-badge {
   position: absolute;
-  top: 20px;
-  right: 20px;
+  top: 16px;
+  right: 16px;
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
   color: white;
-  padding: 6px 16px;
+  padding: 4px 14px;
   border-radius: 20px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
   animation: pulse 2s ease-in-out infinite;
@@ -199,56 +213,70 @@ defineEmits(['enter-player-mode', 'show-skill-guide', 'show-question-bank', 'sho
   50% { transform: scale(1.05); }
 }
 
-/* 辅助功能按钮 */
+/* 辅助功能按钮 - 2列网格，2-2-1布局，最后一个居中 */
 .menu-buttons {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  margin-bottom: 40px;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 30px;
   animation: fadeInUp 0.8s ease-out 0.4s both;
 }
 
+.menu-btn:last-child {
+  grid-column: 1 / -1;
+  max-width: calc(50% - 7px);
+  justify-self: center;
+}
+
 .menu-btn {
-  background: rgba(30, 41, 59, 0.6);
-  border: 2px solid rgba(148, 163, 184, 0.2);
-  border-radius: 16px;
-  padding: 24px 20px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(100, 116, 139, 0.3);
+  border-radius: 14px;
+  padding: 18px 24px;
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
+  gap: 10px;
   backdrop-filter: blur(10px);
+  min-width: 0;
 }
 
 .menu-btn:hover {
-  background: rgba(51, 65, 85, 0.8);
+  background: rgba(51, 65, 85, 0.9);
   border-color: rgba(148, 163, 184, 0.4);
-  transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
 
 .menu-btn:active {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 .btn-icon {
-  font-size: 32px;
+  font-size: 24px;
+  flex-shrink: 0;
 }
 
 .btn-text {
   font-size: 16px;
   font-weight: 600;
   color: #e2e8f0;
+  white-space: nowrap;
 }
 
-/* 版本信息 */
-.version-info {
+/* 底部信息栏 */
+.footer-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   animation: fadeIn 0.8s ease-out 0.6s both;
 }
 
-.version-info p {
+.footer-left p,
+.footer-right p {
   font-size: 14px;
   color: #64748b;
   margin: 0;
@@ -285,6 +313,10 @@ defineEmits(['enter-player-mode', 'show-skill-guide', 'show-question-bank', 'sho
 
 /* 响应式设计 */
 @media (max-width: 768px) {
+  .game-title {
+    margin-bottom: 36px;
+  }
+
   .title-text {
     font-size: 48px;
   }
@@ -294,32 +326,48 @@ defineEmits(['enter-player-mode', 'show-skill-guide', 'show-question-bank', 'sho
   }
 
   .mode-card {
-    padding: 36px 24px;
+    padding: 24px 20px;
   }
 
   .mode-icon {
-    font-size: 56px;
+    font-size: 40px;
+    margin-bottom: 8px;
   }
 
   .mode-title {
-    font-size: 28px;
+    font-size: 22px;
   }
 
   .mode-desc {
-    font-size: 16px;
+    font-size: 14px;
   }
 
   .menu-buttons {
-    grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 10px;
   }
 
   .menu-btn {
-    padding: 20px;
+    padding: 14px 18px;
+  }
+
+  .menu-btn:last-child {
+    max-width: calc(50% - 5px);
+  }
+
+  .btn-icon {
+    font-size: 22px;
+  }
+
+  .btn-text {
+    font-size: 14px;
   }
 }
 
 @media (max-width: 480px) {
+  .game-title {
+    margin-bottom: 28px;
+  }
+
   .title-text {
     font-size: 36px;
     letter-spacing: 2px;
@@ -330,24 +378,49 @@ defineEmits(['enter-player-mode', 'show-skill-guide', 'show-question-bank', 'sho
   }
 
   .mode-card {
-    padding: 28px 20px;
+    padding: 20px 16px;
   }
 
   .mode-icon {
-    font-size: 48px;
+    font-size: 36px;
+    margin-bottom: 6px;
   }
 
   .mode-title {
-    font-size: 24px;
+    font-size: 20px;
   }
 
   .mode-desc {
-    font-size: 14px;
+    font-size: 13px;
   }
 
   .mode-badge {
-    font-size: 12px;
-    padding: 4px 12px;
+    font-size: 11px;
+    padding: 3px 10px;
+    top: 12px;
+    right: 12px;
+  }
+
+  .menu-buttons {
+    gap: 8px;
+  }
+
+  .menu-btn {
+    padding: 12px 14px;
+    gap: 8px;
+    border-radius: 12px;
+  }
+
+  .menu-btn:last-child {
+    max-width: calc(50% - 4px);
+  }
+
+  .btn-icon {
+    font-size: 20px;
+  }
+
+  .btn-text {
+    font-size: 13px;
   }
 }
 </style>

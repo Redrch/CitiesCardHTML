@@ -42,8 +42,8 @@
       </div>
     </div>
 
-    <!-- 城市技能按钮（已知城市且有技能） -->
-    <div v-if="!city.isUnknown && citySkill" class="city-card__skill-section">
+    <!-- 城市技能按钮（暂时隐藏，重做中） -->
+    <div v-if="false && !city.isUnknown && citySkill" class="city-card__skill-section">
       <button
         class="skill-button"
         @click.stop="handleSkillClick"

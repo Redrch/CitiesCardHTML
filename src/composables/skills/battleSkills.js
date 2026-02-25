@@ -13,27 +13,10 @@ import { addSkillUsageLog, addSkillEffectLog } from '../game/logUtils'
 
 /**
  * 获取城市对象的辅助函数
- * 支持cities为数组或对象的情况
+ * player.cities 是以城市名为键的对象
  */
 function getCityByName(player, cityName) {
-  if (Array.isArray(player.cities)) {
-    return player.cities.find(c => c.name === cityName)
-  } else {
-    return player.cities[cityName]
-  }
-}
-
-/**
- * 获取城市索引的辅助函数
- * 支持cities为数组或对象的情况
- */
-function getCityIndex(player, cityName) {
-  if (Array.isArray(player.cities)) {
-    const city = player.cities.find(c => c.name === cityName)
-    return player.cities.indexOf(city)
-  } else {
-    return cityName
-  }
+  return player.cities[cityName]
 }
 
 export function useBattleSkills() {
@@ -94,18 +77,14 @@ export function useBattleSkills() {
       mode: gameStore.gameMode
     }
 
-    // 双日志
-    addSkillUsageLog(
-      gameStore,
-      caster.name,
-      '草木皆兵',
-      `${caster.name}使用了草木皆兵，草木皆兵生效，${target.name}本轮伤害减半，若不出牌可被抢走1金币`,
-      `${caster.name}对 ${target.name} 使用了草木皆兵`
-    )
+    // 仅私密日志（公开日志在battle2P中战斗计算时输出，避免提前暴露）
+    gameStore.addPrivateLog(caster.name, `${caster.name}对 ${target.name} 使用了草木皆兵`)
 
     return {
       success: true,
-      message: `对 ${target.name} 造成的伤害本轮减半，若不出牌可抢走1金币`
+      message: `对 ${target.name} 造成的伤害本轮减半，若不出牌可抢走1金币`,
+      targetName: target.name,  // 传递目标信息
+      hidePublicLog: true  // 战斗技能效果在battle2P中公开，此处不公开
     }
   }
 
@@ -176,18 +155,13 @@ export function useBattleSkills() {
       duration: 1
     })
 
-    // 双日志
-    addSkillUsageLog(
-      gameStore,
-      caster.name,
-      '吸引攻击',
-      `${caster.name}使用了吸引攻击，${selfCity.name} 获得吸引攻击效果，本轮将吸引全部伤害`,
-      `${caster.name}对 ${selfCity.name} 使用了吸引攻击`
-    )
+    // 仅私密日志（公开日志在battle2P中战斗计算时输出，避免提前暴露）
+    gameStore.addPrivateLog(caster.name, `${caster.name}对 ${selfCity.name} 使用了吸引攻击`)
 
     return {
       success: true,
-      message: `${selfCity.name} 将吸引对手本轮全部伤害`
+      message: `${selfCity.name} 将吸引对手本轮全部伤害`,
+      hidePublicLog: true  // 战斗技能效果在battle2P中公开，此处不公开
     }
   }
 
@@ -479,7 +453,7 @@ export function useBattleSkills() {
   }
 
   /**
-   * 设置屏障 - 15000HP护盾（每玩家独立）
+   * 设置屏障 - 25000HP护盾（每玩家独立）
    */
   function executeSetBarrier(caster) {
     // 检查该玩家是否已有屏障存在
@@ -496,8 +470,8 @@ export function useBattleSkills() {
 
     // 为该玩家创建屏障
     gameStore.barrier[caster.name] = {
-      hp: 15000,
-      maxHp: 15000,
+      hp: 25000,
+      maxHp: 25000,
       roundsLeft: 5,
       team: caster.team || 0
     }
@@ -507,13 +481,13 @@ export function useBattleSkills() {
       gameStore,
       caster.name,
       '设置屏障',
-      `${caster.name}使用了设置屏障，屏障生效（15000HP，持续5回合）`,
+      `${caster.name}使用了设置屏障，屏障生效（25000HP，持续5回合）`,
       `你设置了屏障`
     )
 
     return {
       success: true,
-      message: '设置了15000HP的屏障，持续5回合'
+      message: '设置了25000HP的屏障，持续5回合'
     }
   }
 
@@ -618,6 +592,12 @@ export function useBattleSkills() {
       return { success: false, message: '未选择城市' }
     }
 
+    // 己方城市数量大于等于2时使用
+    const aliveCityCount = Object.values(caster.cities).filter(c => c && (c.currentHp > 0 || c.hp > 0)).length
+    if (aliveCityCount < 2) {
+      return { success: false, message: '己方城市数量不足2座，无法使用狂暴模式' }
+    }
+
     // 获取城市名称
     const cityName = selfCity.name
     if (!caster.cities[cityName]) {
@@ -633,35 +613,29 @@ export function useBattleSkills() {
     const goldCheck = checkAndDeductGold('狂暴模式', caster, gameStore)
     if (!goldCheck.success) return goldCheck
 
-    selfCity.modifiers = selfCity.modifiers || []
-    selfCity.modifiers.push({
-      type: 'berserk',
-      powerMultiplier: 5,
-      duration: 1,
-      afterEffect: {
-        hpMultiplier: 0.5,
-        disableDuration: 5
-      }
-    })
+    // HP×5：直接提升城市HP，攻击力和防御均基于HP
+    const origHp = selfCity.currentHp || selfCity.hp
+    selfCity.currentHp = origHp * 5
+    if (selfCity.hp) selfCity.hp = selfCity.hp * 5
 
     // 在gameStore中记录狂暴模式使用
     if (!gameStore.berserkFired[caster.name]) {
       gameStore.berserkFired[caster.name] = {}
     }
-    gameStore.berserkFired[caster.name][cityName] = selfCity.currentHp || selfCity.hp
+    gameStore.berserkFired[caster.name][cityName] = origHp
 
     // 双日志
     addSkillUsageLog(
       gameStore,
       caster.name,
       '狂暴模式',
-      `${caster.name}使用了狂暴模式，${selfCity.name} 进入狂暴模式，攻击力×5`,
+      `${caster.name}使用了狂暴模式，${selfCity.name} HP×5（${origHp} -> ${origHp * 5}），回合结束将禁用5轮且血量降为一半`,
       `${caster.name}对 ${selfCity.name} 使用了狂暴模式`
     )
 
     return {
       success: true,
-      message: `${selfCity.name}进入狂暴模式，攻击力×5`
+      message: `${selfCity.name}进入狂暴模式，HP×5`
     }
   }
 
@@ -679,18 +653,13 @@ export function useBattleSkills() {
       duration: 1
     })
 
-    // 双日志
-    addSkillUsageLog(
-      gameStore,
-      caster.name,
-      '按兵不动',
-      `${caster.name}使用了按兵不动，按兵不动生效，本轮不出战任何城市`,
-      '${caster.name}使用了按兵不动'
-    )
+    // 仅私密日志（公开日志在battle2P中战斗计算时输出，避免提前暴露）
+    gameStore.addPrivateLog(caster.name, `${caster.name}使用了按兵不动`)
 
     return {
       success: true,
-      message: '本轮不出战任何城市'
+      message: '本轮不出战任何城市',
+      hidePublicLog: true  // 战斗技能效果在battle2P中公开，此处不公开
     }
   }
 
@@ -803,9 +772,9 @@ export function useBattleSkills() {
 
     // 获取未出战且存活的城市
     const aliveCities = []
-    Object.values(caster.cities).forEach((city, idx) => {
-      if (city.isAlive !== false && !currentRoster.includes(idx)) {
-        aliveCities.push({ city, idx })
+    Object.entries(caster.cities).forEach(([cityName, city]) => {
+      if (city.isAlive !== false && !currentRoster.includes(cityName)) {
+        aliveCities.push({ city, cityName })
       }
     })
 
@@ -824,7 +793,7 @@ export function useBattleSkills() {
     if (!gameStore.roster[caster.name]) {
       gameStore.roster[caster.name] = []
     }
-    gameStore.roster[caster.name].push(selected.idx)
+    gameStore.roster[caster.name].push(selected.cityName)
 
     // 双日志
     addSkillUsageLog(
@@ -964,24 +933,9 @@ export function useBattleSkills() {
       return { success: false, message: '未选择对手' }
     }
 
-    // 检查使用次数（最多2次）
-    if (!gameStore.wwjzUsageCount[caster.name]) {
-      gameStore.wwjzUsageCount[caster.name] = 0
-    }
-
-    if (gameStore.wwjzUsageCount[caster.name] >= 2) {
-      return {
-        success: false,
-        message: '围魏救赵最多只能使用2次！'
-      }
-    }
-
     // 金币检查和扣除
     const goldCheck = checkAndDeductGold('围魏救赵', caster, gameStore)
     if (!goldCheck.success) return goldCheck
-
-    // 增加使用次数
-    gameStore.wwjzUsageCount[caster.name]++
 
     // 设置围魏救赵标记
     gameStore.wwjz[caster.name] = {
@@ -993,13 +947,13 @@ export function useBattleSkills() {
       gameStore,
       caster.name,
       '围魏救赵',
-      `${caster.name}使用了围魏救赵，围魏救赵生效（剩余${2 - gameStore.wwjzUsageCount[caster.name]}次）`,
+      `${caster.name}使用了围魏救赵，围魏救赵生效`,
       `你对${target.name}使用了围魏救赵`
     )
 
     return {
       success: true,
-      message: `对${target.name}使用了围魏救赵（剩余${2 - gameStore.wwjzUsageCount[caster.name]}次）`
+      message: `对${target.name}使用了围魏救赵`
     }
   }
 
@@ -1017,9 +971,9 @@ export function useBattleSkills() {
 
     // 检查城市是否为出战城市（roster中）
     const targetRoster = gameStore.roster[target.name] || []
-    const targetCityIdx = target.cities.indexOf(targetCity)
+    const targetCityKey = targetCity.name
 
-    if (targetCityIdx === -1 || !targetRoster.includes(targetCityIdx)) {
+    if (!targetRoster.includes(targetCityKey)) {
       return {
         success: false,
         message: '目标城市不是出战城市'
@@ -1412,24 +1366,8 @@ export function useBattleSkills() {
     }
 
     const targetCity = getCityByName(target, targetCityName)
-    const targetCityIdx = getCityIndex(target, targetCityName)
     if (!targetCity || targetCity.isAlive === false) {
       return { success: false, message: '目标城市已阵亡' }
-    }
-
-    // 检查使用次数限制（每局最多2次）
-    if (!gameStore.yswqUsageCount) {
-      gameStore.yswqUsageCount = {}
-    }
-    if (!gameStore.yswqUsageCount[caster.name]) {
-      gameStore.yswqUsageCount[caster.name] = 0
-    }
-
-    if (gameStore.yswqUsageCount[caster.name] >= 2) {
-      return {
-        success: false,
-        message: '玉碎瓦全每局最多使用2次'
-      }
     }
 
     // 金币检查和扣除
@@ -1438,13 +1376,10 @@ export function useBattleSkills() {
       return goldCheck
     }
 
-    // 增加使用次数
-    gameStore.yswqUsageCount[caster.name]++
-
     // 清除目标城市的保护罩（城市保护）
     if (gameStore.protections && gameStore.protections[target.name]) {
-      if (gameStore.protections[target.name][targetCityIdx]) {
-        delete gameStore.protections[target.name][targetCityIdx]
+      if (gameStore.protections[target.name][targetCityName]) {
+        delete gameStore.protections[target.name][targetCityName]
         addSkillEffectLog(gameStore, `(玉碎瓦全) 清除了${target.name}的${targetCity.name}的保护罩`)
       }
     }
@@ -1458,7 +1393,7 @@ export function useBattleSkills() {
     gameStore.yswq[caster.name] = {
       targetPlayer: target.name,
       targetCityName: targetCityName,
-      targetCityIdx: targetCityIdx,  // Keep for backward compatibility
+      targetCityKey: targetCityName,
       bannedProtection: true,  // 禁止对该城市使用城市保护
       round: gameStore.currentRound
     }
@@ -1474,10 +1409,9 @@ export function useBattleSkills() {
 
     return {
       success: true,
-      message: `对${target.name}的${targetCity.name}使用了玉碎瓦全（剩余${2 - gameStore.yswqUsageCount[caster.name]}次）`,
+      message: `对${target.name}的${targetCity.name}使用了玉碎瓦全`,
       data: {
-        targetCityName: targetCity.name,
-        usagesLeft: 2 - gameStore.yswqUsageCount[caster.name]
+        targetCityName: targetCity.name
       }
     }
   }
@@ -1556,46 +1490,9 @@ export function useBattleSkills() {
       return { success: false, message: '未选择对手' }
     }
 
-    // 检查使用次数（每局限3次）
-    if (!gameStore.muBuZhuanJingUsageCount) {
-      gameStore.muBuZhuanJingUsageCount = {}
-    }
-    if (!gameStore.muBuZhuanJingUsageCount[caster.name]) {
-      gameStore.muBuZhuanJingUsageCount[caster.name] = 0
-    }
-
-    if (gameStore.muBuZhuanJingUsageCount[caster.name] >= 3) {
-      return {
-        success: false,
-        message: '寸步难行每局最多使用3次'
-      }
-    }
-
-    // 检查冷却时间
-    if (gameStore.cooldowns && gameStore.cooldowns[caster.name] &&
-        gameStore.cooldowns[caster.name]['寸步难行'] > 0) {
-      const remainingCooldown = gameStore.cooldowns[caster.name]['寸步难行']
-      return {
-        success: false,
-        message: `寸步难行冷却中，剩余${remainingCooldown}回合`
-      }
-    }
-
     // 金币检查和扣除
     const goldCheck = checkAndDeductGold('寸步难行', caster, gameStore)
     if (!goldCheck.success) return goldCheck
-
-    // 增加使用次数
-    gameStore.muBuZhuanJingUsageCount[caster.name]++
-
-    // 设置冷却时间（5回合）
-    if (!gameStore.cooldowns) {
-      gameStore.cooldowns = {}
-    }
-    if (!gameStore.cooldowns[caster.name]) {
-      gameStore.cooldowns[caster.name] = {}
-    }
-    gameStore.cooldowns[caster.name]['寸步难行'] = 5
 
     // 设置寸步难行状态（禁用对方技能3回合）
     if (!gameStore.stareDown) {
@@ -1611,13 +1508,13 @@ export function useBattleSkills() {
       gameStore,
       caster.name,
       '寸步难行',
-      `${caster.name}使用了寸步难行，寸步难行生效，${target.name}在3回合内不能使用技能（除当机立断）（剩余${3 - gameStore.muBuZhuanJingUsageCount[caster.name]}次）`,
+      `${caster.name}使用了寸步难行，寸步难行生效，${target.name}在3回合内不能使用技能（除当机立断）`,
       `你对${target.name}使用了寸步难行`
     )
 
     return {
       success: true,
-      message: `${target.name}在3回合内不能使用技能（剩余${3 - gameStore.muBuZhuanJingUsageCount[caster.name]}次）`
+      message: `${target.name}在3回合内不能使用技能`
     }
   }
 
@@ -1626,14 +1523,6 @@ export function useBattleSkills() {
    * 期间每回合战斗结束可额外获得2金币，5回合后该城市HP变为原来的20%
    */
   function executePaoZhuanYinYu(caster) {
-    // 检查是否已使用过（每局限1次）
-    if (gameStore.pzyyUsed && gameStore.pzyyUsed[caster.name]) {
-      return {
-        success: false,
-        message: '抛砖引玉每局只能使用1次'
-      }
-    }
-
     // 获取战斗预备城市
     const rosterIndices = gameStore.roster[caster.name] || []
     if (rosterIndices.length === 0) {
@@ -1644,8 +1533,8 @@ export function useBattleSkills() {
     }
 
     // 筛选非中心城市
-    const nonCenterRoster = rosterIndices.filter(idx => {
-      const city = caster.cities[idx]
+    const nonCenterRoster = rosterIndices.filter(name => {
+      const city = caster.cities[name]
       return city && !city.isCenter && city.isAlive !== false
     })
 
@@ -1657,29 +1546,23 @@ export function useBattleSkills() {
     }
 
     // 找到HP最低的城市
-    let lowestHpIdx = nonCenterRoster[0]
-    let lowestHp = caster.cities[lowestHpIdx].currentHp || caster.cities[lowestHpIdx].hp
+    let lowestHpCityName = nonCenterRoster[0]
+    let lowestHp = caster.cities[lowestHpCityName].currentHp || caster.cities[lowestHpCityName].hp
 
-    for (let idx of nonCenterRoster) {
-      const city = caster.cities[idx]
+    for (let name of nonCenterRoster) {
+      const city = caster.cities[name]
       const hp = city.currentHp || city.hp
       if (hp < lowestHp) {
         lowestHp = hp
-        lowestHpIdx = idx
+        lowestHpCityName = name
       }
     }
 
-    const targetCity = caster.cities[lowestHpIdx]
+    const targetCity = caster.cities[lowestHpCityName]
 
     // 金币检查和扣除
     const goldCheck = checkAndDeductGold('抛砖引玉', caster, gameStore)
     if (!goldCheck.success) return goldCheck
-
-    // 标记已使用
-    if (!gameStore.pzyyUsed) {
-      gameStore.pzyyUsed = {}
-    }
-    gameStore.pzyyUsed[caster.name] = true
 
     // 设置抛砖引玉状态
     if (!gameStore.paozhuanyinyu) {
@@ -1689,14 +1572,14 @@ export function useBattleSkills() {
       gameStore.paozhuanyinyu[caster.name] = {}
     }
 
-    gameStore.paozhuanyinyu[caster.name][lowestHpIdx] = {
+    gameStore.paozhuanyinyu[caster.name][lowestHpCityName] = {
       roundsLeft: 5,
       originalHp: lowestHp,
       cityName: targetCity.name
     }
 
     // 从roster中移除该城市
-    const rosterIndex = gameStore.roster[caster.name].indexOf(lowestHpIdx)
+    const rosterIndex = gameStore.roster[caster.name].indexOf(lowestHpCityName)
     if (rosterIndex > -1) {
       gameStore.roster[caster.name].splice(rosterIndex, 1)
     }

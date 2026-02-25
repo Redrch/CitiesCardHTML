@@ -7,7 +7,8 @@ import {
   getCurrentHp,
   damageCity,
   getAliveCities,
-  addShield
+  addShield,
+  findCity
 } from './skillHelpers'
 
 /**
@@ -28,8 +29,9 @@ export function handleBeijingSkill(attacker, defender, defenderCities, skillData
 
   // 攻击力加成（限2次）
   if (state.powerBoostUsed < 2) {
-    const beijingName = attacker.cities.findName(c => c.name === '北京市')
-    if (beijingName !== -1) {
+    const beijingCity = findCity(attacker, '北京市')
+    if (beijingCity) {
+      const beijingName = beijingCity.name
       if (!gameStore.tempAttackBoost) gameStore.tempAttackBoost = {}
       if (!gameStore.tempAttackBoost[attacker.name]) gameStore.tempAttackBoost[attacker.name] = {}
 
@@ -46,17 +48,16 @@ export function handleBeijingSkill(attacker, defender, defenderCities, skillData
   // 归顺对方出战城市（限1次，不能归顺对方首都）
   if (state.surrenderUsed < 1 && defenderCities && defenderCities.length > 0) {
     const surrenderableCities = defenderCities.filter(city => {
-      const cityIdx = getCityName(defender, city)
-      return cityIdx !== defender.centerCityName && city.isAlive !== false && getCurrentHp(city) > 0
+      return city.name !== defender.centerCityName && city.isAlive !== false && getCurrentHp(city) > 0
     })
 
     if (surrenderableCities.length > 0) {
       // 随机选择一个可归顺的城市
       const targetCity = surrenderableCities[Math.floor(Math.random() * surrenderableCities.length)]
-      const cityIdx = getCityName(defender, targetCity)
+      const targetName = targetCity.name
 
       // 从防守方移除
-      defender.cities.splice(cityIdx, 1)
+      delete defender.cities[targetName]
 
       // 添加到攻击方（恢复初始状态）
       const surrenderedCity = {
@@ -80,10 +81,10 @@ export function handleBeijingSkill(attacker, defender, defenderCities, skillData
  * 若天津市为首都，HP×2，但攻击力只能在此基础上增加50%
  */
 export function handleTianjinSkill(attacker, skillData, addPublicLog, gameStore) {
-  const tianjinName = attacker.cities.findName(c => c.name === '天津市')
-  if (tianjinName === -1) return
+  const tianjinCity = findCity(attacker, '天津市')
+  if (!tianjinCity) return
 
-  const tianjinCity = attacker.cities[tianjinName]
+  const tianjinName = tianjinCity.name
 
   // 初始化天津技能状态（只执行一次）
   if (!gameStore.tianjinInitialized) gameStore.tianjinInitialized = {}
@@ -182,8 +183,8 @@ export function handleHongkongSkill(attacker, skillData, addPublicLog, gameStore
   if (!gameStore.tempAttackBoost[attacker.name]) gameStore.tempAttackBoost[attacker.name] = {}
 
   aliveCities.forEach(city => {
-    const cityIdx = getCityName(attacker, city)
-    gameStore.tempAttackBoost[attacker.name][cityIdx] = {
+    const cityName = city.name
+    gameStore.tempAttackBoost[attacker.name][cityName] = {
       multiplier: 1.2,
       roundsLeft: 1,  // 单回合
       appliedRound: gameStore.currentRound
@@ -195,8 +196,8 @@ export function handleHongkongSkill(attacker, skillData, addPublicLog, gameStore
   if (!gameStore.damageReduction[attacker.name]) gameStore.damageReduction[attacker.name] = {}
 
   aliveCities.forEach(city => {
-    const cityIdx = getCityName(attacker, city)
-    gameStore.damageReduction[attacker.name][cityIdx] = {
+    const cityName = city.name
+    gameStore.damageReduction[attacker.name][cityName] = {
       percent: 0.5,  // 伤害减半
       roundsLeft: 1,  // 单回合
       appliedRound: gameStore.currentRound
@@ -213,7 +214,7 @@ export function handleHongkongSkill(attacker, skillData, addPublicLog, gameStore
  */
 export function handleMacauSkill(attacker, defender, skillData, addPublicLog, gameStore, targetCityName = null) {
   // 获取对方已知城市
-  const knownCities = Object.values(defender.cities).filter((city, idx) => {
+  const knownCities = Object.values(defender.cities).filter(city => {
     return city.isAlive !== false && getCurrentHp(city) > 0 && !city.isHidden
   })
 
@@ -222,7 +223,7 @@ export function handleMacauSkill(attacker, defender, skillData, addPublicLog, ga
     return
   }
 
-  let targetCity, cityIdx
+  let targetCity
 
   if (targetCityName !== null && targetCityName !== undefined) {
     // 使用指定的目标
@@ -230,7 +231,6 @@ export function handleMacauSkill(attacker, defender, skillData, addPublicLog, ga
   } else {
     // 随机选择一个已知城市
     targetCity = knownCities[Math.floor(Math.random() * knownCities.length)]
-    cityIdx = getCityName(defender, targetCity)
   }
 
   if (!targetCity || targetCity.isAlive === false) {
@@ -238,12 +238,14 @@ export function handleMacauSkill(attacker, defender, skillData, addPublicLog, ga
     return
   }
 
+  const disabledCityName = targetCity.name
+
   // 初始化技能禁用系统
   if (!gameStore.skillDisabled) gameStore.skillDisabled = {}
   if (!gameStore.skillDisabled[defender.name]) gameStore.skillDisabled[defender.name] = {}
 
   // 禁用该城市的专属技能
-  gameStore.skillDisabled[defender.name][cityIdx] = {
+  gameStore.skillDisabled[defender.name][disabledCityName] = {
     permanent: true,  // 永久禁用
     appliedRound: gameStore.currentRound,
     source: '赌城风云'

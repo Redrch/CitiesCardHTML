@@ -136,7 +136,7 @@ function handleSkill(attacker, defender, defenderCities, skillData, addPublicLog
 - `getEligibleCitiesByHp(player, maxHp, minHp)` - 获取符合HP条件的城市
 - `sortCitiesByHp(cities)` - 按HP排序
 - `findCity(player, cityName)` - 查找特定城市
-- `getCityIndex(player, city)` - 获取城市索引
+- `getCityName(player, cityOrName)` - 获取城市名称
 
 ### HP操作
 - `getCurrentHp(city)` - 获取当前HP
@@ -145,16 +145,16 @@ function handleSkill(attacker, defender, defenderCities, skillData, addPublicLog
 - `boostCityHp(city, multiplier)` - 增加HP倍数
 
 ### 复杂系统
-- `addShield(gameStore, playerName, cityIndex, config)` - 添加护盾
-- `banCity(gameStore, playerName, cityIndex, rounds, options)` - 禁止出战
-- `addDelayedEffect(gameStore, playerName, cityIndex, config)` - 添加延迟效果
+- `addShield(gameStore, playerName, cityName, config)` - 添加护盾
+- `banCity(gameStore, playerName, cityName, rounds, options)` - 禁止出战
+- `addDelayedEffect(gameStore, playerName, cityName, config)` - 添加延迟效果
 
 ## 🔄 已实现的复杂系统
 
 ### 1. 护盾系统
 **数据结构**：
 ```javascript
-gameStore.shields[playerName][cityIndex] = {
+gameStore.shields[playerName][cityName] = {
   hp: 10000,              // 护盾HP
   maxHp: 10000,           // 最大护盾HP
   roundsLeft: 3,          // 剩余回合（-1=永久）
@@ -165,7 +165,7 @@ gameStore.shields[playerName][cityIndex] = {
 
 **使用示例**：
 ```javascript
-addShield(gameStore, attacker.name, cityIndex, {
+addShield(gameStore, attacker.name, cityName, {
   hp: 10000,
   roundsLeft: 3
 })
@@ -174,7 +174,7 @@ addShield(gameStore, attacker.name, cityIndex, {
 ### 2. 禁止出战系统
 **数据结构**：
 ```javascript
-gameStore.bannedCities[playerName][cityIndex] = {
+gameStore.bannedCities[playerName][cityName] = {
   roundsLeft: 2,          // 剩余回合
   fullHealOnReturn: true, // 返回时满血
   originalHp: 5000        // 原始HP
@@ -183,7 +183,7 @@ gameStore.bannedCities[playerName][cityIndex] = {
 
 **使用示例**：
 ```javascript
-banCity(gameStore, attacker.name, cityIndex, 2, {
+banCity(gameStore, attacker.name, cityName, 2, {
   fullHealOnReturn: true,
   originalHp: getCurrentHp(city)
 })
@@ -192,7 +192,7 @@ banCity(gameStore, attacker.name, cityIndex, 2, {
 ### 3. 延迟效果系统
 **数据结构**：
 ```javascript
-gameStore.delayedEffects[playerName][cityIndex] = {
+gameStore.delayedEffects[playerName][cityName] = {
   type: 'penglai',        // 效果类型
   effectRoundsLeft: 2,    // 剩余回合
   effectData: {
@@ -205,7 +205,7 @@ gameStore.delayedEffects[playerName][cityIndex] = {
 
 **使用示例**：
 ```javascript
-addDelayedEffect(gameStore, attacker.name, cityIndex, {
+addDelayedEffect(gameStore, attacker.name, cityName, {
   type: 'penglai',
   roundsLeft: 2,
   data: {

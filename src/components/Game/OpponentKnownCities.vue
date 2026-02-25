@@ -31,7 +31,7 @@
       <div v-else class="known-cities-view">
         <div class="view-header">
           <button class="back-btn" @click="selectedOpponent = null">← 返回</button>
-          <h4>{{ selectedOpponent.name }} 的已知城市</h4>
+          <h4>{{ selectedOpponent.name }} 的已知城市（{{ knownCitiesData.length }}座）</h4>
         </div>
 
         <div v-if="knownCitiesData.length === 0" class="no-cities">
@@ -43,55 +43,35 @@
         <div v-else class="cities-grid">
           <div
             v-for="cityData in knownCitiesData"
-            :key="cityData.cityIdx"
+            :key="cityData.cityName"
             class="city-card"
+            @click="cityData.skill ? showSkillDescription(cityData.skill) : null"
           >
-            <div class="city-card-header">
-              <div class="city-name">{{ cityData.city.name }}</div>
-              <div v-if="cityData.cityIdx === selectedOpponent.centerCityName" class="center-badge">中心</div>
+            <div class="city-card-top">
+              <div class="city-name">
+                {{ cityData.city.name }}
+                <span v-if="cityData.cityName === selectedOpponent.centerCityName" class="center-badge">中心</span>
+              </div>
+              <div class="city-province">📍{{ getProvinceName(cityData.city.name) }}</div>
             </div>
 
-            <!-- HP信息已隐藏，只显示省份和技能 -->
-
-            <div class="city-province">
-              <span class="province-icon">📍</span>
-              {{ getProvinceName(cityData.city.name) }}
+            <!-- 城市专属技能（暂时隐藏，重做中） -->
+            <!-- <div class="city-skill-row" v-if="cityData.skill">
+              <span class="skill-name-text">{{ cityData.skill.name }}</span>
+              <span class="skill-usage-text">{{ cityData.usageCount }}/{{ cityData.skill.limit || '∞' }}</span>
+              <span class="type-badge" :class="cityData.skill.type">
+                {{ cityData.skill.type === 'active' ? '主动' : '被动' }}
+              </span>
             </div>
-
-            <div class="city-skill">
-              <template v-if="cityData.skill">
-                <div class="skill-header">
-                  <span class="skill-icon">⚡</span>
-                  <span class="skill-name">{{ cityData.skill.name }}</span>
-                </div>
-                <div class="skill-usage">
-                  使用次数：
-                  <span class="usage-count">{{ cityData.usageCount }}/{{ cityData.skill.limit || '∞' }}</span>
-                </div>
-                <div class="skill-type">
-                  <span class="type-badge" :class="cityData.skill.type">
-                    {{ cityData.skill.type === 'active' ? '主动' : '被动' }}
-                  </span>
-                  <span class="category-badge" :class="cityData.skill.category">
-                    {{ cityData.skill.category === 'battle' ? '战斗' : '非战斗' }}
-                  </span>
-                </div>
-                <button class="view-skill-btn" @click="showSkillDescription(cityData.skill)">
-                  点击查看
-                </button>
-              </template>
-              <template v-else>
-                <span class="no-skill">暂无专属技能</span>
-              </template>
-            </div>
-
-            <!-- 阵亡状态已隐藏 -->
+            <div class="city-skill-row no-skill-row" v-else>
+              <span class="no-skill-text">暂无专属技能</span>
+            </div> -->
           </div>
         </div>
       </div>
 
-      <!-- 技能描述模态框 -->
-      <div v-if="selectedSkill" class="skill-description-modal" @click.self="selectedSkill = null">
+      <!-- 技能描述模态框（暂时隐藏，重做中） -->
+      <div v-if="false && selectedSkill" class="skill-description-modal" @click.self="selectedSkill = null">
         <div class="skill-description-content">
           <div class="skill-description-header">
             <h4>{{ selectedSkill.name }}</h4>
@@ -156,7 +136,7 @@ const opponents = computed(() => {
 // 获取存活城市数量
 function getAliveCitiesCount(player) {
   if (!player.cities) return 0
-  return player.cities.filter(c => (c.currentHp || c.hp || 0) > 0 && c.isAlive !== false).length
+  return Object.values(player.cities).filter(c => (c.currentHp || c.hp || 0) > 0 && c.isAlive !== false).length
 }
 
 // 选择对手
@@ -171,30 +151,21 @@ const knownCitiesData = computed(() => {
   const opponentName = selectedOpponent.value.name
   const currentPlayerName = props.currentPlayer.name
 
-  // 使用 gameStore.getKnownCitiesForPlayer 获取已知城市索引
-  // 这个方法内部会处理前缀，防止Firebase将纯数字玩家名转换为数组索引
   const knownIndices = gameStore.getKnownCitiesForPlayer(currentPlayerName, opponentName)
 
-  return knownIndices.map(cityIdx => {
-    const city = selectedOpponent.value.cities[cityIdx]
+  return knownIndices.map(cityName => {
+    const city = selectedOpponent.value.cities[cityName]
     const skill = getCitySkill(city?.name)
     const usageCount = gameStore.getSkillUsageCount(opponentName, city?.name) || 0
 
     return {
-      cityIdx,
+      cityName,
       city,
       skill,
       usageCount
     }
-  }).filter(data => data.city) // 过滤掉无效城市
+  }).filter(data => data.city)
 })
-
-// 获取HP百分比
-function getHpPercentage(city) {
-  const current = city.currentHp !== undefined ? city.currentHp : city.hp
-  const max = city.hp || 1
-  return Math.max(0, Math.min(100, (current / max) * 100))
-}
 
 // 获取省份名称
 function getProvinceName(cityName) {
@@ -239,8 +210,8 @@ function showSkillDescription(skill) {
 
 .modal-content {
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  border-radius: 20px;
-  max-width: 1000px;
+  border-radius: 16px;
+  max-width: 900px;
   width: 95%;
   max-height: 90vh;
   overflow: hidden;
@@ -266,27 +237,27 @@ function showSkillDescription(skill) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 25px 30px;
+  padding: 16px 24px;
   border-bottom: 2px solid rgba(59, 130, 246, 0.3);
   background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+  flex-shrink: 0;
 }
 
 .modal-header h3 {
   margin: 0;
   color: #60a5fa;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .close-btn {
   background: transparent;
   border: none;
   color: #94a3b8;
-  font-size: 32px;
+  font-size: 28px;
   cursor: pointer;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -302,34 +273,34 @@ function showSkillDescription(skill) {
 
 /* 选择对手 */
 .opponent-selection {
-  padding: 30px;
+  padding: 24px;
   overflow-y: auto;
   flex: 1;
 }
 
 .instruction {
-  font-size: 16px;
+  font-size: 15px;
   color: #cbd5e1;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   text-align: center;
 }
 
 .opponent-list {
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  max-width: 600px;
+  gap: 12px;
+  max-width: 500px;
   margin: 0 auto;
 }
 
 .opponent-btn {
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 20px;
+  gap: 16px;
+  padding: 16px;
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
   border: 2px solid rgba(59, 130, 246, 0.3);
-  border-radius: 12px;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.3s;
 }
@@ -342,17 +313,16 @@ function showSkillDescription(skill) {
 }
 
 .opponent-avatar {
-  width: 60px;
-  height: 60px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
+  font-size: 22px;
   font-weight: bold;
   color: white;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   flex-shrink: 0;
 }
 
@@ -362,14 +332,14 @@ function showSkillDescription(skill) {
 }
 
 .opponent-name {
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 700;
   color: #e2e8f0;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .opponent-stats {
-  font-size: 14px;
+  font-size: 13px;
   color: #94a3b8;
 }
 
@@ -384,32 +354,32 @@ function showSkillDescription(skill) {
 .view-header {
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 20px 30px;
+  gap: 12px;
+  padding: 12px 20px;
   border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+  flex-shrink: 0;
 }
 
 .back-btn {
-  padding: 8px 16px;
+  padding: 6px 14px;
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(124, 58, 237, 0.2) 100%);
   border: 1px solid rgba(139, 92, 246, 0.4);
-  border-radius: 8px;
+  border-radius: 6px;
   color: #a78bfa;
   cursor: pointer;
   transition: all 0.2s;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
 }
 
 .back-btn:hover {
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(124, 58, 237, 0.3) 100%);
   border-color: rgba(139, 92, 246, 0.6);
-  transform: translateX(-2px);
 }
 
 .view-header h4 {
   margin: 0;
-  font-size: 18px;
+  font-size: 15px;
   color: #e2e8f0;
   flex: 1;
 }
@@ -419,173 +389,116 @@ function showSkillDescription(skill) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
+  padding: 48px 20px;
   color: #64748b;
   flex: 1;
 }
 
 .empty-icon {
-  font-size: 64px;
-  margin-bottom: 20px;
+  font-size: 48px;
+  margin-bottom: 16px;
   opacity: 0.5;
 }
 
 .no-cities p {
-  margin: 8px 0;
-  font-size: 16px;
+  margin: 4px 0;
+  font-size: 14px;
 }
 
 .hint {
-  font-size: 14px;
+  font-size: 13px;
   color: #475569;
 }
 
+/* 紧凑城市列表 */
 .cities-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
   overflow-y: auto;
   flex: 1;
 }
 
-/* 城市卡牌 */
+/* 城市卡牌 - 紧凑行式布局 */
 .city-card {
   background: linear-gradient(135deg, #1e3a5f 0%, #0f2642 100%);
-  border: 2px solid rgba(96, 165, 250, 0.3);
-  border-radius: 16px;
-  padding: 20px;
-  transition: all 0.3s;
-  position: relative;
-  overflow: hidden;
+  border: 1.5px solid rgba(96, 165, 250, 0.25);
+  border-radius: 10px;
+  padding: 10px 14px;
+  transition: all 0.2s;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .city-card:hover {
   border-color: rgba(96, 165, 250, 0.6);
-  transform: translateY(-4px);
-  box-shadow: 0 12px 30px rgba(96, 165, 250, 0.2);
+  background: linear-gradient(135deg, #243f6a 0%, #152d4f 100%);
 }
 
-.city-card-header {
+.city-card-top {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .city-name {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 700;
   color: #60a5fa;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .center-badge {
   background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
   color: white;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 700;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-
-.city-hp {
-  margin-bottom: 15px;
-}
-
-.hp-label {
-  font-size: 13px;
-  color: #94a3b8;
-  margin-bottom: 5px;
-}
-
-.hp-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: #10b981;
-  margin-bottom: 8px;
-  text-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
-}
-
-.hp-bar {
-  height: 8px;
-  background: rgba(15, 23, 42, 0.6);
+  padding: 2px 8px;
   border-radius: 4px;
-  overflow: hidden;
-}
-
-.hp-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
-  border-radius: 4px;
-  transition: width 0.3s;
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .city-province {
+  font-size: 13px;
+  color: #94a3b8;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* 技能行 */
+.city-skill-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 6px;
+  flex-wrap: wrap;
+}
+
+.skill-name-text {
   font-size: 14px;
-  color: #cbd5e1;
-  margin-bottom: 15px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.province-icon {
-  font-size: 16px;
-}
-
-.city-skill {
-  padding: 15px;
-  background: rgba(139, 92, 246, 0.1);
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  border-radius: 12px;
-  min-height: 100px;
-}
-
-.skill-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.skill-icon {
-  font-size: 18px;
-}
-
-.skill-name {
-  font-size: 16px;
   font-weight: 700;
   color: #c084fc;
 }
 
-.skill-usage {
-  font-size: 14px;
-  color: #cbd5e1;
-  margin-bottom: 10px;
-}
-
-.usage-count {
+.skill-usage-text {
+  font-size: 13px;
   font-weight: 700;
   color: #fbbf24;
 }
 
-.skill-type {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.type-badge,
-.category-badge {
-  padding: 4px 10px;
-  border-radius: 6px;
+.type-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
   font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .type-badge.active {
@@ -598,45 +511,15 @@ function showSkillDescription(skill) {
   color: white;
 }
 
-.category-badge.battle {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  color: white;
+.no-skill-row {
+  background: rgba(100, 116, 139, 0.08);
+  border-color: rgba(100, 116, 139, 0.15);
 }
 
-.category-badge.nonBattle {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-}
-
-.no-skill {
-  font-size: 14px;
+.no-skill-text {
+  font-size: 13px;
   color: #64748b;
   font-style: italic;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 70px;
-}
-
-.view-skill-btn {
-  width: 100%;
-  margin-top: 10px;
-  padding: 8px 16px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  border: none;
-  border-radius: 8px;
-  color: white;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-
-.view-skill-btn:hover {
-  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
 /* 技能描述模态框 */
@@ -657,8 +540,8 @@ function showSkillDescription(skill) {
 .skill-description-content {
   background: linear-gradient(135deg, #1e3a5f 0%, #0f2642 100%);
   border: 2px solid #60a5fa;
-  border-radius: 16px;
-  max-width: 600px;
+  border-radius: 12px;
+  max-width: 500px;
   width: 90%;
   max-height: 80vh;
   overflow: hidden;
@@ -670,27 +553,26 @@ function showSkillDescription(skill) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 25px;
+  padding: 16px 20px;
   background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
   border-bottom: 2px solid rgba(96, 165, 250, 0.3);
 }
 
 .skill-description-header h4 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   color: #60a5fa;
   font-weight: 700;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .close-skill-btn {
   background: transparent;
   border: none;
   color: #94a3b8;
-  font-size: 28px;
+  font-size: 24px;
   cursor: pointer;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -705,49 +587,49 @@ function showSkillDescription(skill) {
 }
 
 .skill-description-body {
-  padding: 25px;
-  max-height: calc(80vh - 80px);
+  padding: 20px;
+  max-height: calc(80vh - 70px);
   overflow-y: auto;
 }
 
 .skill-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 20px;
-  padding-bottom: 20px;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
   border-bottom: 1px solid rgba(96, 165, 250, 0.2);
 }
 
 .skill-meta-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
+  gap: 6px;
+  padding: 6px 12px;
   background: rgba(59, 130, 246, 0.1);
   border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .meta-label {
-  font-size: 13px;
+  font-size: 12px;
   color: #94a3b8;
   font-weight: 600;
 }
 
 .meta-value {
-  font-size: 14px;
+  font-size: 13px;
   color: #e2e8f0;
   font-weight: 700;
 }
 
 .skill-description-text {
-  font-size: 15px;
-  line-height: 1.8;
+  font-size: 14px;
+  line-height: 1.7;
   color: #cbd5e1;
   background: rgba(15, 23, 42, 0.4);
-  padding: 20px;
-  border-radius: 12px;
+  padding: 16px;
+  border-radius: 8px;
   border: 1px solid rgba(96, 165, 250, 0.2);
 }
 
@@ -755,21 +637,21 @@ function showSkillDescription(skill) {
 .opponent-selection::-webkit-scrollbar,
 .cities-grid::-webkit-scrollbar,
 .skill-description-body::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
 }
 
 .opponent-selection::-webkit-scrollbar-track,
 .cities-grid::-webkit-scrollbar-track,
 .skill-description-body::-webkit-scrollbar-track {
   background: rgba(15, 23, 42, 0.5);
-  border-radius: 5px;
+  border-radius: 4px;
 }
 
 .opponent-selection::-webkit-scrollbar-thumb,
 .cities-grid::-webkit-scrollbar-thumb,
 .skill-description-body::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
-  border-radius: 5px;
+  border-radius: 4px;
   border: 2px solid rgba(15, 23, 42, 0.5);
 }
 
@@ -787,18 +669,15 @@ function showSkillDescription(skill) {
   }
 
   .cities-grid {
-    grid-template-columns: 1fr;
-    padding: 20px;
+    padding: 8px 10px;
   }
 
-  .opponent-btn {
-    padding: 15px;
+  .city-card {
+    padding: 8px 12px;
   }
 
-  .opponent-avatar {
-    width: 50px;
-    height: 50px;
-    font-size: 24px;
+  .city-name {
+    font-size: 14px;
   }
 }
 </style>

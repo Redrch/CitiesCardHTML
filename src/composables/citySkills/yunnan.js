@@ -52,7 +52,7 @@ export function handleQujingSkill(attacker, skillData, addPublicLog, gameStore) 
   targetCity.currentHp = newHp
   targetCity.hp = newHp
 
-  const cityName = attacker.cities.indexOf(targetCity)
+  const cityName = targetCity.name
   if (!gameStore.temporaryHpBoost) gameStore.temporaryHpBoost = {}
   if (!gameStore.temporaryHpBoost[attacker.name]) gameStore.temporaryHpBoost[attacker.name] = {}
 
@@ -76,7 +76,7 @@ export function handleYuxiSkill(attacker, skillData, addPublicLog, gameStore) {
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityName = attacker.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   addCityShield(targetCity, 5000, 3)
 
@@ -93,7 +93,7 @@ export function handleBaoshanSkill(attacker, skillData, addPublicLog, gameStore)
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityName = attacker.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   // 解除疲劳
   if (!gameStore.fatigueRemoval) gameStore.fatigueRemoval = {}
@@ -141,7 +141,7 @@ export function handleZhaotongSkill(attacker, skillData, addPublicLog, gameStore
  * 限2次，使己方中心城市获得1200HP护盾
  */
 export function handleLijiangSkill(attacker, skillData, addPublicLog, gameStore) {
-  const centerCityName = attacker.centerCityName ?? 0
+  const centerCityName = attacker.centerCityName
   const centerCity = attacker.cities[centerCityName]
 
   if (!centerCity) return
@@ -290,20 +290,20 @@ export function handleDaliSkill(attacker, skillData, addPublicLog, gameStore) {
   targetCity.currentHp = initialHp
   targetCity.hp = initialHp
 
-  const targetIndex = attacker.cities.indexOf(targetCity)
+  const targetName = targetCity.name
   const daliName = skillData.cityName
 
   // 禁止出战2回合
   if (!gameStore.battleBanned) gameStore.battleBanned = {}
   if (!gameStore.battleBanned[attacker.name]) gameStore.battleBanned[attacker.name] = {}
 
-  gameStore.battleBanned[attacker.name][targetIndex] = {
+  gameStore.battleBanned[attacker.name][targetName] = {
     active: true,
     roundsLeft: 2,
     appliedRound: gameStore.currentRound
   }
 
-  gameStore.battleBanned[attacker.name][daliIndex] = {
+  gameStore.battleBanned[attacker.name][daliName] = {
     active: true,
     roundsLeft: 2,
     appliedRound: gameStore.currentRound
@@ -313,7 +313,7 @@ export function handleDaliSkill(attacker, skillData, addPublicLog, gameStore) {
   if (!gameStore.powerBoost) gameStore.powerBoost = {}
   if (!gameStore.powerBoost[attacker.name]) gameStore.powerBoost[attacker.name] = {}
 
-  gameStore.powerBoost[attacker.name][`dali_${targetIndex}`] = {
+  gameStore.powerBoost[attacker.name][`dali_${targetName}`] = {
     active: true,
     multiplier: 1.5,
     permanent: true
@@ -354,7 +354,7 @@ export function handleDiqingSkill(attacker, skillData, addPublicLog, gameStore) 
   if (!gameStore.disguiseTransform) gameStore.disguiseTransform = {}
   gameStore.disguiseTransform[attacker.name] = {
     active: true,
-    originalCityIndex: cityName,
+    originalCityName: cityName,
     hpRange: { min: 10000, max: 20000 },
     transformAttack: true,
     roundsLeft: 1,

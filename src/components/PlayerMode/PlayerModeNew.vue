@@ -243,14 +243,14 @@ function handleQuickSkill(skill) {
   const target = gameStore.players.find(p => p.name !== currentPlayer.value?.name)
 
   if (skill.name === '快速治疗') {
-    const injuredCity = currentPlayer.value.cities.find(c => c.isAlive && c.currentHp < c.hp)
+    const injuredCity = Object.values(currentPlayer.value.cities).find(c => c.isAlive && c.currentHp < c.hp)
     if (injuredCity) {
-      handleHealCity(currentPlayer.value, currentPlayer.value.cities.indexOf(injuredCity))
+      handleHealCity(currentPlayer.value, injuredCity.name)
     } else {
       alert('没有受伤的城市需要治疗')
     }
   } else if (skill.name === '城市保护') {
-    const centerCity = currentPlayer.value.cities.find(c => c.isCenter && c.isAlive)
+    const centerCity = Object.values(currentPlayer.value.cities).find(c => c.isCenter && c.isAlive)
     if (centerCity) {
       const result = gameLogic.useSkill('城市保护', [centerCity])
       if (!result.success) {

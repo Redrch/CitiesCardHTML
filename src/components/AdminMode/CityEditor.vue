@@ -74,49 +74,6 @@
               </div>
             </div>
 
-            <!-- 技能等级编辑 -->
-            <div class="edit-section">
-              <label>技能等级</label>
-              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
-                <div>
-                  <label class="skill-label">红色</label>
-                  <input
-                    v-model.number="city.red"
-                    type="number"
-                    min="0"
-                    max="10"
-                  />
-                </div>
-                <div>
-                  <label class="skill-label">绿色</label>
-                  <input
-                    v-model.number="city.green"
-                    type="number"
-                    min="0"
-                    max="10"
-                  />
-                </div>
-                <div>
-                  <label class="skill-label">蓝色</label>
-                  <input
-                    v-model.number="city.blue"
-                    type="number"
-                    min="0"
-                    max="10"
-                  />
-                </div>
-                <div>
-                  <label class="skill-label">黄色</label>
-                  <input
-                    v-model.number="city.yellow"
-                    type="number"
-                    min="0"
-                    max="10"
-                  />
-                </div>
-              </div>
-            </div>
-
             <!-- 特殊护盾 -->
             <div class="edit-section">
               <label>特殊效果</label>
@@ -196,12 +153,6 @@
           <div v-else class="city-summary">
             <div class="muted" style="font-size: 11px;">
               HP: {{ city.currentHp || city.hp }}/{{ city.hp }}
-            </div>
-            <div style="margin-top: 4px;">
-              <span class="badge">红{{ city.red || 0 }}</span>
-              <span class="badge">绿{{ city.green || 0 }}</span>
-              <span class="badge">蓝{{ city.blue || 0 }}</span>
-              <span class="badge">黄{{ city.yellow || 0 }}</span>
             </div>
             <div v-if="city.isFatigued || city.protection || city.ironShield" class="muted" style="font-size: 10px; margin-top: 4px;">
               <span v-if="city.isFatigued" class="warn">疲劳</span>

@@ -5,7 +5,7 @@
 
 import { ref, computed } from 'vue'
 import { useGameStore } from '../stores/gameStore'
-import { calculateCityPower, getGreenDefense } from '../utils/cityHelpers'
+import { calculateCityPower } from '../utils/cityHelpers'
 
 export function useBattle() {
   const gameStore = useGameStore()
@@ -62,16 +62,8 @@ export function useBattle() {
       }
     })
 
-    // 计算绿色技能防御加成
-    let greenDefenseBonus = 0
-    defendingCities.forEach(city => {
-      if (city && city.isAlive) {
-        greenDefenseBonus += getGreenDefense(city.green || 0)
-      }
-    })
-
     // 计算净伤害
-    let netDamage = Math.max(0, totalAttackPower - greenDefenseBonus)
+    let netDamage = totalAttackPower
 
     // 检查护盾 - 关键修复：同步使用 gameStore.barrier
     if (gameStore.barrier[defender.name]) {
@@ -106,7 +98,7 @@ export function useBattle() {
       attacker: attacker.name,
       defender: defender.name,
       attackPower: totalAttackPower,
-      defensePower: greenDefenseBonus,
+      defensePower: 0,
       netDamage: netDamage,
       casualties: damageResult.casualties,
       attackingCities: attackingCities.filter(c => c && c.isAlive).length,
@@ -246,6 +238,29 @@ export function useBattle() {
       results.push(team1InternalResult, team2InternalResult)
     }
 
+    // 狂暴模式后置处理：回合结束血量折半并禁用5轮
+    const players = gameStore.players
+    players.forEach(player => {
+      if (gameStore.berserkFired[player.name]) {
+        Object.keys(gameStore.berserkFired[player.name]).forEach(cityName => {
+          const city = player.cities[cityName]
+          if (city) {
+            const before = city.currentHp || city.hp
+            const halfHp = Math.floor(before / 2)
+            if (city.currentHp !== undefined) city.currentHp = halfHp
+            if (city.hp !== undefined) city.hp = halfHp
+            gameStore.addLog(`(狂暴模式) ${player.name}的${cityName} 回合结束血量降为一半：${Math.floor(before)} -> ${halfHp}`)
+
+            // 禁用5轮
+            if (!gameStore.bannedCities[player.name]) gameStore.bannedCities[player.name] = {}
+            gameStore.bannedCities[player.name][cityName] = Math.max(6, gameStore.bannedCities[player.name][cityName] || 0)
+            gameStore.addLog(`(狂暴模式) ${player.name}的${cityName} 将在接下来的5轮无法出战`)
+          }
+          delete gameStore.berserkFired[player.name][cityName]
+        })
+      }
+    })
+
     // 清空本回合部署
     battleDeployments.value = {}
 
@@ -338,20 +353,18 @@ export function useBattle() {
 
     // 计算城市1的攻击力
     const city1Power = calculateCityPower(city1)
-    const city1Defense = getGreenDefense(city1.green || 0)
 
     // 计算城市2的攻击力
     const city2Power = calculateCityPower(city2)
-    const city2Defense = getGreenDefense(city2.green || 0)
 
     // 城市1攻击城市2
-    const damage1to2 = Math.max(0, city1Power - city2Defense)
+    const damage1to2 = city1Power
     const city2CurrentHp = city2.currentHp || city2.hp
     const actualDamage1to2 = Math.min(damage1to2, city2CurrentHp)
     city2.currentHp = city2CurrentHp - actualDamage1to2
 
     // 城市2攻击城市1
-    const damage2to1 = Math.max(0, city2Power - city1Defense)
+    const damage2to1 = city2Power
     const city1CurrentHp = city1.currentHp || city1.hp
     const actualDamage2to1 = Math.min(damage2to1, city1CurrentHp)
     city1.currentHp = city1CurrentHp - actualDamage2to1

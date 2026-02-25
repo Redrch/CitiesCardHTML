@@ -132,10 +132,6 @@ export function initializeCityObject(city) {
     ...city,
     baseHp: city.hp, // 记录原始HP
     currentHp: city.hp,
-    red: city.red || 0,
-    green: city.green || 0,
-    blue: city.blue || 0,
-    yellow: city.yellow || 0,
     isAlive: true,
     isInBattle: false,
     isFatigued: false, // 疲劳状态
@@ -152,10 +148,6 @@ export function initializeCityObject(city) {
  */
 export function calculateCityPower(city, options = {}) {
   let power = city.currentHp || city.hp
-
-  // 红色技能加成
-  const redBonus = getRedBonus(city.red || 0)
-  power += redBonus
 
   // 疲劳减半
   if (city.isFatigued && !options.ignoreFatigue) {
@@ -176,44 +168,3 @@ export function calculateCityPower(city, options = {}) {
   return Math.max(0, power)
 }
 
-/**
- * 获取红色技能加成值
- * @param {number} level - 技能等级
- * @returns {number} 加成值
- */
-function getRedBonus(level) {
-  switch(level) {
-    case 1: return 500
-    case 2: return 1000
-    case 3: return 2000
-    default: return 0
-  }
-}
-
-/**
- * 获取绿色技能防御值
- * @param {number} level - 技能等级
- * @returns {number} 防御值
- */
-export function getGreenDefense(level) {
-  switch(level) {
-    case 1: return 500
-    case 2: return 1000
-    case 3: return 2000
-    default: return 0
-  }
-}
-
-/**
- * 获取黄色技能治疗值
- * @param {number} level - 技能等级
- * @returns {number} 治疗值
- */
-export function getYellowHeal(level) {
-  switch(level) {
-    case 1: return 1000
-    case 2: return 2000
-    case 3: return 3000
-    default: return 0
-  }
-}

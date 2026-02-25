@@ -32,7 +32,7 @@ src/
 ```javascript
 // ✅ 好的设计 - 纯函数
 export function executeCityProtectionCore(params) {
-  const { caster, cityIdx, gameStore, gameMode } = params
+  const { caster, cityName, gameStore, gameMode } = params
 
   // 所有依赖通过参数传入
   // 返回标准化结果
@@ -51,7 +51,7 @@ function badDesign() {
 所有依赖通过参数传入，包括：
 - `caster` - 施法者玩家对象
 - `target` - 目标玩家对象（如适用）
-- `cityIdx` / `targetCityIdx` - 城市索引
+- `cityName` / `targetCityIdx` - 城市名称
 - `gameStore` - 游戏状态存储
 - `gameMode` - 游戏模式 ('2P', '3P', '2v2')
 - 其他技能特定参数
@@ -112,12 +112,12 @@ import { useGameStore } from '../stores/gameStore'
 
 const gameStore = useGameStore()
 const player = gameStore.players[0]
-const cityIdx = 0
+const cityName = 0
 
 // 直接调用核心逻辑
 const result = executeCityProtectionCore({
   caster: player,
-  cityIdx: cityIdx,
+  cityName: cityName,
   gameStore: gameStore,
   gameMode: gameStore.gameMode
 })
@@ -139,12 +139,12 @@ class HostModeSkillAdapter {
   applyCityProtection(playerIdx, gameStore) {
     // 1. 从UI获取参数
     const select = document.querySelector(`[data-city-select]`)
-    const cityIdx = parseInt(select.value)
+    const cityName = parseInt(select.value)
 
     // 2. 调用核心逻辑
     const result = executeCityProtectionCore({
       caster: gameStore.players[playerIdx],
-      cityIdx: cityIdx,
+      cityName: cityName,
       gameStore: gameStore,
       gameMode: gameStore.gameMode
     })
@@ -166,19 +166,19 @@ class HostModeSkillAdapter {
 class PlayerModeSkillAdapter {
   async executeCityProtection(playerId, gameStore) {
     // 1. 请求玩家选择
-    const cityIdx = await this.requestPlayerSelection({
+    const cityName = await this.requestPlayerSelection({
       question: '选择要保护的城市',
       options: this.getAvailableCities(playerId)
     })
 
-    if (cityIdx === null) {
+    if (cityName === null) {
       return { success: false, message: '玩家取消操作' }
     }
 
     // 2. 调用核心逻辑（与主持人模式相同！）
     const result = executeCityProtectionCore({
       caster: gameStore.players.find(p => p.id === playerId),
-      cityIdx: cityIdx,
+      cityName: cityName,
       gameStore: gameStore,
       gameMode: gameStore.gameMode
     })
@@ -212,7 +212,7 @@ class PlayerModeSkillAdapter {
 
    // 新代码（skillCore/nonBattleSkillsCore.js）
    export function executeSkillCore(params) {
-     const { caster, cityIdx, gameStore, gameMode } = params
+     const { caster, cityName, gameStore, gameMode } = params
      // ... 相同的逻辑，但参数化
    }
    ```
@@ -228,7 +228,7 @@ class PlayerModeSkillAdapter {
      // 调用核心逻辑
      return executeSkillCore({
        caster,
-       cityIdx: caster.cities.indexOf(selfCity),
+       cityName: caster.cities.indexOf(selfCity),
        gameStore,
        gameMode: gameStore.gameMode
      })
@@ -316,7 +316,7 @@ test('城市保护成功', () => {
 
   const result = executeCityProtectionCore({
     caster: mockPlayer,
-    cityIdx: 0,
+    cityName: 0,
     gameStore: mockGameStore,
     gameMode: '2P'
   })

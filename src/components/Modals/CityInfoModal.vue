@@ -47,7 +47,8 @@
                   <span class="detail-value hp-value">{{ city.hp.toLocaleString() }}</span>
                 </div>
 
-                <div class="detail-row skill-row">
+                <!-- 专属技能（暂时隐藏，重做中） -->
+                <!-- <div class="detail-row skill-row">
                   <span class="detail-label">专属技能：</span>
                   <span v-if="city.skill" class="skill-name">
                     {{ city.skill.name }}
@@ -56,8 +57,6 @@
                     暂无专属技能
                   </span>
                 </div>
-
-                <!-- 技能类型和分类标签 -->
                 <div v-if="city.skill" class="skill-badges">
                   <span class="skill-type-badge" :class="`skill-type--${city.skill.type}`">
                     {{ getSkillTypeLabel(city.skill.type) }}
@@ -66,10 +65,9 @@
                     {{ getSkillCategoryLabel(city.skill.category) }}
                   </span>
                 </div>
-
                 <div v-if="city.skill" class="skill-description">
                   {{ city.skill.description }}
-                </div>
+                </div> -->
               </div>
             </div>
           </div>

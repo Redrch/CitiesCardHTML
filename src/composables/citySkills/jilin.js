@@ -94,7 +94,7 @@ export function handleTonghuaSkill(attacker, skillData, addPublicLog, gameStore)
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityName = attacker.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   // 设置下次出战效果
   if (!gameStore.nextBattleEffect) gameStore.nextBattleEffect = {}

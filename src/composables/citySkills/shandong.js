@@ -136,7 +136,7 @@ export function handleDongyingSkill(attacker, skillData, addPublicLog, gameStore
  * @param {Object} skillData - 技能数据
  * @param {Function} addPublicLog - 添加日志函数
  * @param {Object} gameStore - 游戏store
- * @param {Array} selectedCityNames - 可选，玩家选择的城市索引数组
+ * @param {Array} selectedCityNames - 可选，玩家选择的城市名称数组
  */
 export function handleJiningSkill(attacker, skillData, addPublicLog, gameStore, selectedCityNames = null) {
   let citiesToHeal

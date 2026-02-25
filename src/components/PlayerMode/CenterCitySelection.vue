@@ -3,8 +3,8 @@
     <div class="selection-container">
       <!-- 标题 -->
       <div class="selection-title">
-        <h1 class="title-text">选择中心城市</h1>
-        <p class="subtitle">Choose Your Capital City</p>
+        <h1 class="title-text">{{ is3P ? '确认抽取到的城市' : '选择中心城市' }}</h1>
+        <p class="subtitle">{{ is3P ? 'Confirm Your Cities' : 'Choose Your Capital City' }}</p>
         <div class="player-name">玩家: {{ playerName }}</div>
       </div>
 
@@ -32,11 +32,12 @@
       <!-- 提示信息 -->
       <div class="tip-card">
         <span class="tip-icon">💡</span>
-        <span class="tip-text"><strong>提示：</strong>每个城市都有独特的专属技能，合理利用可以扭转战局！</span>
+        <span class="tip-text" v-if="is3P"><strong>提示：</strong>确认你抽取到的城市后即可开始游戏！</span>
+        <span class="tip-text" v-else><strong>提示：</strong>选择一座城市作为你的中心城市，中心城市被摧毁则游戏失败！</span>
       </div>
 
-      <!-- 当前选中的中心城市 -->
-      <div v-if="centerIndex !== null" class="selected-center-card">
+      <!-- 当前选中的中心城市（3P不需要） -->
+      <div v-if="!is3P && centerIndex !== null" class="selected-center-card">
         <div class="selected-center-label">当前选中的中心城市</div>
         <div class="selected-center-info">
           <div class="selected-center-icon">🏛️</div>
@@ -52,8 +53,8 @@
         <div
           v-for="(city, idx) in cities"
           :key="idx"
-          :class="['city-card', { selected: centerIndex === idx }]"
-          @click="selectCenter(idx)"
+          :class="['city-card', { selected: !is3P && centerIndex === idx, 'city-card--no-select': is3P }]"
+          @click="!is3P && selectCenter(idx)"
         >
           <div class="city-card-header">
             <div class="city-name">{{ city.name }}</div>
@@ -65,7 +66,8 @@
               <span class="stat-value">{{ city.hp }}</span>
             </div>
           </div>
-          <div
+          <!-- 城市专属技能显示（暂时隐藏，重做中） -->
+          <!-- <div
             class="city-skill"
             :class="{ 'city-skill--clickable': getCitySkill(city.name) }"
             @click.stop="getCitySkill(city.name) && showSkillDetail(city.name)"
@@ -78,8 +80,8 @@
             <template v-else>
               <span class="no-skill">暂无专属技能</span>
             </template>
-          </div>
-          <div class="city-select-status">
+          </div> -->
+          <div v-if="!is3P" class="city-select-status">
             {{ centerIndex === idx ? '✓ 已选择' : '点击选择' }}
           </div>
         </div>
@@ -88,16 +90,16 @@
       <!-- 确认按钮 -->
       <button
         class="confirm-btn"
-        :disabled="centerCityName === null"
+        :disabled="!is3P && centerCityName === null"
         @click="confirmCenter"
       >
         <span class="confirm-icon">✓</span>
-        <span class="confirm-text">确认中心城市</span>
+        <span class="confirm-text">{{ is3P ? '确认抽取到的城市' : '确认中心城市' }}</span>
       </button>
     </div>
 
-    <!-- 技能详情模态框 -->
-    <div v-if="selectedSkillCity" class="skill-modal-backdrop" @click="closeSkillDetail">
+    <!-- 技能详情模态框（暂时隐藏，重做中） -->
+    <div v-if="false && selectedSkillCity" class="skill-modal-backdrop" @click="closeSkillDetail">
       <div class="skill-modal" @click.stop>
         <div class="skill-modal-header">
           <h3 class="skill-modal-title">{{ selectedSkillCity }} - 专属技能</h3>
@@ -149,8 +151,14 @@ const props = defineProps({
   currentDrawCount: {
     type: Number,
     default: 1
+  },
+  gameMode: {
+    type: String,
+    default: '2P'
   }
 })
+
+const is3P = computed(() => props.gameMode === '3P')
 
 const emit = defineEmits(['confirm', 'redraw', 'center-selected'])
 
@@ -192,9 +200,13 @@ function selectCenter(idx) {
 }
 
 function confirmCenter() {
-  if (centerCityName.value) {
+  if (is3P.value) {
+    // 3P模式不需要中心城市，直接确认
+    console.log(`[CenterCitySelection] 3P模式：确认抽取到的城市`)
+    emit('confirm', null)
+  } else if (centerCityName.value) {
     console.log(`[CenterCitySelection] 确认中心城市: ${centerCityName.value}`)
-    emit('confirm', centerCityName.value) // 发送城市名称而不是索引
+    emit('confirm', centerCityName.value)
   }
 }
 
@@ -231,7 +243,7 @@ function getProvinceName(cityName) {
 
   if (cityName === '香港特别行政区') return '香港特别行政区'
   if (cityName === '澳门特别行政区') return '澳门特别行政区'
-  if (cityName.includes('市')) return '直辖市'
+  if (province.name === '直辖市和特区') return '直辖市'
 
   return province.name
 }
@@ -525,10 +537,14 @@ function getSkillCategoryLabel(category) {
   backdrop-filter: blur(10px);
 }
 
-.city-card:hover {
+.city-card:not(.city-card--no-select):hover {
   border-color: rgba(59, 130, 246, 0.5);
   transform: translateY(-4px);
   box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2);
+}
+
+.city-card--no-select {
+  cursor: default;
 }
 
 .city-card.selected {

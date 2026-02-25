@@ -251,12 +251,6 @@ export function drawCitiesForPlayer(player, count, allPlayers, playerIndex) {
       city.baseHp = city.hp
     }
 
-    // 初始化颜色技能等级
-    if (city.red === undefined) city.red = 0
-    if (city.green === undefined) city.green = 0
-    if (city.blue === undefined) city.blue = 0
-    if (city.yellow === undefined) city.yellow = 0
-
     // 应用HP上限
     applyHpCap(city)
 
@@ -305,7 +299,7 @@ export function confirmDrawnCities(player) {
 
   return {
     success: true,
-    message: `成功确认${player.cities.length}个城市`,
+    message: `成功确认${Object.keys(player.cities).length}个城市`,
     cities: player.cities
   }
 }
@@ -373,10 +367,6 @@ export function drawCitiesForRoom(player, count, roomData) {
     if (!city.baseHp) {
       city.baseHp = city.hp
     }
-    if (city.red === undefined) city.red = 0
-    if (city.green === undefined) city.green = 0
-    if (city.blue === undefined) city.blue = 0
-    if (city.yellow === undefined) city.yellow = 0
     applyHpCap(city)
     if (!city.currentHp) {
       city.currentHp = city.hp

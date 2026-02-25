@@ -69,6 +69,16 @@ function isCapitalCity(cityName) {
 }
 
 /**
+ * 检查城市是否拥有代行省权（指定省份）
+ */
+function hasActingCapitalForProvince(gameStore, playerName, cityName, province) {
+  return !!(gameStore.actingCapital &&
+    gameStore.actingCapital[playerName] &&
+    gameStore.actingCapital[playerName][cityName] &&
+    gameStore.actingCapital[playerName][cityName].province === province)
+}
+
+/**
  * 获取省会/首府名称
  */
 function getCapitalTerm(provinceName) {
@@ -218,12 +228,16 @@ export function checkProvinceRules(gameStore, gameState, players) {
     ? state1.currentBattleCities
     : (state1.currentBattleCities ? Object.values(state1.currentBattleCities) : [])
 
-  const sel0 = battleCities0.map(c => c.cityName)
-  const sel1 = battleCities1.map(c => c.cityName)
+  const sel0 = battleCities0.filter(c => c && c.cityName).map(c => c.cityName)
+  const sel1 = battleCities1.filter(c => c && c.cityName).map(c => c.cityName)
 
   // 关键修复：在函数开头就保存完整的城市对象信息，避免后续转移时数据丢失
   const player0CityObjects = sel0.map(cityName => {
     const city = player0.cities[cityName]
+    if (!city) {
+      console.warn(`[PreBattleChecks] player0.cities中找不到城市: ${cityName}`)
+      return { name: cityName, province: '', isCapital: false, isProvincialCapital: false, currentHp: 0, hp: 0, cityName }
+    }
     return {
       name: city.name,
       province: city.province,
@@ -237,6 +251,10 @@ export function checkProvinceRules(gameStore, gameState, players) {
 
   const player1CityObjects = sel1.map(cityName => {
     const city = player1.cities[cityName]
+    if (!city) {
+      console.warn(`[PreBattleChecks] player1.cities中找不到城市: ${cityName}`)
+      return { name: cityName, province: '', isCapital: false, isProvincialCapital: false, currentHp: 0, hp: 0, cityName }
+    }
     return {
       name: city.name,
       province: city.province,
@@ -276,25 +294,7 @@ export function checkProvinceRules(gameStore, gameState, players) {
 
       if (defenderCities.length === 0) continue
 
-      // 检查攻击方是否有省会
-      const hasCapital = attackerCities.some(cityName => {
-        // 检查是否被倒反天罡影响
-        if (gameStore.reversedCapitals &&
-            gameStore.reversedCapitals[attackerPlayer.name] &&
-            gameStore.reversedCapitals[attackerPlayer.name][cityName]) {
-          return false
-        }
-
-        const effectiveName = getEffectiveName(gameStore, attackerPlayer.name, cityName)
-        if (isCapitalCity(effectiveName)) return true
-
-        // 检查代行省权（暂时跳过，较复杂）
-        return false
-      })
-
-      if (!hasCapital) continue
-
-      // 检查双方是否都有真省会
+      // 检查攻击方是否有省会（真省会或代行省权）
       const attackerHasRealCapital = attackerCities.some(cityName => {
         if (gameStore.reversedCapitals &&
             gameStore.reversedCapitals[attackerPlayer.name] &&
@@ -305,6 +305,15 @@ export function checkProvinceRules(gameStore, gameState, players) {
         return isCapitalCity(effectiveName)
       })
 
+      const attackerHasActingCapital = attackerCities.some(cityName =>
+        hasActingCapitalForProvince(gameStore, attackerPlayer.name, cityName, prov)
+      )
+
+      const hasCapital = attackerHasRealCapital || attackerHasActingCapital
+
+      if (!hasCapital) continue
+
+      // 检查防守方是否有真省会或代行省权
       const defenderHasRealCapital = defenderCities.some(cityName => {
         if (gameStore.reversedCapitals &&
             gameStore.reversedCapitals[defenderPlayer.name] &&
@@ -315,13 +324,109 @@ export function checkProvinceRules(gameStore, gameState, players) {
         return isCapitalCity(effectiveName)
       })
 
-      // 如果双方都有真省会，跳过归顺（留给同省撤退处理）
-      if (attackerHasRealCapital && defenderHasRealCapital) {
-        continue  // 不在这里处理，等待后面的同省撤退检查
+      const defenderHasActingCapital = defenderCities.some(cityName =>
+        hasActingCapitalForProvince(gameStore, defenderPlayer.name, cityName, prov)
+      )
+
+      // 找出防守方可被归顺的城市（排除真省会和代行省权城市）
+      const defenderSurrenderableCities = defenderCities.filter(cityName => {
+        // 真省会不可被归顺
+        if (!(gameStore.reversedCapitals?.[defenderPlayer.name]?.[cityName])) {
+          const effectiveName = getEffectiveName(gameStore, defenderPlayer.name, cityName)
+          if (isCapitalCity(effectiveName)) return false
+        }
+        // 代行省权城市不可被归顺
+        if (hasActingCapitalForProvince(gameStore, defenderPlayer.name, cityName, prov)) return false
+        return true
+      })
+
+      // 如果双方都有省会（真省会或代行省权），且防守方没有可归顺的普通城市 → 撤退
+      if ((defenderHasRealCapital || defenderHasActingCapital) && defenderSurrenderableCities.length === 0) {
+        // 生成代行省权拒绝归顺的日志
+        const attackerCapitalNames = attackerCities
+          .filter(cn => {
+            if (gameStore.reversedCapitals?.[attackerPlayer.name]?.[cn]) return false
+            const eName = getEffectiveName(gameStore, attackerPlayer.name, cn)
+            return isCapitalCity(eName) || hasActingCapitalForProvince(gameStore, attackerPlayer.name, cn, prov)
+          })
+          .map(cn => getEffectiveName(gameStore, attackerPlayer.name, cn))
+
+        const defenderCapitalNames = defenderCities
+          .filter(cn => {
+            const eName = getEffectiveName(gameStore, defenderPlayer.name, cn)
+            return isCapitalCity(eName) || hasActingCapitalForProvince(gameStore, defenderPlayer.name, cn, prov)
+          })
+          .map(cn => getEffectiveName(gameStore, defenderPlayer.name, cn))
+
+        // 判断是否涉及代行省权
+        const defenderActingNames = defenderCities
+          .filter(cn => hasActingCapitalForProvince(gameStore, defenderPlayer.name, cn, prov))
+          .map(cn => getEffectiveName(gameStore, defenderPlayer.name, cn))
+        const attackerActingNames = attackerCities
+          .filter(cn => hasActingCapitalForProvince(gameStore, attackerPlayer.name, cn, prov))
+          .map(cn => getEffectiveName(gameStore, attackerPlayer.name, cn))
+
+        const capitalTerm = getCapitalTerm(prov)
+        if (defenderActingNames.length > 0 && attackerHasRealCapital) {
+          // 真省会 vs 代行省权 → 拒绝归顺撤退
+          gameStore.addLog(`>>> (同省撤退) ${attackerPlayer.name}出战了${prov}${capitalTerm}${attackerCapitalNames.join('、')}，${defenderPlayer.name}的${prov}城市${defenderActingNames.join('、')}已代行省权，拒绝归顺，双方所有出战城市撤退`)
+        } else if (attackerActingNames.length > 0 && defenderHasRealCapital) {
+          gameStore.addLog(`>>> (同省撤退) ${defenderPlayer.name}出战了${prov}${capitalTerm}${defenderCapitalNames.join('、')}，${attackerPlayer.name}的${prov}城市${attackerActingNames.join('、')}已代行省权，拒绝归顺，双方所有出战城市撤退`)
+        } else if (attackerActingNames.length > 0 && defenderActingNames.length > 0) {
+          // 双方都是代行省权 → 撤退
+          gameStore.addLog(`>>> (同省撤退) ${attackerPlayer.name}的${attackerActingNames.join('、')}和${defenderPlayer.name}的${defenderActingNames.join('、')}均已代行省权（${prov}），双方所有出战城市撤退`)
+        } else {
+          // 双方都有真省会 → 普通同省撤退
+          gameStore.addLog(`>>> (同省撤退) ${prov}${capitalTerm}出现在双方阵营，双方所有出战城市撤退`)
+        }
+
+        // 标记所有出战城市为已知
+        sel0.forEach(cn => gameStore.setCityKnown(player0.name, cn, player1.name))
+        sel1.forEach(cn => gameStore.setCityKnown(player1.name, cn, player0.name))
+
+        // 更新streak
+        const attackerGS = gameStore.players.find(p => p.name === attackerPlayer.name)
+        const defenderGS = gameStore.players.find(p => p.name === defenderPlayer.name)
+        if (attackerGS && defenderGS) {
+          if (!attackerGS.streaks) attackerGS.streaks = {}
+          if (!defenderGS.streaks) defenderGS.streaks = {}
+          sel0.forEach(cn => { attackerGS.streaks[cn] = (attackerGS.streaks[cn] || 0) + 1 })
+          sel1.forEach(cn => { defenderGS.streaks[cn] = (defenderGS.streaks[cn] || 0) + 1 })
+          Object.keys(player0.cities).forEach(cn => { if (!sel0.includes(cn)) attackerGS.streaks[cn] = 0 })
+          Object.keys(player1.cities).forEach(cn => { if (!sel1.includes(cn)) defenderGS.streaks[cn] = 0 })
+          attackerPlayer.streaks = { ...attackerGS.streaks }
+          defenderPlayer.streaks = { ...defenderGS.streaks }
+        }
+
+        // 清空出战城市
+        const attackerState = gameState.playerStates[attackerPlayer.name]
+        const defenderState = gameState.playerStates[defenderPlayer.name]
+        if (attackerState) attackerState.currentBattleCities = []
+        if (defenderState) defenderState.currentBattleCities = []
+
+        // 保存特殊事件
+        const allP0Names = sel0.map(cn => getEffectiveName(gameStore, player0.name, cn))
+        const allP1Names = sel1.map(cn => getEffectiveName(gameStore, player1.name, cn))
+        const specialEvent = {
+          type: 'retreat',
+          round: gameState.currentRound,
+          message: `${prov}发生同省撤退（代行省权）`,
+          province: prov,
+          player1: player0.name,
+          player2: player1.name,
+          player1Cities: allP0Names,
+          player2Cities: allP1Names,
+          player1CityObjects: player0CityObjects,
+          player2CityObjects: player1CityObjects
+        }
+        gameState.specialEventThisRound = specialEvent
+        gameStore.specialEventThisRound = specialEvent
+
+        return true
       }
 
-      // 省会归顺：防守方的该省城市归顺
-      if (attackerHasRealCapital && !defenderHasRealCapital) {
+      // 省会归顺：防守方的可归顺城市归顺（排除代行省权城市）
+      if (hasCapital && defenderSurrenderableCities.length > 0) {
         const transferredCities = []
 
         // 关键修复Bug1: 收集双方所有出战城市名称
@@ -331,7 +436,16 @@ export function checkProvinceRules(gameStore, gameState, players) {
         // 关键修复：真正实现城市转移
         const citiesToTransfer = []  // 记录需要转移的城市名称和对象
 
-        for (const cityName of defenderCities) {
+        // 记录代行省权城市拒绝归顺
+        const defenderActingNames = defenderCities
+          .filter(cn => hasActingCapitalForProvince(gameStore, defenderPlayer.name, cn, prov))
+          .map(cn => getEffectiveName(gameStore, defenderPlayer.name, cn))
+        if (defenderActingNames.length > 0) {
+          const capitalTerm = getCapitalTerm(prov)
+          gameStore.addLog(`  (代行省权) ${defenderPlayer.name}的${prov}城市${defenderActingNames.join('、')}已代行省权，拒绝归顺`)
+        }
+
+        for (const cityName of defenderSurrenderableCities) {
           const city = defenderPlayer.cities[cityName]
           const effectiveName = getEffectiveName(gameStore, defenderPlayer.name, cityName)
 
@@ -535,6 +649,20 @@ export function checkProvinceRules(gameStore, gameState, players) {
             const oldStreak = defenderGameStorePlayer.streaks[cityName] || 0
             defenderGameStorePlayer.streaks[cityName] = oldStreak + 1
             console.log(`[PreBattleChecks] 归顺：${defenderPlayer.name}的城市${cityName} streak: ${oldStreak} → ${defenderGameStorePlayer.streaks[cityName]}`)
+          })
+
+          // 清空未出战城市的streak
+          const attackerDeployedSet = new Set(attackerBattleCities.map(c => c.cityName))
+          Object.keys(attackerPlayer.cities).forEach(cityName => {
+            if (!attackerDeployedSet.has(cityName)) {
+              attackerGameStorePlayer.streaks[cityName] = 0
+            }
+          })
+          const defenderDeployedSet = new Set(defenderBattleCities.map(c => c.cityName))
+          Object.keys(defenderPlayer.cities).forEach(cityName => {
+            if (!defenderDeployedSet.has(cityName)) {
+              defenderGameStorePlayer.streaks[cityName] = 0
+            }
           })
 
           // 关键修复Bug1: 同时更新players数组中的streak

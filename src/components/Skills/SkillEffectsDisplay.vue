@@ -54,14 +54,14 @@
         <!-- 城市效果 -->
         <div class="cities-effects">
           <div
-            v-for="(city, idx) in player.cities"
-            :key="idx"
+            v-for="(city, cityName) in player.cities"
+            :key="cityName"
             class="city-effect"
             :class="{ dead: city.isAlive === false }"
           >
             <div class="city-name">
               <span v-if="city.isCenter">👑</span>
-              {{ getCityDisplayName(player.name, idx, city) }}
+              {{ getCityDisplayName(player.name, cityName, city) }}
             </div>
 
             <div class="city-hp">
@@ -78,15 +78,15 @@
 
             <!-- 城市保护 -->
             <div
-              v-if="getCityProtection(player.name, idx)"
+              v-if="getCityProtection(player.name, cityName)"
               class="city-buff protection"
             >
-              🛡️ 保护 ({{ getCityProtection(player.name, idx) }}回合)
+              🛡️ 保护 ({{ getCityProtection(player.name, cityName) }}回合)
             </div>
 
             <!-- 钢铁护盾 -->
             <div
-              v-if="getIronShield(player.name, idx)"
+              v-if="getIronShield(player.name, cityName)"
               class="city-buff iron"
             >
               🏰 钢铁城市
@@ -94,23 +94,23 @@
 
             <!-- 定海神针 -->
             <div
-              v-if="getAnchored(player.name, idx)"
+              v-if="getAnchored(player.name, cityName)"
               class="city-buff anchor"
             >
-              ⚓ 定海神针 ({{ getAnchored(player.name, idx) }}回合)
+              ⚓ 定海神针 ({{ getAnchored(player.name, cityName) }}回合)
             </div>
 
             <!-- 狐假虎威伪装 -->
             <div
-              v-if="getDisguise(player.name, idx)"
+              v-if="getDisguise(player.name, cityName)"
               class="city-buff disguise"
             >
-              🦊 伪装 ({{ getDisguise(player.name, idx).roundsLeft }}回合)
+              🦊 伪装 ({{ getDisguise(player.name, cityName).roundsLeft }}回合)
             </div>
 
             <!-- 生于紫室 -->
             <div
-              v-if="isPurpleChamber(player.name, idx)"
+              v-if="isPurpleChamber(player.name, cityName)"
               class="city-buff purple"
             >
               👑 生于紫室 (攻击×2)
@@ -118,18 +118,18 @@
 
             <!-- 厚积薄发 -->
             <div
-              v-if="getHouJiBaoFa(player.name, idx)"
+              v-if="getHouJiBaoFa(player.name, cityName)"
               class="city-buff hjbf"
             >
-              💪 厚积薄发 ({{ getHouJiBaoFa(player.name, idx).roundsLeft }}回合)
+              💪 厚积薄发 ({{ getHouJiBaoFa(player.name, cityName).roundsLeft }}回合)
             </div>
 
             <!-- 天灾人祸 -->
             <div
-              v-if="getDisaster(player.name, idx)"
+              v-if="getDisaster(player.name, cityName)"
               class="city-debuff disaster"
             >
-              ⚠️ 天灾人祸 ({{ getDisaster(player.name, idx) }}回合)
+              ⚠️ 天灾人祸 ({{ getDisaster(player.name, cityName) }}回合)
             </div>
           </div>
         </div>
@@ -217,27 +217,27 @@ function getJianbukecui(playerName) {
 }
 
 // 城市保护
-function getCityProtection(playerName, cityIdx) {
-  return gameStore.protections?.[playerName]?.[cityIdx]
+function getCityProtection(playerName, cityName) {
+  return gameStore.protections?.[playerName]?.[cityName]
 }
 
 // 钢铁护盾
-function getIronShield(playerName, cityIdx) {
-  return gameStore.ironShields?.[playerName]?.[cityIdx]
+function getIronShield(playerName, cityName) {
+  return gameStore.ironShields?.[playerName]?.[cityName]
 }
 
 // 定海神针
-function getAnchored(playerName, cityIdx) {
-  return gameStore.anchored?.[playerName]?.[cityIdx]
+function getAnchored(playerName, cityName) {
+  return gameStore.anchored?.[playerName]?.[cityName]
 }
 
 // 狐假虎威
-function getDisguise(playerName, cityIdx) {
-  return gameStore.disguisedCities?.[playerName]?.[cityIdx]
+function getDisguise(playerName, cityName) {
+  return gameStore.disguisedCities?.[playerName]?.[cityName]
 }
 
-function getCityDisplayName(playerName, cityIdx, city) {
-  const disguise = getDisguise(playerName, cityIdx)
+function getCityDisplayName(playerName, cityName, city) {
+  const disguise = getDisguise(playerName, cityName)
   if (disguise) {
     return `${city.name} (伪装为: ${disguise.fakeName})`
   }
@@ -245,18 +245,18 @@ function getCityDisplayName(playerName, cityIdx, city) {
 }
 
 // 生于紫室
-function isPurpleChamber(playerName, cityIdx) {
-  return gameStore.purpleChamber?.[playerName] === cityIdx
+function isPurpleChamber(playerName, cityName) {
+  return gameStore.purpleChamber?.[playerName] === cityName
 }
 
 // 厚积薄发
-function getHouJiBaoFa(playerName, cityIdx) {
-  return gameStore.hjbf?.[playerName]?.[cityIdx]
+function getHouJiBaoFa(playerName, cityName) {
+  return gameStore.hjbf?.[playerName]?.[cityName]
 }
 
 // 天灾人祸
-function getDisaster(playerName, cityIdx) {
-  return gameStore.disaster?.[playerName]?.[cityIdx]
+function getDisaster(playerName, cityName) {
+  return gameStore.disaster?.[playerName]?.[cityName]
 }
 
 // HP百分比
