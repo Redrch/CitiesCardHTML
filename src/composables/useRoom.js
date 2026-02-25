@@ -218,6 +218,29 @@ export function useRoom() {
       }
     }
 
+    // 规范化cities键：Firebase可能将城市名称键对象转为数组或数字键对象
+    if (data && data.players && Array.isArray(data.players)) {
+      data.players.forEach(player => {
+        if (!player || !player.cities) return
+        if (Array.isArray(player.cities)) {
+          const citiesObj = {}
+          player.cities.forEach(city => {
+            if (city && city.name) citiesObj[city.name] = city
+          })
+          player.cities = citiesObj
+        } else if (typeof player.cities === 'object') {
+          const keys = Object.keys(player.cities)
+          if (keys.length > 0 && keys.every(k => !isNaN(k) && k !== '')) {
+            const citiesObj = {}
+            Object.values(player.cities).forEach(city => {
+              if (city && city.name) citiesObj[city.name] = city
+            })
+            player.cities = citiesObj
+          }
+        }
+      })
+    }
+
     return data
   }
 
@@ -242,6 +265,28 @@ export function useRoom() {
             pendingSwapsLength: data.gameState?.pendingSwaps?.length || 0,
             timestamp: Date.now()
           })
+          // 规范化cities键：Firebase可能将城市名称键对象转为数字键
+          if (data.players && Array.isArray(data.players)) {
+            data.players.forEach(player => {
+              if (!player || !player.cities) return
+              if (Array.isArray(player.cities)) {
+                const citiesObj = {}
+                player.cities.forEach(city => {
+                  if (city && city.name) citiesObj[city.name] = city
+                })
+                player.cities = citiesObj
+              } else if (typeof player.cities === 'object') {
+                const keys = Object.keys(player.cities)
+                if (keys.length > 0 && keys.every(k => !isNaN(k) && k !== '')) {
+                  const citiesObj = {}
+                  Object.values(player.cities).forEach(city => {
+                    if (city && city.name) citiesObj[city.name] = city
+                  })
+                  player.cities = citiesObj
+                }
+              }
+            })
+          }
           callback(data)
         }
       })

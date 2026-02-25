@@ -33,7 +33,7 @@ export function handleShenyangSkill(attacker, skillData, addPublicLog, gameStore
   if (!gameStore.deathImmunity) gameStore.deathImmunity = {}
   if (!gameStore.deathImmunity[attacker.name]) gameStore.deathImmunity[attacker.name] = {}
 
-  const centerCityName = attacker.centerCityName ?? 0
+  const centerCityName = attacker.centerCityName
   gameStore.deathImmunity[attacker.name][centerCityName] = {
     active: true,
     count: 1
@@ -53,7 +53,7 @@ export function handleDalianSkill(attacker, skillData, addPublicLog, gameStore) 
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityName = attacker.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   // 设置反弹效果
   if (!gameStore.reflectDamage) gameStore.reflectDamage = {}
@@ -76,7 +76,7 @@ export function handleDalianSkill(attacker, skillData, addPublicLog, gameStore) 
  * 限2次，给己方中心城市附加一个持续3回合的钢铁护盾，护盾可吸收3000点伤害
  */
 export function handleAnshanSkill(attacker, skillData, addPublicLog, gameStore) {
-  const centerCityName = attacker.centerCityName ?? 0
+  const centerCityName = attacker.centerCityName
   const centerCity = attacker.cities[centerCityName]
 
   addShield(centerCity, 3000, 3)
@@ -119,7 +119,7 @@ export function handleBenxiSkill(attacker, skillData, addPublicLog, gameStore) {
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityName = attacker.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   // 设置伤害减免
   if (!gameStore.damageReduction) gameStore.damageReduction = {}
@@ -166,7 +166,7 @@ export function handleJinzhouSkill(attacker, skillData, addPublicLog, gameStore)
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityName = attacker.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   // 设置出战回血效果
   if (!gameStore.battleHealing) gameStore.battleHealing = {}
@@ -201,7 +201,7 @@ export function handleYingkouSkill(attacker, defender, skillData, addPublicLog, 
 
   // 随机选择一座城市
   const targetCity = getRandomElement(aliveCities)
-  const cityName = defender.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   // 检查是否为沿海城市
   if (coastalCities.includes(targetCity.name)) {
@@ -231,7 +231,7 @@ export function handleFuxinSkill(attacker, skillData, addPublicLog, gameStore) {
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityName = attacker.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   // 设置攻击力削弱效果
   if (!gameStore.counterWeaken) gameStore.counterWeaken = {}
@@ -279,7 +279,7 @@ export function handlePanjinSkill(attacker, skillData, addPublicLog, gameStore) 
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityName = attacker.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   // 设置中毒反击效果
   if (!gameStore.poisonCounter) gameStore.poisonCounter = {}
@@ -371,7 +371,7 @@ export function handleHuludaoSkill(attacker, defender, skillData, addPublicLog, 
   if (!gameStore.seaWaves[defender.name]) gameStore.seaWaves[defender.name] = {}
 
   targets.forEach(city => {
-    const cityName = defender.cities.indexOf(city)
+    const cityName = city.name
     gameStore.seaWaves[defender.name][cityName] = {
       active: true,
       damage: 500,

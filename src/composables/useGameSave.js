@@ -350,7 +350,7 @@ export function useGameSave() {
   function serializePlayers(players) {
     return players.map(player => ({
       ...player,
-      cities: player.cities.map(city => ({
+      cities: Object.values(player.cities).map(city => ({
         ...city,
         // 只保留必要字段
       }))
@@ -363,7 +363,7 @@ export function useGameSave() {
   function deserializePlayers(players) {
     return players.map(player => ({
       ...player,
-      cities: player.cities.map(city => ({
+      cities: Object.values(player.cities).map(city => ({
         ...city,
         isAlive: city.isAlive !== false,
         currentHp: city.currentHp || city.hp

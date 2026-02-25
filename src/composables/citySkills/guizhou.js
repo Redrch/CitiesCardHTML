@@ -100,7 +100,7 @@ export function handleTongrenSkill(attacker, skillData, addPublicLog, gameStore)
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityName = attacker.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   if (!gameStore.cityProtection) gameStore.cityProtection = {}
   if (!gameStore.cityProtection[attacker.name]) gameStore.cityProtection[attacker.name] = {}
@@ -141,7 +141,7 @@ export function handleBijieSkill(attacker, defender, skillData, addPublicLog, ga
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityName = attacker.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   if (!gameStore.azaleaStacks) gameStore.azaleaStacks = {}
   if (!gameStore.azaleaStacks[attacker.name]) gameStore.azaleaStacks[attacker.name] = {}

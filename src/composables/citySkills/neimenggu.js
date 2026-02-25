@@ -137,7 +137,7 @@ export function handleXilinguoleSkill(player, skillData, addPublicLog, gameStore
   }
 
   // 检查是否为中心城市
-  if (targetCityName === (targetPlayer.centerCityName || 0)) {
+  if (targetCityName === targetPlayer.centerCityName) {
     addPublicLog(`${player.name}的${skillData.cityName}无法激活"元上都"，不能掠夺对方中心城市！`)
     return
   }

@@ -125,6 +125,14 @@ export function applyFatigueReduction(gameStore, gameState, players, mode) {
 export function updateFatigueStreaks(players, gameState, mode) {
   console.log('[疲劳系统] 开始更新疲劳计数器')
 
+  // 关键修复：如果本回合触发了同省撤退/省会归顺等特殊事件，
+  // checkProvinceRules已经在preBattleChecks中手动更新了streaks并清空了currentBattleCities。
+  // 此时不应再运行updateFatigueStreaks，否则会因currentBattleCities为空而把所有streaks重置为0。
+  if (gameState.specialEventThisRound) {
+    console.log('[疲劳系统] 本回合有特殊事件（同省撤退/归顺），streaks已在preBattleChecks中更新，跳过')
+    return
+  }
+
   players.forEach(player => {
     const playerState = gameState.playerStates[player.name]
     if (!playerState) return

@@ -89,10 +89,13 @@ export function handleZhuzhouSkill(player, skillData, addPublicLog, gameStore, s
     const targetLowHpCities = getAliveCities(targetPlayer).filter(city => getCurrentHp(city) < 5000)
     if (targetLowHpCities.length > 0) {
       const randomCity = targetLowHpCities[Math.floor(Math.random() * targetLowHpCities.length)]
-      const cityName = randomCity.name.name || randomCity.name
+      const cityName = randomCity.name
 
       // 移除城市
-      const capturedCity = targetPlayer.cities.splice(cityName, 1)[0]
+      const capturedCity = { ...targetPlayer.cities[cityName] }
+
+      // 从对方移除
+      delete targetPlayer.cities[cityName]
 
       // 重置为初始状态
       capturedCity.currentHp = capturedCity.hp

@@ -38,7 +38,7 @@ const DEFAULT_NAMES = ['Whale','CRH380BL-3562','Sirius North','猎奇凤爱莉']
       {name: '阳泉市', hp: 871},
       {name: '长治市', hp: 2558},
       {name: '晋城市', hp: 2410},
-      {name: '朔州市', hp: 1329},
+      {name: '朔州市', hp: 1304},
       {name: '忻州市', hp: 1330},
       {name: '吕梁市', hp: 2575},
       {name: '晋中市', hp: 2463},
@@ -80,7 +80,7 @@ const DEFAULT_NAMES = ['Whale','CRH380BL-3562','Sirius North','猎奇凤爱莉']
 
     const 吉林省 = [
       {name: '长春市', hp: 8006},
-      {name: '吉林市', hp: 1633},
+      {name: '吉林市', hp: 1702},
       {name: '四平市', hp: 581},
       {name: '辽源市', hp: 528},
       {name: '通化市', hp: 766},
@@ -176,7 +176,7 @@ const DEFAULT_NAMES = ['Whale','CRH380BL-3562','Sirius North','猎奇凤爱莉']
       {name: '厦门市', hp: 8980},
       {name: '漳州市', hp: 6154},
       {name: '龙岩市', hp: 3579},
-      {name: '三明市', hp: 2923},
+      {name: '三明市', hp: 2512},
       {name: '南平市', hp: 2190},
       {name: '宁德市', hp: 4252}
     ];
@@ -235,7 +235,7 @@ const DEFAULT_NAMES = ['Whale','CRH380BL-3562','Sirius North','猎奇凤爱莉']
       {name: '咸宁市', hp: 2033},
       {name: '仙桃市', hp: 1191},
       {name: '潜江市', hp: 1015},
-      {name: '神农架林区', hp: 49},
+      {name: '神农架林区', hp: 52},
       {name: '恩施州', hp: 1742},
       {name: '天门市', hp: 785},
       {name: '随州市', hp: 1503}
@@ -248,7 +248,7 @@ const DEFAULT_NAMES = ['Whale','CRH380BL-3562','Sirius North','猎奇凤爱莉']
       {name: '衡阳市', hp: 4690},
       {name: '邵阳市', hp: 2883},
       {name: '岳阳市', hp: 5387},
-      {name: '张家界市', hp: 654},
+      {name: '张家界市', hp: 668},
       {name: '益阳市', hp: 2381},
       {name: '常德市', hp: 4771},
       {name: '娄底市', hp: 2237},
@@ -302,7 +302,7 @@ const DEFAULT_NAMES = ['Whale','CRH380BL-3562','Sirius North','猎奇凤爱莉']
     const 海南省 = [
       {name: '海口市', hp: 2563},
       {name: '三亚市', hp: 1034},
-      {name: '三沙市', hp: 6},
+      {name: '三沙市', hp: 8},
       {name: '琼海市', hp: 387},
       {name: '文昌市', hp: 376},
       {name: '万宁市', hp: 353},
@@ -378,11 +378,11 @@ const DEFAULT_NAMES = ['Whale','CRH380BL-3562','Sirius North','猎奇凤爱莉']
 
     const 西藏自治区 = [
       {name: '拉萨市', hp: 1091},
-      {name: '昌都市', hp: 386},
-      {name: '山南市', hp: 304},
+      {name: '昌都市', hp: 425},
+      {name: '山南市', hp: 332},
       {name: '日喀则市', hp: 510},
-      {name: '那曲市', hp: 246},
-      {name: '阿里地区', hp: 106},
+      {name: '那曲市', hp: 268},
+      {name: '阿里地区', hp: 114},
       {name: '林芝市', hp: 268}
     ];
 

@@ -15,7 +15,7 @@
         <div class="player-panel__stats">
           <span class="stat stat--gold">💰 {{ player.gold }}</span>
           <span class="stat stat--cities">
-            🏙️ {{ aliveCitiesCount }}/{{ player.cities.length }}
+            🏙️ {{ aliveCitiesCount }}/{{ Object.keys(player.cities).length }}
           </span>
         </div>
       </div>
@@ -168,7 +168,7 @@ const opponentSelectorDescription = ref('请选择一个对手已知城市作为
 const targetSelectionCount = ref(1)
 
 const aliveCitiesCount = computed(() => {
-  return props.player.cities.filter(city => {
+  return Object.values(props.player.cities).filter(city => {
     // 检查isAlive标志和当前HP
     if (city.isAlive === false) return false
     const currentHp = city.currentHp !== undefined ? city.currentHp : city.hp

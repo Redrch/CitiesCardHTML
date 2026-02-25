@@ -16,7 +16,7 @@
       <!-- 模式选择卡片 -->
       <div class="mode-cards">
         <!-- 单机模式 -->
-        <div class="mode-card" @click="$emit('select-offline')">
+        <div class="mode-card coming-soon" @click="showComingSoon">
           <div class="mode-icon">🎮</div>
           <h3 class="mode-title">单机模式</h3>
           <p class="mode-desc">与AI对战，练习技能</p>
@@ -25,7 +25,7 @@
             <li>✓ 智能AI对手</li>
             <li>✓ 随时开始游戏</li>
           </ul>
-          <div class="mode-badge recommended">推荐新手</div>
+          <div class="mode-badge coming-soon-badge">敬请期待</div>
         </div>
 
         <!-- 在线对战 -->
@@ -42,16 +42,36 @@
         </div>
       </div>
 
+      <!-- 敬请期待提示 -->
+      <Transition name="toast">
+        <div v-if="showToast" class="toast-message">
+          🚧 敬请期待，该模式正在开发中...
+        </div>
+      </Transition>
+
       <!-- 提示信息 -->
       <div class="hint-text">
-        <p>💡 提示：单机模式适合新手练习，在线对战适合与朋友一起玩</p>
+        <p>💡 提示：在线对战模式现已开放，快邀请朋友一起玩吧！</p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
+
 defineEmits(['back', 'select-offline', 'select-online'])
+
+const showToast = ref(false)
+let toastTimer = null
+
+function showComingSoon() {
+  showToast.value = true
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => {
+    showToast.value = false
+  }, 2000)
+}
 </script>
 
 <style scoped>
@@ -258,6 +278,79 @@ defineEmits(['back', 'select-offline', 'select-online'])
 .mode-badge.hot {
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.mode-badge.coming-soon-badge {
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  box-shadow: 0 4px 12px rgba(100, 116, 139, 0.4);
+  animation: none;
+}
+
+/* 敬请期待卡片 */
+.mode-card.coming-soon {
+  opacity: 0.6;
+  border-color: rgba(100, 116, 139, 0.3);
+  background: linear-gradient(135deg, rgba(100, 116, 139, 0.1) 0%, rgba(71, 85, 105, 0.05) 100%);
+}
+
+.mode-card.coming-soon:hover {
+  transform: translateY(-4px) scale(1.01);
+  border-color: rgba(100, 116, 139, 0.5);
+  box-shadow: 0 12px 40px rgba(100, 116, 139, 0.2);
+  opacity: 0.75;
+}
+
+.mode-card.coming-soon::before {
+  background: linear-gradient(135deg, rgba(100, 116, 139, 0.1) 0%, transparent 100%);
+}
+
+/* Toast 提示 */
+.toast-message {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%);
+  border: 2px solid rgba(100, 116, 139, 0.5);
+  border-radius: 16px;
+  padding: 16px 32px;
+  color: #e2e8f0;
+  font-size: 16px;
+  font-weight: 600;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  white-space: nowrap;
+}
+
+.toast-enter-active {
+  animation: toastIn 0.3s ease-out;
+}
+
+.toast-leave-active {
+  animation: toastOut 0.3s ease-in;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes toastOut {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
 }
 
 @keyframes pulse {

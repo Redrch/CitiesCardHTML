@@ -32,7 +32,7 @@
             >
               <div class="city-card-header">
                 <span class="city-name">{{ city.name }}</span>
-                <span v-if="city.skill" class="city-skill">🎯 {{ city.skill }}</span>
+                <!-- <span v-if="city.skill" class="city-skill">🎯 {{ city.skill }}</span> -->
               </div>
               <div class="city-hp-bar">
                 <div class="hp-label">HP</div>
@@ -91,7 +91,7 @@
             >
               <div class="city-card-header">
                 <span class="city-name">{{ city.name }}</span>
-                <span v-if="city.skill" class="city-skill">🎯 {{ city.skill }}</span>
+                <!-- <span v-if="city.skill" class="city-skill">🎯 {{ city.skill }}</span> -->
               </div>
               <div class="city-hp-bar">
                 <div class="hp-label">HP</div>
@@ -227,8 +227,8 @@ function initBattleData() {
 
   specialEvent.value = props.battleData.specialEvent || null
   console.log('[BattleAnimation] specialEvent设置为:', specialEvent.value)
-  console.log('[BattleAnimation] player1城市数量:', player1.value.cities.length)
-  console.log('[BattleAnimation] player2城市数量:', player2.value.cities.length)
+  console.log('[BattleAnimation] player1城市数量:', Object.keys(player1.value.cities).length)
+  console.log('[BattleAnimation] player2城市数量:', Object.keys(player2.value.cities).length)
   console.log('[BattleAnimation] player1总攻击力:', player1.value.totalAttack)
   console.log('[BattleAnimation] player2总攻击力:', player2.value.totalAttack)
 }

@@ -128,15 +128,15 @@ describe('技能组合集成测试', () => {
 
   describe('狐假虎威 + 博学多才 组合', () => {
     it('伪装城市后应该仍能使用博学多才', () => {
-      const cityIdx = 0
-      const city = player1.cities[cityIdx]
+      const cityName = '北京'
+      const city = player1.cities[cityName]
 
       // 先伪装城市（传递city对象）
       const disguise = nonBattleSkills.executeHuJiaHuWei(player1, city, 50000, '假城市')
       expect(disguise.success).toBe(true)
 
-      // 再使用博学多才（传递cityIdx，不是city对象）
-      const bxdc = nonBattleSkills.executeBoXueDuoCai(player1, cityIdx, 3)
+      // 再使用博学多才（传递cityName，不是city对象）
+      const bxdc = nonBattleSkills.executeBoXueDuoCai(player1, cityName, 3)
       expect(bxdc.success).toBe(true)
 
       // HP应该增加
@@ -217,7 +217,7 @@ describe('技能组合集成测试', () => {
 
       // 御驾亲征需要中心城市
       // 狂暴模式只能对非中心城市使用
-      const city1 = player1.cities[1]
+      const city1 = player1.cities['上海']
 
       // 对非中心城市使用狂暴模式
       const berserk = battleSkills.executeKuangBaoMoShi(player1, city1)
@@ -240,16 +240,16 @@ describe('技能组合集成测试', () => {
       player1.gold = 20
 
       // 设置城市HP，确保player1的城市HP低于player2（料事如神的触发条件）
-      player1.cities[0].currentHp = 10000  // player1的出战城市HP较低
-      player2.cities[1].currentHp = 20000  // player2的出战城市HP较高
+      player1.cities['北京'].currentHp = 10000  // player1的出战城市HP较低
+      player2.cities['上海'].currentHp = 20000  // player2的出战城市HP较高
 
       // 设置双方出战状态（料事如神需要双方都出战）
       if (!gameStore.playerStates) gameStore.playerStates = {}
       gameStore.playerStates[player1.name] = {
-        currentBattleCities: [{ cityIdx: 0 }]
+        currentBattleCities: [{ cityName: '北京' }]
       }
       gameStore.playerStates[player2.name] = {
-        currentBattleCities: [{ cityIdx: 1 }]
+        currentBattleCities: [{ cityName: '上海' }]
       }
 
       // 先使用趁火打劫
@@ -258,7 +258,7 @@ describe('技能组合集成测试', () => {
       expect(gameStore.chhdj[player1.name]).toBeDefined()
 
       // 再使用料事如神直接造成5000伤害
-      const lsrs = battleSkills.executeLiaoShiRuShen(player1, player2, player2.cities[1])
+      const lsrs = battleSkills.executeLiaoShiRuShen(player1, player2, player2.cities['上海'])
       expect(lsrs.success).toBe(true)
     })
   })
@@ -266,7 +266,7 @@ describe('技能组合集成测试', () => {
   describe('玉碎瓦全 + 擒贼擒王 组合', () => {
     it('玉碎瓦全增强攻击后，擒贼擒王优先攻击最高HP', () => {
       // 先对玩家2的城市使用玉碎瓦全
-      const yswq = battleSkills.executeYuSuiWaQuan(player1, player2, 1)
+      const yswq = battleSkills.executeYuSuiWaQuan(player1, player2, '上海')
       expect(yswq.success).toBe(true)
 
       // 再使用擒贼擒王
@@ -281,24 +281,24 @@ describe('技能组合集成测试', () => {
 
   describe('城市侦探 + 一落千丈 组合', () => {
     it('先侦查城市信息，再根据HP差造成精准伤害', () => {
-      const targetCityIdx = 1
-      const targetCity = player2.cities[targetCityIdx]
+      const targetCityName = '上海'
+      const targetCity = player2.cities[targetCityName]
 
       // 标记城市为已知（使用正确的结构）
       if (!gameStore.knownCities[player1.name]) {
         gameStore.knownCities[player1.name] = {}
       }
-      gameStore.knownCities[player1.name][player2.name] = [targetCityIdx]
+      gameStore.knownCities[player1.name][player2.name] = [targetCityName]
 
       // 使用城市侦探查看详细信息
-      const detective = nonBattleSkills.executeCityDetective(player1, player2, targetCityIdx)
+      const detective = nonBattleSkills.executeCityDetective(player1, player2, targetCityName)
       expect(detective.success).toBe(true)
 
       // 降低城市HP
       targetCity.currentHp = 15000
 
       // 使用一落千丈（传递city对象，会将HP降至1/3）
-      const tdds = nonBattleSkills.executeTiDengDingSun(player1, player2, targetCity)
+      const tdds = nonBattleSkills.executeYiLuoQianZhang(player1, player2, targetCity)
       expect(tdds.success).toBe(true)
       // HP应该降至1/3
       expect(targetCity.currentHp).toBe(Math.floor(15000 / 3))
@@ -308,8 +308,8 @@ describe('技能组合集成测试', () => {
   describe('无懈可击 拦截测试', () => {
     it('应该能够拦截对手的技能使用', () => {
       // 玩家2尝试使用快速治疗
-      player2.cities[1].currentHp = 10000
-      const heal = nonBattleSkills.executeKuaiSuZhiLiao(player2, player2.cities[1])
+      player2.cities['上海'].currentHp = 10000
+      const heal = nonBattleSkills.executeKuaiSuZhiLiao(player2, player2.cities['上海'])
       expect(heal.success).toBe(true)
 
       // 模拟技能使用后的状态（无懈可击需要这些）
@@ -342,11 +342,9 @@ describe('技能组合集成测试', () => {
       const startTime = performance.now()
 
       // 添加更多城市模拟复杂场景
-      player2.cities.push(
-        { name: '石家庄', hp: 20000, currentHp: 20000, isAlive: true },
-        { name: '保定', hp: 15000, currentHp: 15000, isAlive: true },
-        { name: '唐山', hp: 18000, currentHp: 18000, isAlive: true }
-      )
+      player2.cities['石家庄'] = { name: '石家庄', hp: 20000, currentHp: 20000, isAlive: true }
+      player2.cities['保定'] = { name: '保定', hp: 15000, currentHp: 15000, isAlive: true }
+      player2.cities['唐山'] = { name: '唐山', hp: 18000, currentHp: 18000, isAlive: true }
 
       const result = nonBattleSkills.executeSiMianChuGe(player1, player2)
 
@@ -361,18 +359,18 @@ describe('技能组合集成测试', () => {
     it('时来运转应该能在合理时间内完成', () => {
       // 添加更多城市
       for (let i = 0; i < 10; i++) {
-        player1.cities.push({
+        player1.cities[`城市${i}`] = {
           name: `城市${i}`,
           hp: 15000,
           currentHp: 15000,
           isAlive: true
-        })
-        player2.cities.push({
+        }
+        player2.cities[`城市${i}`] = {
           name: `城市${i}`,
           hp: 15000,
           currentHp: 15000,
           isAlive: true
-        })
+        }
       }
 
       const startTime = performance.now()
@@ -391,7 +389,7 @@ describe('技能组合集成测试', () => {
   describe('边界条件测试', () => {
     it('应该正确处理所有城市阵亡的情况', () => {
       // 让玩家2所有城市阵亡
-      player2.cities.forEach(city => {
+      Object.values(player2.cities).forEach(city => {
         city.isAlive = false
         city.currentHp = 0
       })
@@ -408,22 +406,22 @@ describe('技能组合集成测试', () => {
     it('应该正确处理金币为0的情况', () => {
       player1.gold = 0
       // 确保城市受伤但存活，以便测试金币检查
-      player1.cities[1].currentHp = 10000
+      player1.cities['上海'].currentHp = 10000
 
-      const result = nonBattleSkills.executeKuaiSuZhiLiao(player1, player1.cities[1])
+      const result = nonBattleSkills.executeKuaiSuZhiLiao(player1, player1.cities['上海'])
 
       expect(result.success).toBe(false)
       expect(result.message).toContain('金币不足')
     })
 
     it('应该正确处理HP达到上限的情况', () => {
-      player1.cities[0].currentHp = 100000
+      player1.cities['北京'].currentHp = 100000
 
       const result = battleSkills.executeQianNengJiFa(player1)
 
       expect(result.success).toBe(true)
       // HP不应超过100000
-      expect(player1.cities[0].currentHp).toBe(100000)
+      expect(player1.cities['北京'].currentHp).toBe(100000)
     })
   })
 })

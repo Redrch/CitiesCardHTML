@@ -192,8 +192,9 @@ export function prepareBattleAnimationData(roomData, gameStore) {
     }
   } else {
     // 正常战斗：从currentBattleCities读取
-    battleCities1 = (state1.currentBattleCities || []).map(card => {
+    battleCities1 = (state1.currentBattleCities || []).filter(card => card && card.cityName).map(card => {
       const city = player1.cities[card.cityName]
+      if (!city) { console.warn('[BattleAnimationData] player1城市不存在:', card.cityName); return null }
       return {
         name: city.name,
         province: city.province,
@@ -206,10 +207,11 @@ export function prepareBattleAnimationData(roomData, gameStore) {
         skill: getActivatedCitySkill(state1, card.cityName),
         cityName: card.cityName
       }
-    })
+    }).filter(c => c !== null)
 
-    battleCities2 = (state2.currentBattleCities || []).map(card => {
+    battleCities2 = (state2.currentBattleCities || []).filter(card => card && card.cityName).map(card => {
       const city = player2.cities[card.cityName]
+      if (!city) { console.warn('[BattleAnimationData] player2城市不存在:', card.cityName); return null }
       return {
         name: city.name,
         province: city.province,
@@ -222,16 +224,17 @@ export function prepareBattleAnimationData(roomData, gameStore) {
         skill: getActivatedCitySkill(state2, card.cityName),
         cityName: card.cityName
       }
-    })
+    }).filter(c => c !== null)
   }
 
   console.log('[BattleAnimationData] 特殊事件检测结果:', specialEvent)
   console.log('[BattleAnimationData] player1出战城市:', battleCities1.map(c => c.name))
   console.log('[BattleAnimationData] player2出战城市:', battleCities2.map(c => c.name))
 
-  // 计算总攻击力
-  const totalAttack1 = calculateTotalAttack(player1, battleCities1)
-  const totalAttack2 = calculateTotalAttack(player2, battleCities2)
+  // 计算总攻击力（同省撤退/归顺时攻击力为0）
+  const isSpecialEvent = specialEvent && (specialEvent.type === 'retreat' || specialEvent.type === 'surrender')
+  const totalAttack1 = isSpecialEvent ? 0 : calculateTotalAttack(player1, battleCities1, gameStore)
+  const totalAttack2 = isSpecialEvent ? 0 : calculateTotalAttack(player2, battleCities2, gameStore)
 
   console.log('[BattleAnimationData] player1总攻击力:', totalAttack1)
   console.log('[BattleAnimationData] player2总攻击力:', totalAttack2)
@@ -310,7 +313,7 @@ function detectSpecialEvent(roomData, gameState, player1, player2, state1, state
       surrenderedCity: {
         fromPlayer: surrender.fromPlayerIdx,
         toPlayer: surrender.toPlayerIdx,
-        cityName: surrender.cityIdx
+        cityName: surrender.cityName
       }
     }
   }
@@ -322,8 +325,8 @@ function detectSpecialEvent(roomData, gameState, player1, player2, state1, state
  * 检查同省撤退
  */
 function checkSameProvinceRetreat(player1, player2, state1, state2) {
-  const cities1 = (state1.currentBattleCities || []).map(card => player1.cities[card.cityName])
-  const cities2 = (state2.currentBattleCities || []).map(card => player2.cities[card.cityName])
+  const cities1 = (state1.currentBattleCities || []).filter(card => card && card.cityName).map(card => player1.cities[card.cityName]).filter(c => c)
+  const cities2 = (state2.currentBattleCities || []).filter(card => card && card.cityName).map(card => player2.cities[card.cityName]).filter(c => c)
 
   console.log('[BattleAnimationData] 检查同省撤退:')
   console.log('[BattleAnimationData] cities1:', cities1.map(c => ({ name: c.name, province: c.province, isCapital: c.isCapital, isProvincialCapital: c.isProvincialCapital })))
@@ -361,12 +364,12 @@ function checkSameProvinceRetreat(player1, player2, state1, state2) {
  * 检查同省归顺
  */
 function checkProvinceSurrender(player1, player2, state1, state2) {
-  const cities1 = (state1.currentBattleCities || []).map(card => ({
+  const cities1 = (state1.currentBattleCities || []).filter(card => card && card.cityName && player1.cities[card.cityName]).map(card => ({
     ...player1.cities[card.cityName],
     cityName: card.cityName,
     playerIdx: 0
   }))
-  const cities2 = (state2.currentBattleCities || []).map(card => ({
+  const cities2 = (state2.currentBattleCities || []).filter(card => card && card.cityName && player2.cities[card.cityName]).map(card => ({
     ...player2.cities[card.cityName],
     cityName: card.cityName,
     playerIdx: 1
@@ -412,13 +415,24 @@ function checkProvinceSurrender(player1, player2, state1, state2) {
 /**
  * 计算总攻击力
  */
-function calculateTotalAttack(player, battleCities) {
-  // 这里简化处理，实际应该使用完整的攻击力计算逻辑
+function calculateTotalAttack(player, battleCities, gameStore) {
   let total = 0
 
   for (const city of battleCities) {
-    // 基础攻击力 = 当前HP
-    total += city.currentHp || 0
+    let power = city.currentHp || 0
+    // Center city gets 2x attack
+    if (city.name && city.name === player.centerCityName) {
+      power *= 2
+    }
+    // 副中心制：攻击力×1.5
+    if (gameStore && gameStore.subCenters && gameStore.subCenters[player.name] === city.name) {
+      power = Math.floor(power * 1.5)
+    }
+    // 生于紫室：攻击力×2
+    if (gameStore && gameStore.purpleChamber && gameStore.purpleChamber[player.name] === city.name) {
+      power *= 2
+    }
+    total += power
   }
 
   return total
@@ -478,7 +492,7 @@ function collectFatigueData(battleAnimationData, roomData, battleResults) {
     const playerNum = isPlayer1 ? 1 : 2
     const playerData = isPlayer1 ? battleAnimationData.player1 : battleAnimationData.player2
 
-    // 在动画数据中找到对应的城市索引
+    // 在动画数据中找到对应的城市位置
     // battleAnimationData.player1.cities是出战城市列表，不是完整城市列表
     // 需要通过cityName匹配
     const animCityIdx = playerData.cities.findIndex(c => c.cityName === fatigue.cityName)
@@ -510,6 +524,10 @@ function collectHpChanges(battleAnimationData, player1, player2, battleResults) 
   // 比较战斗前后的HP
   battleAnimationData.player1.cities.forEach((city, idx) => {
     const actualCity = player1.cities[city.cityName]
+    if (!actualCity) {
+      console.warn(`[BattleAnimationData] collectHpChanges: player1城市${city.cityName}不存在（可能已被归顺转移）`)
+      return
+    }
     const hpChange = (actualCity.currentHp || 0) - (city.initialHp || 0)
 
     if (hpChange !== 0) {
@@ -524,6 +542,10 @@ function collectHpChanges(battleAnimationData, player1, player2, battleResults) 
 
   battleAnimationData.player2.cities.forEach((city, idx) => {
     const actualCity = player2.cities[city.cityName]
+    if (!actualCity) {
+      console.warn(`[BattleAnimationData] collectHpChanges: player2城市${city.cityName}不存在（可能已被归顺转移）`)
+      return
+    }
     const hpChange = (actualCity.currentHp || 0) - (city.initialHp || 0)
 
     if (hpChange !== 0) {
@@ -543,6 +565,10 @@ function collectHpChanges(battleAnimationData, player1, player2, battleResults) 
 function collectDestroyedCities(battleAnimationData, player1, player2, battleResults) {
   battleAnimationData.player1.cities.forEach((city, idx) => {
     const actualCity = player1.cities[city.cityName]
+    if (!actualCity) {
+      console.warn(`[BattleAnimationData] collectDestroyedCities: player1城市${city.cityName}不存在（可能已被归顺转移）`)
+      return
+    }
     if (actualCity.currentHp <= 0 || actualCity.isAlive === false) {
       battleResults.destroyed.push({
         player: 1,
@@ -554,6 +580,10 @@ function collectDestroyedCities(battleAnimationData, player1, player2, battleRes
 
   battleAnimationData.player2.cities.forEach((city, idx) => {
     const actualCity = player2.cities[city.cityName]
+    if (!actualCity) {
+      console.warn(`[BattleAnimationData] collectDestroyedCities: player2城市${city.cityName}不存在（可能已被归顺转移）`)
+      return
+    }
     if (actualCity.currentHp <= 0 || actualCity.isAlive === false) {
       battleResults.destroyed.push({
         player: 2,

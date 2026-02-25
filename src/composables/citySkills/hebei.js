@@ -56,7 +56,7 @@ export function handleShijiazhuangSkill(player, skillData, addPublicLog, gameSto
  */
 export function handleTangshanSkill(player, skillData, addPublicLog, gameStore) {
   const tangshanName = skillData.cityName.name || skillData.cityName
-  const centerCityName = player.centerCityName || 0
+  const centerCityName = player.centerCityName
 
   // 初始化钢铁城市状态
   if (!gameStore.ironCities) gameStore.ironCities = {}
@@ -223,7 +223,7 @@ export function handleLangfangSkill(player, skillData, addPublicLog, gameStore) 
   gameStore.langfangAwaken[player.name] = {
     active: true,
     cityName: langfangName,
-    bigCityIndices: bigCities.map(city => getCityName(player, city.name)),
+    bigCityNames: bigCities.map(city => city.name),
     appliedRound: gameStore.currentRound
   }
 

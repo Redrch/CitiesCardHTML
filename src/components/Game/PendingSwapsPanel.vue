@@ -29,16 +29,16 @@
             <div class="section-label">你的城市</div>
             <div class="city-selector">
               <div
-                v-for="(city, idx) in props.currentPlayer.cities"
-                :key="idx"
+                v-for="(city, cityName) in props.currentPlayer.cities"
+                :key="cityName"
                 :class="[
                   'city-option',
                   {
-                    selected: selectedCityIdx === idx,
-                    disabled: !canSelectCity(city, idx)
+                    selected: selectedCityName === cityName,
+                    disabled: !canSelectCity(city, cityName)
                   }
                 ]"
-                @click="handleCityClick(idx, city)"
+                @click="handleCityClick(cityName, city)"
               >
                 <div class="city-icon">🏙️</div>
                 <div class="city-details">
@@ -46,12 +46,12 @@
                   <div class="city-hp">HP: {{ Math.floor(city.currentHp || city.hp) }}</div>
 
                   <!-- 禁用原因标记 -->
-                  <div v-if="!canSelectCity(city, idx)" class="disabled-reason">
-                    <span v-if="idx === props.currentPlayer.centerCityName" class="reason-badge center">中心</span>
+                  <div v-if="!canSelectCity(city, cityName)" class="disabled-reason">
+                    <span v-if="cityName === props.currentPlayer.centerCityName" class="reason-badge center">中心</span>
                     <span v-else class="reason-badge cautious">谨慎交换</span>
                   </div>
                 </div>
-                <div v-if="selectedCityIdx === idx" class="check-mark">✓</div>
+                <div v-if="selectedCityName === cityName" class="check-mark">✓</div>
               </div>
               <div v-if="getAllSelectableCities().length === 0" class="no-cities-hint">
                 暂无可交换的城市
@@ -63,7 +63,7 @@
         <div class="action-buttons">
           <button
             class="btn-accept"
-            :disabled="selectedCityIdx === null || getAllSelectableCities().length === 0"
+            :disabled="selectedCityName === null || getAllSelectableCities().length === 0"
             @click="handleAccept(swap)"
           >
             ✓ 接受交换
@@ -100,7 +100,7 @@ const emit = defineEmits(['swap-accepted', 'swap-rejected'])
 
 const gameStore = useGameStore()
 const { acceptPreemptiveStrike, rejectPreemptiveStrike } = useNonBattleSkills()
-const selectedCityIdx = ref(null)
+const selectedCityName = ref(null)
 
 onMounted(() => {
   console.log('[PendingSwapsPanel] 组件已挂载, currentPlayer:', props.currentPlayer.name)
@@ -124,7 +124,7 @@ const pendingSwaps = computed(() => {
         initiatorName: swap.initiatorName,
         targetName: swap.targetName,
         status: swap.status,
-        initiatorCityIdx: swap.initiatorCityIdx,
+        initiatorCityIdx: swap.initiatorCityName,
         matches: swap.status === 'pending' && swap.targetName === props.currentPlayer.name
       })
     })
@@ -138,10 +138,10 @@ const pendingSwaps = computed(() => {
  */
 function getInitiatorCityName(swap) {
   const initiator = gameStore.players.find(p => p.name === swap.initiatorName)
-  if (!initiator || !initiator.cities[swap.initiatorCityIdx]) {
+  if (!initiator || !initiator.cities[swap.initiatorCityName]) {
     return '未知城市'
   }
-  return initiator.cities[swap.initiatorCityIdx].name
+  return initiator.cities[swap.initiatorCityName].name
 }
 
 /**
@@ -149,37 +149,37 @@ function getInitiatorCityName(swap) {
  */
 function getInitiatorCityHp(swap) {
   const initiator = gameStore.players.find(p => p.name === swap.initiatorName)
-  if (!initiator || !initiator.cities[swap.initiatorCityIdx]) {
+  if (!initiator || !initiator.cities[swap.initiatorCityName]) {
     return 0
   }
-  const city = initiator.cities[swap.initiatorCityIdx]
+  const city = initiator.cities[swap.initiatorCityName]
   return Math.floor(city.currentHp || city.hp)
 }
 
 /**
  * 检查城市是否可以被选择
  */
-function canSelectCity(city, idx) {
+function canSelectCity(city, cityName) {
   if (!city) return false
 
   // 排除已阵亡
   if (city.isAlive === false) return false
 
   // 排除谨慎交换集合（包括cautionSet和cautiousExchange）
-  if (gameStore.isInCautiousSet(props.currentPlayer.name, idx)) return false
+  if (gameStore.isInCautiousSet(props.currentPlayer.name, cityName)) return false
 
   // 排除中心城市（使用centerCityName判断）
-  if (idx === props.currentPlayer.centerCityName) return false
+  if (cityName === props.currentPlayer.centerCityName) return false
 
   // 排除定海神针城市
   if (gameStore.anchored[props.currentPlayer.name] &&
-      gameStore.anchored[props.currentPlayer.name][idx]) return false
+      gameStore.anchored[props.currentPlayer.name][cityName]) return false
 
   // 排除钢铁城市
-  if (gameStore.hasIronShield(props.currentPlayer.name, idx)) return false
+  if (gameStore.hasIronShield(props.currentPlayer.name, cityName)) return false
 
   // 排除城市保护罩
-  if (gameStore.hasProtection(props.currentPlayer.name, idx)) return false
+  if (gameStore.hasProtection(props.currentPlayer.name, cityName)) return false
 
   return true
 }
@@ -188,32 +188,32 @@ function canSelectCity(city, idx) {
  * 获取所有可选择的城市（用于检查是否有可选城市）
  */
 function getAllSelectableCities() {
-  return props.currentPlayer.cities.filter((city, idx) => canSelectCity(city, idx))
+  return Object.entries(props.currentPlayer.cities).filter(([cityName, city]) => canSelectCity(city, cityName))
 }
 
 /**
  * 处理城市点击
  */
-function handleCityClick(idx, city) {
+function handleCityClick(cityName, city) {
   // 只有可选择的城市才能被点击
-  if (!canSelectCity(city, idx)) {
+  if (!canSelectCity(city, cityName)) {
     return
   }
-  selectedCityIdx.value = idx
+  selectedCityName.value = cityName
 }
 
 /**
  * 处理接受交换
  */
 async function handleAccept(swap) {
-  if (selectedCityIdx.value === null) {
+  if (selectedCityName.value === null) {
     alert('请先选择一个城市')
     return
   }
 
-  const targetCity = props.currentPlayer.cities[selectedCityIdx.value]
+  const targetCity = props.currentPlayer.cities[selectedCityName.value]
 
-  if (!targetCity || !canSelectCity(targetCity, selectedCityIdx.value)) {
+  if (!targetCity || !canSelectCity(targetCity, selectedCityName.value)) {
     alert('选择的城市无效')
     return
   }
@@ -230,7 +230,7 @@ async function handleAccept(swap) {
 
   if (result.success) {
     emit('swap-accepted', { swap, result })
-    selectedCityIdx.value = null
+    selectedCityName.value = null
   } else {
     alert(result.message || '交换失败')
   }

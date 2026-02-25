@@ -108,7 +108,7 @@ export function handleLuzhouSkill(attacker, defender, skillData, addPublicLog, g
   // 50%概率归顺
   if (Math.random() < 0.5) {
     // 归顺成功
-    const cityName = defender.cities.indexOf(targetCity)
+    const cityName = targetCity.name
     targetCity.isAlive = false
     targetCity.currentHp = 0
     targetCity.hp = 0
@@ -254,7 +254,7 @@ export function handleNanchongSkill(attacker, defender, skillData, addPublicLog,
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityName = defender.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   // 限制治疗技能使用
   if (!gameStore.healingRestriction) gameStore.healingRestriction = {}
@@ -280,7 +280,7 @@ export function handleYaanSkill(attacker, skillData, addPublicLog, gameStore) {
   if (!gameStore.disguiseCity) gameStore.disguiseCity = {}
   gameStore.disguiseCity[attacker.name] = {
     active: true,
-    realCityIndex: cityName,
+    realCityName: cityName,
     roundsLeft: 1,
     appliedRound: gameStore.currentRound
   }
@@ -354,7 +354,7 @@ export function handleMeishanSkill(attacker, skillData, addPublicLog, gameStore)
   if (aliveCities.length === 0) return
 
   const targetCity = getRandomElement(aliveCities)
-  const cityName = attacker.cities.indexOf(targetCity)
+  const cityName = targetCity.name
 
   if (!gameStore.literatiMark) gameStore.literatiMark = {}
   if (!gameStore.literatiMark[attacker.name]) gameStore.literatiMark[attacker.name] = {}

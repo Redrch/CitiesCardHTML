@@ -55,10 +55,7 @@ export function calculateCityPower(city, cityName, player, gameStore) {
     power *= 2
   }
 
-  // 5. 狂暴模式：攻击力×5
-  if (player.battleModifiers?.some(m => m.type === 'berserk_mode')) {
-    power *= 5
-  }
+  // 5. 狂暴模式：HP已在使用技能时直接×5，无需额外乘算
 
   // 6. 玉碎瓦全：攻击力×2
   if (player.battleModifiers?.some(m => m.type === 'jade_shatter')) {
@@ -75,49 +72,22 @@ export function calculateCityPower(city, cityName, player, gameStore) {
     power = 1
   }
 
-  // === 红色技能攻击加成 ===
-  const redLevel = city.red || 0
-  if (redLevel >= 1) {
-    const redBonus = getRedSkillBonus(redLevel)
-    power += redBonus
-  }
-
   console.log(`[calculateCityPower] ${city.name} 最终攻击力:${Math.floor(power)}`)
   return Math.floor(power)
 }
 
 /**
- * 获取红色技能攻击加成
- */
-function getRedSkillBonus(level) {
-  if (level >= 3) return 2000
-  if (level >= 2) return 1000
-  if (level >= 1) return 500
-  return 0
-}
-
-/**
- * 获取绿色技能防御减伤
- */
-function getGreenSkillReduction(level) {
-  if (level >= 3) return 2000
-  if (level >= 2) return 1000
-  if (level >= 1) return 500
-  return 0
-}
-
-/**
  * 模拟城市间的战斗（原版逻辑）
  * @param {Object} attackerCity - 攻击方城市
- * @param {number} attackerCityIdx - 攻击方城市索引
+ * @param {string} attackerCityName - 攻击方城市名称
  * @param {Object} defenderCity - 防守方城市
- * @param {number} defenderCityIdx - 防守方城市索引
+ * @param {string} defenderCityName - 防守方城市名称
  * @param {Object} attackerPlayer - 攻击方玩家
  * @param {Object} defenderPlayer - 防守方玩家
  * @param {Object} gameStore - 游戏状态
  * @returns {Object} 战斗结果
  */
-export function simulateBattle(attackerCity, attackerCityIdx, defenderCity, defenderCityIdx, attackerPlayer, defenderPlayer, gameStore) {
+export function simulateBattle(attackerCity, attackerCityName, defenderCity, defenderCityName, attackerPlayer, defenderPlayer, gameStore) {
   if (!attackerCity.isAlive || !defenderCity.isAlive) {
     return {
       success: false,
@@ -126,7 +96,7 @@ export function simulateBattle(attackerCity, attackerCityIdx, defenderCity, defe
   }
 
   // 计算攻击方战斗力
-  let attackPower = calculateCityPower(attackerCity, attackerCityIdx, attackerPlayer, gameStore)
+  let attackPower = calculateCityPower(attackerCity, attackerCityName, attackerPlayer, gameStore)
 
   // 计算总伤害
   let totalDamage = attackPower
@@ -170,13 +140,6 @@ export function simulateBattle(attackerCity, attackerCityIdx, defenderCity, defe
       }
     }
   }
-
-  // === 绿色技能统一减伤（pooledGreen） ===
-  const defenderCities = defenderPlayer.cities.filter(c => c.isAlive)
-  const totalGreen = defenderCities.reduce((sum, c) => sum + (c.green || 0), 0)
-  const greenReduction = getGreenSkillReduction(totalGreen)
-
-  totalDamage = Math.max(0, totalDamage - greenReduction)
 
   // === 既来则安保护 ===
   if (gameStore.anchored?.[defenderPlayer.name]?.[defenderCity.name]) {
@@ -222,34 +185,40 @@ export function simulateBattle(attackerCity, attackerCityIdx, defenderCity, defe
   // === 电磁感应连锁反应 ===
   const chainDamage = []
   if (gameStore.electromagnetic?.[defenderPlayer.name] && damageToCity > 0) {
-    const otherCities = defenderPlayer.cities.filter(c =>
-      c.isAlive && c.name !== defenderCity.name
-    )
+    const emData = gameStore.electromagnetic[defenderPlayer.name]
+    const connectedCityNames = emData.cities || []
 
-    otherCities.forEach(city => {
-      // 连锁伤害：50%-100%
-      const chainRate = 0.5 + Math.random() * 0.5
-      const chainAmount = Math.floor(damageToCity * chainRate)
+    // 检查被攻击的城市是否在连接列表中
+    const defenderCityName = defenderCity.name || defenderCity.cityName
+    if (connectedCityNames.includes(defenderCityName)) {
+      // 只对其他连接的城市造成连锁伤害
+      connectedCityNames.forEach(cityName => {
+        if (cityName === defenderCityName) return
+        const city = Object.values(defenderPlayer.cities).find(c => (c.name || c.cityName) === cityName)
+        if (!city || !city.isAlive || city.currentHp <= 0) return
 
-      city.currentHp -= chainAmount
-      if (city.currentHp <= 0) {
-        city.currentHp = 0
-        city.isAlive = false
-      }
+        // 连锁伤害：50%
+        const chainAmount = Math.floor(damageToCity * 0.5)
 
-      chainDamage.push({
-        city: city.name,
-        damage: chainAmount,
-        alive: city.isAlive
+        city.currentHp -= chainAmount
+        if (city.currentHp <= 0) {
+          city.currentHp = 0
+          city.isAlive = false
+        }
+
+        chainDamage.push({
+          city: city.name,
+          damage: chainAmount,
+          alive: city.isAlive
+        })
       })
-    })
+    }
   }
 
   return {
     success: true,
     attackPower,
     totalDamage,
-    greenReduction,
     disguiseDamage,
     actualDamage: damageToCity,
     attacker: attackerCity.name,
@@ -268,7 +237,7 @@ export function simulateBattle(attackerCity, attackerCityIdx, defenderCity, defe
  */
 export function selectAIBattleTarget(aiPlayer, opponents) {
   const aliveOpponents = opponents.filter(opp =>
-    opp.cities.some(c => c.isAlive)
+    Object.values(opp.cities).some(c => c.isAlive)
   )
 
   if (aliveOpponents.length === 0) {
@@ -279,11 +248,11 @@ export function selectAIBattleTarget(aiPlayer, opponents) {
   const target = aliveOpponents[Math.floor(Math.random() * aliveOpponents.length)]
 
   // 选择对手的一个存活城市
-  const aliveCities = target.cities.filter(c => c.isAlive)
+  const aliveCities = Object.values(target.cities).filter(c => c.isAlive)
   const targetCity = aliveCities[Math.floor(Math.random() * aliveCities.length)]
 
   // 选择自己的一个存活城市
-  const myAliveCities = aiPlayer.cities.filter(c => c.isAlive)
+  const myAliveCities = Object.values(aiPlayer.cities).filter(c => c.isAlive)
   const attackerCity = myAliveCities[Math.floor(Math.random() * myAliveCities.length)]
 
   return {
@@ -301,7 +270,7 @@ export function applyEndOfTurnDamage(player) {
   const poisonModifier = player.battleModifiers?.find(m => m.type === 'poison')
   if (poisonModifier) {
     const damage = poisonModifier.value || 1000
-    player.cities.forEach(city => {
+    Object.values(player.cities).forEach(city => {
       if (city.isAlive) {
         city.currentHp = Math.max(0, city.currentHp - damage)
         if (city.currentHp <= 0) {
@@ -347,7 +316,6 @@ export function calculateBattleResult(
       console.log(`[calculateBattleResult] ✅ 检测到特殊事件: ${event.type}，攻击力设为0`)
       return {
         totalAttackPower: 0,
-        greenReduction: 0,
         netDamage: 0,
         destroyedCities: [],
         damageDistribution: []
@@ -356,7 +324,7 @@ export function calculateBattleResult(
   }
 
   // 计算总攻击力
-  const totalAttackPower = attackerCities.reduce((sum, city) => {
+  let totalAttackPower = attackerCities.reduce((sum, city) => {
     // 使用城市对象中的 cityName 属性
     const cityName = city.cityName || city.name
     const power = calculateCityPower(city, cityName, attackerPlayer, gameStore)
@@ -364,18 +332,65 @@ export function calculateBattleResult(
     return sum + power
   }, 0)
 
+  // 草木皆兵等技能的伤害倍率
+  if (battleSkills.damageMultiplier && battleSkills.damageMultiplier !== 1) {
+    console.log(`[calculateBattleResult] 应用伤害倍率: ${battleSkills.damageMultiplier}`)
+    totalAttackPower = Math.floor(totalAttackPower * battleSkills.damageMultiplier)
+  }
+
   console.log('[calculateBattleResult] 总攻击力:', totalAttackPower)
 
-  // 绿色技能统一减伤
-  const aliveDef = defenderCities.filter(c => c.isAlive)
-  const totalGreen = aliveDef.reduce((sum, c) => sum + (c.green || 0), 0)
-  const greenReduction = getGreenSkillReduction(totalGreen)
+  let remainingDamage = totalAttackPower
 
-  let remainingDamage = Math.max(0, totalAttackPower - greenReduction)
+  // === 检查防守方屏障（50%吸收，50%反弹，均以屏障HP为上限） ===
+  let barrierAbsorbed = 0
+  let barrierReflected = 0
+  const barrierReflectDamage = {} // 记录反弹给攻击方每个城市的伤害
+  if (gameStore.barrier?.[defenderPlayer.name] && gameStore.barrier[defenderPlayer.name].hp > 0) {
+    const barrier = gameStore.barrier[defenderPlayer.name]
+    const barrierHpBefore = barrier.hp
 
-  // 擒贼擒王：优先打血量最高的城市
+    // 吸收和反弹各50%，但均以屏障当前HP为上限
+    barrierAbsorbed = Math.min(Math.floor(remainingDamage * 0.5), barrierHpBefore)
+    barrierReflected = Math.min(remainingDamage - Math.floor(remainingDamage * 0.5), barrierHpBefore)
+
+    // 屏障承受吸收部分的伤害
+    barrier.hp -= barrierAbsorbed
+    // 剩余伤害 = 总伤害 - 吸收 - 反弹
+    remainingDamage = remainingDamage - barrierAbsorbed - barrierReflected
+
+    // 反弹伤害到攻击方城市（按HP从低到高分配）
+    let reflectRemaining = barrierReflected
+    const aliveAttackers = attackerCities.filter(c => c.isAlive)
+    aliveAttackers.sort((a, b) => a.currentHp - b.currentHp)
+    for (const city of aliveAttackers) {
+      if (reflectRemaining <= 0) break
+      const dmg = Math.min(city.currentHp, reflectRemaining)
+      city.currentHp -= dmg
+      reflectRemaining -= dmg
+      barrierReflectDamage[city.cityName || city.name] = dmg
+      if (city.currentHp <= 0) {
+        city.currentHp = 0
+        city.isAlive = false
+      }
+    }
+
+    console.log(`[calculateBattleResult] 屏障吸收: ${barrierAbsorbed}, 反弹: ${barrierReflected}, 剩余屏障HP: ${barrier.hp}`)
+    if (barrier.hp <= 0) {
+      delete gameStore.barrier[defenderPlayer.name]
+      console.log(`[calculateBattleResult] 屏障被摧毁`)
+    }
+  }
+
+  // 吸引攻击：所有伤害集中到一个城市
   let targetOrder = [...aliveDef]
-  if (battleSkills.captureKing) {
+  if (battleSkills.attractCity) {
+    const attractTarget = targetOrder.find(c => c.cityName === battleSkills.attractCity || c.name === battleSkills.attractCity)
+    if (attractTarget) {
+      targetOrder = [attractTarget]
+    }
+  } else if (battleSkills.captureKing) {
+    // 擒贼擒王：优先打血量最高的城市
     targetOrder.sort((a, b) => b.currentHp - a.currentHp)
   } else {
     // 正常：按血量从低到高
@@ -383,6 +398,7 @@ export function calculateBattleResult(
   }
 
   const destroyedCities = []
+  const damageMap = {} // 记录每个城市受到的伤害，用于电磁感应连锁
 
   // 依次分配伤害
   for (const city of targetOrder) {
@@ -398,6 +414,7 @@ export function calculateBattleResult(
     const damageToCity = Math.min(city.currentHp, remainingDamage)
     city.currentHp -= damageToCity
     remainingDamage -= damageToCity
+    damageMap[city.name] = (damageMap[city.name] || 0) + damageToCity
 
     if (city.currentHp <= 0) {
       city.currentHp = 0
@@ -406,10 +423,55 @@ export function calculateBattleResult(
     }
   }
 
+  // === 电磁感应连锁反应 ===
+  if (gameStore.electromagnetic?.[defenderPlayer.name]) {
+    const emData = gameStore.electromagnetic[defenderPlayer.name]
+    const connectedCityNames = emData.cities || []
+
+    // 对每个受伤且在连接列表中的城市，将50%伤害传导给其他连接城市
+    const chainDamageMap = {}
+    for (const [cityName, damage] of Object.entries(damageMap)) {
+      if (damage <= 0) continue
+      if (!connectedCityNames.includes(cityName)) continue
+
+      const chainAmount = Math.floor(damage * 0.5)
+      if (chainAmount <= 0) continue
+
+      for (const linkedName of connectedCityNames) {
+        if (linkedName === cityName) continue
+        chainDamageMap[linkedName] = (chainDamageMap[linkedName] || 0) + chainAmount
+      }
+    }
+
+    // 应用连锁伤害
+    for (const [cityName, chainDmg] of Object.entries(chainDamageMap)) {
+      const city = defenderCities.find(c => (c.name || c.cityName) === cityName)
+      if (!city || !city.isAlive || city.currentHp <= 0) continue
+
+      // 检查既来则安保护
+      if (gameStore.anchored?.[defenderPlayer.name]?.[cityName]) continue
+
+      const actualChainDmg = Math.min(city.currentHp, chainDmg)
+      city.currentHp -= actualChainDmg
+
+      console.log(`[calculateBattleResult] 电磁感应连锁: ${cityName} 受到 ${actualChainDmg} 连锁伤害`)
+
+      if (city.currentHp <= 0) {
+        city.currentHp = 0
+        city.isAlive = false
+        if (!destroyedCities.includes(cityName)) {
+          destroyedCities.push(cityName)
+        }
+      }
+    }
+  }
+
   return {
     totalAttackPower,
-    greenReduction,
-    netDamage: totalAttackPower - greenReduction,
+    netDamage: totalAttackPower,
+    barrierAbsorbed,
+    barrierReflected,
+    barrierReflectDamage,
     remainingDamage,
     destroyedCities,
     defenderRemaining: defenderCities.filter(c => c.isAlive).length

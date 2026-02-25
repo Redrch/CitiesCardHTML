@@ -50,7 +50,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { sortSkillsByCost, BATTLE_SKILLS, NON_BATTLE_SKILLS } from '../../data/skillMetadata'
+import { sortSkillsByCost, BATTLE_SKILLS, NON_BATTLE_SKILLS, SHOWN_SKILLS } from '../../data/skillMetadata'
 
 const props = defineProps({
   modelValue: {
@@ -61,14 +61,14 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 
-// 按金币消耗排序的战斗技能
+// 按金币消耗排序的战斗技能（仅显示白名单中的技能）
 const battleSkills = computed(() => {
-  return sortSkillsByCost(BATTLE_SKILLS)
+  return sortSkillsByCost(BATTLE_SKILLS.filter(name => SHOWN_SKILLS.includes(name)))
 })
 
-// 按金币消耗排序的非战斗技能
+// 按金币消耗排序的非战斗技能（仅显示白名单中的技能）
 const nonBattleSkills = computed(() => {
-  return sortSkillsByCost(NON_BATTLE_SKILLS)
+  return sortSkillsByCost(NON_BATTLE_SKILLS.filter(name => SHOWN_SKILLS.includes(name)))
 })
 
 function close() {

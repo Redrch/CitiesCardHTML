@@ -13,8 +13,7 @@ import {
   damageCity,
   boostCityHp,
   addShield,
-  addDelayedEffect,
-  getCityIndex
+  addDelayedEffect
 } from './skillHelpers'
 import { handleZhenjiangSkill } from './jiangsu'
 

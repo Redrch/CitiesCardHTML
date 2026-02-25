@@ -8,12 +8,13 @@ export const useGameStore = defineStore('game', () => {
   const currentRound = ref(0)
   const gameMode = ref('2P') // '2P', '3P', '2v2'
   const logs = ref([])
-  const playerStates = reactive({})           // 玩家状态 [player]: {currentBattleCities, battleGoldSkill, deadCities, needsRosterRefill, ...}
+  const playerStates = reactive({})           // 玩家状态 [player]: {currentBattleCities, battleGoldSkill, deadCities, ...}
 
   // ========== 城市管理 ==========
   const usedCities = ref(new Set())           // 已使用的城市名称集合
   const initialCities = reactive({})          // 玩家初始城市列表 [player][cityName]
   const deadCities = reactive({})             // 阵亡城市列表 [player][]
+  const roster = reactive({})                 // 预备城市列表 [player]: [cityName]
 
   // ========== 技能状态追踪 ==========
   const cautiousExchange = reactive({})       // 谨慎交换集合（步步高升专用）[player]: Set(cityName)
@@ -70,7 +71,8 @@ export const useGameStore = defineStore('game', () => {
   const centerProjection = reactive({})       // 海市蜃楼 [player]: {roundsLeft, blocked} (中心投影，75%拦截伤害)
   const bannedSkills = reactive({})           // 事半功倍 [opponent]: {skillName: rounds} (禁用对手技能)
   const stareDown = reactive({})              // 寸步难行 [player]: {caster, roundsLeft} (限制玩家只能使用当机立断和无懈可击)
-  const dcgy = ref([])                        // 电磁感应 [{caster, target, cities: [], roundsLeft, damagedThisRound}] (电磁感应链接数组)
+  const dcgy = ref([])                        // 电磁感应（旧格式，保留兼容）
+  const electromagnetic = reactive({})        // 电磁感应 [targetPlayer]: {cities: [cityName...], roundsLeft, source: casterName}
   const forcedSoldierBan = reactive({})       // 强制搬运禁用 [player]: [] (被禁用的搬运技能列表)
   const potentialOverflow = reactive({})      // 潜能激发溢出 [player]: state (潜能激发溢出效果)
   const bbgs = reactive({})                   // 步步高升 [player][cityName]: state (步步高升状态标记)
@@ -79,7 +81,7 @@ export const useGameStore = defineStore('game', () => {
 
   // ========== 交互流程 ==========
   const pendingFortuneSwap = ref(null)        // 待处理的时来运转
-  const pendingSwaps = ref([])                // 待处理的先声夺人交换请求数组 [{id, initiatorName, targetName, status, round, initiatorCityIdx?, targetCityIdx?}]
+  const pendingSwaps = ref([])                // 待处理的先声夺人交换请求数组 [{id, initiatorName, targetName, status, round, initiatorCityName?, targetCityName?}]
   const ldtj = reactive({})                   // 李代桃僵状态 [player]: active
 
   // ========== 护盾系统 ==========
@@ -94,10 +96,7 @@ export const useGameStore = defineStore('game', () => {
   const cooldowns = reactive({})              // 技能冷却 [player][skillName]: remainingRounds
 
   // ========== 按兵不动隐藏城市系统 ==========
-  const standGroundCities = reactive({})      // 按兵不动隐藏城市 [player]: [{name, hp, originalHp, used, red, green, blue, yellow}]
-
-  // ========== 颜色技能使用追踪 ==========
-  const colorSkillsUsed = reactive({})        // 颜色技能使用 [player]: {red, green, blue}
+  const standGroundCities = reactive({})      // 按兵不动隐藏城市 [player]: [{name, hp, originalHp, used}]
 
   // ========== 改弦更张使用次数 ==========
   const gaixiangengzhangUsed = reactive({})   // 改弦更张使用次数 [player]: count (每局限2次)
@@ -140,19 +139,10 @@ export const useGameStore = defineStore('game', () => {
     // 初始化按兵不动隐藏城市（每个玩家3个）
     if (!standGroundCities[playerName]) {
       standGroundCities[playerName] = [
-        { name: '按兵不动', hp: 1, originalHp: 1, used: false, red: 0, green: 0, blue: 0, yellow: 0 },
-        { name: '按兵不动', hp: 1, originalHp: 1, used: false, red: 0, green: 0, blue: 0, yellow: 0 },
-        { name: '按兵不动', hp: 1, originalHp: 1, used: false, red: 0, green: 0, blue: 0, yellow: 0 }
+        { name: '按兵不动', hp: 1, originalHp: 1, used: false },
+        { name: '按兵不动', hp: 1, originalHp: 1, used: false },
+        { name: '按兵不动', hp: 1, originalHp: 1, used: false }
       ]
-    }
-
-    // 初始化颜色技能使用追踪
-    if (!colorSkillsUsed[playerName]) {
-      colorSkillsUsed[playerName] = {
-        red: false,
-        green: false,
-        blue: false
-      }
     }
 
     // 初始化私有日志
@@ -221,35 +211,6 @@ export const useGameStore = defineStore('game', () => {
     })
   }
 
-  // 重置颜色技能使用状态（每回合调用）
-  function resetColorSkillsUsed() {
-    for (const playerName of Object.keys(colorSkillsUsed)) {
-      colorSkillsUsed[playerName] = {
-        red: false,
-        green: false,
-        blue: false
-      }
-    }
-  }
-
-  // 检查颜色技能是否已使用
-  function isColorSkillUsed(playerName, color) {
-    if (!colorSkillsUsed[playerName]) return false
-    return colorSkillsUsed[playerName][color] === true
-  }
-
-  // 标记颜色技能为已使用
-  function markColorSkillUsed(playerName, color) {
-    if (!colorSkillsUsed[playerName]) {
-      colorSkillsUsed[playerName] = {
-        red: false,
-        green: false,
-        blue: false
-      }
-    }
-    colorSkillsUsed[playerName][color] = true
-  }
-
   // 重置游戏
   function resetGame() {
     players.value = []
@@ -260,6 +221,7 @@ export const useGameStore = defineStore('game', () => {
     usedCities.value = new Set()
     Object.keys(initialCities).forEach(key => delete initialCities[key])
     Object.keys(deadCities).forEach(key => delete deadCities[key])
+    Object.keys(roster).forEach(key => delete roster[key])
     Object.keys(cautiousExchange).forEach(key => delete cautiousExchange[key])
     Object.keys(anchored).forEach(key => delete anchored[key])
     Object.keys(ironCities).forEach(key => delete ironCities[key])
@@ -305,6 +267,7 @@ export const useGameStore = defineStore('game', () => {
     Object.keys(bannedSkills).forEach(key => delete bannedSkills[key])
     Object.keys(stareDown).forEach(key => delete stareDown[key])
     dcgy.value = []
+    Object.keys(electromagnetic).forEach(key => delete electromagnetic[key])
     Object.keys(forcedSoldierBan).forEach(key => delete forcedSoldierBan[key])
     Object.keys(potentialOverflow).forEach(key => delete potentialOverflow[key])
     Object.keys(bbgs).forEach(key => delete bbgs[key])
@@ -316,7 +279,6 @@ export const useGameStore = defineStore('game', () => {
 
     // 重置新增的状态
     Object.keys(standGroundCities).forEach(key => delete standGroundCities[key])
-    Object.keys(colorSkillsUsed).forEach(key => delete colorSkillsUsed[key])
     Object.keys(playerPrivateLogs).forEach(key => delete playerPrivateLogs[key])
     roundActions.value = []
 
@@ -515,8 +477,8 @@ export const useGameStore = defineStore('game', () => {
       '数位反转', '波涛汹涌', '万箭齐发', '连锁反应', '御驾亲征',
       '欲擒故纵', '晕头转向', '草船借箭', '招贤纳士', '狂轰滥炸',
       '横扫一空', '降维打击', '定时爆破', '反戈一击', '围魏救赵',
-      '永久摧毁', '趁其不备·随机', '趁其不备·指定', '电磁感应',
-      '自相残杀', '中庸之道', '强制迁都·普通', '强制迁都·高级版',
+      '灰飞烟灭', '趁其不备·随机', '趁其不备·指定', '电磁感应',
+      '自相残杀', '中庸之道', '强制转移·普通', '强制转移·高级',
       '大义灭亲', '强制搬运', '夷为平地', '设置屏障', '潜能激发',
       '无懈可击', '当机立断'
     ]
@@ -603,6 +565,10 @@ export const useGameStore = defineStore('game', () => {
     const ownerKey = _prefixPlayer(playerName)
     if (!knownCities[observerKey]) return false
     if (!knownCities[observerKey][ownerKey]) return false
+    // 兼容处理：Firebase恢复后可能是Array而非Set
+    if (Array.isArray(knownCities[observerKey][ownerKey])) {
+      return knownCities[observerKey][ownerKey].includes(cityName)
+    }
     return knownCities[observerKey][ownerKey].has(cityName)
   }
 
@@ -617,6 +583,10 @@ export const useGameStore = defineStore('game', () => {
     if (!knownCities[observerKey][ownerKey]) {
       knownCities[observerKey][ownerKey] = new Set()
     }
+    // 兼容处理：Firebase恢复后可能是Array而非Set
+    if (Array.isArray(knownCities[observerKey][ownerKey])) {
+      knownCities[observerKey][ownerKey] = new Set(knownCities[observerKey][ownerKey])
+    }
     knownCities[observerKey][ownerKey].add(cityName)
   }
 
@@ -627,6 +597,10 @@ export const useGameStore = defineStore('game', () => {
     // 遍历所有观察者
     for (const observer of Object.keys(knownCities)) {
       if (!knownCities[observer][ownerKey]) continue
+      // 兼容处理：Firebase恢复后可能是Array而非Set
+      if (Array.isArray(knownCities[observer][ownerKey])) {
+        knownCities[observer][ownerKey] = new Set(knownCities[observer][ownerKey])
+      }
       knownCities[observer][ownerKey].delete(cityName)
     }
   }
@@ -806,6 +780,10 @@ export const useGameStore = defineStore('game', () => {
         }
         if (!knownCities[opponent.name][player.name]) {
           knownCities[opponent.name][player.name] = new Set()
+        }
+        // 兼容处理：Firebase恢复后可能是Array而非Set
+        if (Array.isArray(knownCities[opponent.name][player.name])) {
+          knownCities[opponent.name][player.name] = new Set(knownCities[opponent.name][player.name])
         }
         knownCities[opponent.name][player.name].add(chamberName)
       })
@@ -1173,19 +1151,10 @@ export const useGameStore = defineStore('game', () => {
       }
     }
 
-    // 更新禁用技能（事半功倍）
+    // 更新禁用技能（事半功倍）- 禁用是永久的，只能通过解除封锁移除
+    // 清理空条目
     for (const opponent of Object.keys(bannedSkills)) {
       const skills = bannedSkills[opponent]
-      for (const skillName of Object.keys(skills)) {
-        if (skills[skillName] > 0) {
-          skills[skillName]--
-          if (skills[skillName] <= 0) {
-            delete skills[skillName]
-            addLog(`${opponent}的${skillName}技能禁用解除`)
-          }
-        }
-      }
-      // 如果该玩家所有技能都解禁了，删除该玩家条目
       if (Object.keys(skills).length === 0) {
         delete bannedSkills[opponent]
       }
@@ -1202,7 +1171,7 @@ export const useGameStore = defineStore('game', () => {
       }
     }
 
-    // 更新技能冷却时间（定海神针、先声夺人、永久摧毁、坚不可摧、城市试炼）
+    // 更新技能冷却时间（定海神针、先声夺人、灰飞烟灭、坚不可摧、城市试炼）
     for (const player of Object.keys(cooldowns)) {
       for (const skillName of Object.keys(cooldowns[player])) {
         if (cooldowns[player][skillName] > 0) {
@@ -1219,7 +1188,7 @@ export const useGameStore = defineStore('game', () => {
       }
     }
 
-    // 更新电磁感应链接
+    // 更新电磁感应链接（旧格式dcgy）
     if (dcgy.value && Array.isArray(dcgy.value)) {
       dcgy.value = dcgy.value.filter(link => {
         if (link.roundsLeft > 0) {
@@ -1234,6 +1203,18 @@ export const useGameStore = defineStore('game', () => {
         }
         return false
       })
+    }
+
+    // 更新电磁感应链接（新格式electromagnetic）
+    for (const targetName of Object.keys(electromagnetic)) {
+      const emData = electromagnetic[targetName]
+      if (emData.roundsLeft > 0) {
+        emData.roundsLeft--
+        if (emData.roundsLeft <= 0) {
+          addLog(`${emData.source}对${targetName}的电磁感应链接消失`)
+          delete electromagnetic[targetName]
+        }
+      }
     }
 
     // 更新生于紫室状态（每回合HP增加初始HP的10%）
@@ -1257,7 +1238,8 @@ export const useGameStore = defineStore('game', () => {
       const before = city.currentHp
       city.currentHp = Math.min(city.currentHp + increaseAmount, 120000) // 应用HP上限
 
-      addLog(`(生于紫室) ${player}的${city.name} HP增加${increaseAmount}（${Math.floor(before)} → ${Math.floor(city.currentHp)}）`)
+      // 使用私有日志，仅该玩家可见（对手不应看到HP变化详情）
+      addPrivateLog(player, `(生于紫室) ${city.name} HP增加${increaseAmount}（${Math.floor(before)} → ${Math.floor(city.currentHp)}）`)
     }
 
     // 更新深藏不露状态（每连续5回合未出战自动增加10000HP）
@@ -1318,8 +1300,6 @@ export const useGameStore = defineStore('game', () => {
       }
     }
 
-    // 重置颜色技能使用状态
-    resetColorSkillsUsed()
   }
 
   // ========== 技能使用追踪 ==========
@@ -1385,6 +1365,7 @@ export const useGameStore = defineStore('game', () => {
     usedCities,
     initialCities,
     deadCities,
+    roster,
 
     // ========== 技能状态追踪 ==========
     cautiousExchange,
@@ -1441,6 +1422,7 @@ export const useGameStore = defineStore('game', () => {
     bannedSkills,
     stareDown,
     dcgy,
+    electromagnetic,
     forcedSoldierBan,
     potentialOverflow,
     bbgs,
@@ -1466,9 +1448,6 @@ export const useGameStore = defineStore('game', () => {
     // ========== 按兵不动隐藏城市系统 ==========
     standGroundCities,
 
-    // ========== 颜色技能使用追踪 ==========
-    colorSkillsUsed,
-
     // ========== 改弦更张使用次数 ==========
     gaixiangengzhangUsed,
 
@@ -1487,11 +1466,6 @@ export const useGameStore = defineStore('game', () => {
     resetGame,
     nextRound,
     addRoundAction,
-
-    // ========== 颜色技能管理方法 ==========
-    resetColorSkillsUsed,
-    isColorSkillUsed,
-    markColorSkillUsed,
 
     // ========== 城市池管理方法 ==========
     getUnusedCities,

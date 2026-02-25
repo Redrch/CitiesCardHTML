@@ -54,10 +54,10 @@ export function handleWuhanSkill(attacker, skillData, addPublicLog, gameStore) {
     cityData.isUsed = true
 
     // 城市数≤5时自动加入roster
-    if (attacker.cities.length <= 5) {
+    if (Object.keys(attacker.cities).length <= 5) {
       if (!gameStore.roster) gameStore.roster = {}
       if (!gameStore.roster[attacker.name]) gameStore.roster[attacker.name] = []
-      gameStore.roster[attacker.name].push(attacker.cities.length - 1)
+      gameStore.roster[attacker.name].push(newCity.name)
     }
   })
 
@@ -172,22 +172,22 @@ export function handleXianningSkill(attacker, defender, skillData, addPublicLog,
   const sorted = sortCitiesByHp(aliveCities).reverse()
   const city1 = sorted[0]
   const city2 = sorted[1]
-  const city1Index = getCityName(defender, city1)
-  const city2Index = getCityName(defender, city2)
+  const city1Name = city1.name
+  const city2Name = city2.name
 
   // 设置伤害共享状态
   if (!gameStore.damageShare) gameStore.damageShare = {}
   if (!gameStore.damageShare[defender.name]) gameStore.damageShare[defender.name] = {}
 
-  gameStore.damageShare[defender.name][city1Index] = {
-    linkedCityName: city2Index,
+  gameStore.damageShare[defender.name][city1Name] = {
+    linkedCityName: city2Name,
     shareRatio: 0.5,
     roundsLeft: 2,
     appliedRound: gameStore.currentRound
   }
 
-  gameStore.damageShare[defender.name][city2Index] = {
-    linkedCityName: city1Index,
+  gameStore.damageShare[defender.name][city2Name] = {
+    linkedCityName: city1Name,
     shareRatio: 0.5,
     roundsLeft: 2,
     appliedRound: gameStore.currentRound

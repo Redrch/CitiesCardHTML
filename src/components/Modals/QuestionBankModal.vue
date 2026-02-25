@@ -10,13 +10,21 @@
       </div>
 
       <div class="modal-body">
-        <!-- 开始刷题按钮 -->
+        <!-- 开始刷题 / 模拟演练 按钮 -->
         <div class="quiz-start-section">
-          <button class="quiz-start-btn" @click="startQuiz">
-            🎯 开始刷题
-          </button>
+          <div class="quiz-buttons-row">
+            <button class="quiz-start-btn" @click="startQuiz">
+              🎯 开始刷题
+            </button>
+            <button class="drill-start-btn" @click="startDrillSelection">
+              📝 模拟演练
+            </button>
+          </div>
           <div class="quiz-hint">
-            随机抽取10道题（普通+进阶8道，挑战2道），每题15秒，满分100分
+            刷题：随机抽取10道题（普通+进阶8道，挑战2道），每题15秒，满分100分
+          </div>
+          <div class="quiz-hint">
+            演练：选择城市，依次回答简单/进阶/挑战3道题，无时间限制
           </div>
         </div>
 
@@ -42,6 +50,132 @@
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 城市选择弹窗 -->
+    <div v-if="drillSelectingCity" class="city-select-modal">
+      <div class="city-select-content">
+        <h2 class="city-select-title">选择城市</h2>
+        <div class="city-select-grid">
+          <button
+            v-for="city in cityNames"
+            :key="city"
+            class="city-select-btn"
+            @click="selectDrillCity(city)"
+          >
+            {{ city }}
+          </button>
+        </div>
+        <button class="quiz-close-btn" @click="drillSelectingCity = false">取消</button>
+      </div>
+    </div>
+
+    <!-- 模拟演练模态框 -->
+    <div v-if="drillActive" class="drill-modal">
+      <div class="drill-content">
+        <div v-if="!drillFinished">
+          <div class="drill-header">
+            <div class="drill-city-name">{{ drillState.cityName }}</div>
+            <div class="drill-progress">
+              题目 {{ drillState.currentIndex + 1 }} / 3
+            </div>
+            <span
+              class="drill-difficulty-label"
+              :class="{
+                'difficulty-easy': currentDrillDifficulty === '简单',
+                'difficulty-medium': currentDrillDifficulty === '进阶',
+                'difficulty-hard': currentDrillDifficulty === '挑战'
+              }"
+            >
+              {{ currentDrillDifficulty }}
+            </span>
+          </div>
+
+          <div class="quiz-question">
+            <div class="question-text">
+              {{ currentDrillQuestion.question }}
+            </div>
+            <div class="quiz-options">
+              <button
+                v-for="(option, idx) in currentDrillQuestion.options"
+                :key="idx"
+                class="quiz-option-btn"
+                :class="{
+                  'drill-option-correct': drillState.answered && option.startsWith(currentDrillQuestion.answer + '.'),
+                  'drill-option-wrong': drillState.answered && drillState.userAnswer === option[0] && option[0] !== currentDrillQuestion.answer
+                }"
+                :disabled="drillState.answered"
+                @click="submitDrillAnswer(option[0])"
+              >
+                {{ option }}
+              </button>
+            </div>
+          </div>
+
+          <div v-if="drillState.answered" class="drill-feedback">
+            <div v-if="drillState.userAnswer === currentDrillQuestion.answer" class="drill-feedback-correct">
+              回答正确！
+            </div>
+            <div v-else class="drill-feedback-wrong">
+              回答错误！正确答案：{{ currentDrillQuestion.options.find(opt => opt.startsWith(currentDrillQuestion.answer + '.')) }}
+            </div>
+            <button class="drill-next-btn" @click="nextDrillQuestion">
+              {{ drillState.currentIndex < 2 ? '下一题' : '查看结果' }}
+            </button>
+          </div>
+        </div>
+
+        <div v-else class="drill-summary">
+          <h2 class="drill-summary-title">{{ drillState.cityName }} 演练完成！</h2>
+          <div class="drill-summary-score">
+            正确 {{ drillState.results.filter(r => r.isCorrect).length }} / 3
+          </div>
+          <div class="result-review">
+            <div
+              v-for="(item, index) in drillState.results"
+              :key="index"
+              class="review-item"
+              :class="{
+                'review-correct': item.isCorrect,
+                'review-wrong': !item.isCorrect
+              }"
+            >
+              <div class="review-question">
+                <span class="drill-difficulty-label"
+                  :class="{
+                    'difficulty-easy': item.difficulty === '简单',
+                    'difficulty-medium': item.difficulty === '进阶',
+                    'difficulty-hard': item.difficulty === '挑战'
+                  }"
+                >{{ item.difficulty }}</span>
+                {{ item.question }}
+              </div>
+              <div class="review-options">
+                <div
+                  v-for="(option, optIdx) in item.options"
+                  :key="optIdx"
+                  class="review-option"
+                  :class="{
+                    'correct-option': option.startsWith(item.correctAnswer + '.'),
+                    'user-option': option.startsWith(item.userAnswer + '.') && !item.isCorrect
+                  }"
+                >
+                  {{ option }}
+                </div>
+              </div>
+              <div class="review-info">
+                <span class="correct-answer-label">
+                  正确答案：{{ item.options.find(opt => opt.startsWith(item.correctAnswer + '.')) }}
+                </span>
+                <span class="user-answer-label">
+                  你的答案：{{ item.options.find(opt => opt.startsWith(item.userAnswer + '.')) }}
+                </span>
+              </div>
+            </div>
+          </div>
+          <button class="quiz-close-btn" @click="closeDrill">关闭</button>
         </div>
       </div>
     </div>
@@ -405,11 +539,112 @@ function closeQuiz() {
   quizFinished.value = false
 }
 
+// ========== 模拟演练 ==========
+const drillActive = ref(false)
+const drillSelectingCity = ref(false)
+const drillFinished = ref(false)
+const drillState = ref({
+  cityName: '',
+  questions: [],
+  currentIndex: 0,
+  answered: false,
+  userAnswer: null,
+  results: []
+})
+
+const difficultyLabels = ['简单', '进阶', '挑战']
+const difficultyKeys = ['普通', '进阶', '挑战']
+
+const currentDrillQuestion = computed(() => {
+  if (drillState.value.currentIndex < drillState.value.questions.length) {
+    return drillState.value.questions[drillState.value.currentIndex]
+  }
+  return null
+})
+
+const currentDrillDifficulty = computed(() => {
+  return difficultyLabels[drillState.value.currentIndex] || ''
+})
+
+function startDrillSelection() {
+  drillSelectingCity.value = true
+}
+
+function selectDrillCity(cityName) {
+  drillSelectingCity.value = false
+
+  const cityQuestions = CITY_QUESTIONS[cityName]
+  const questions = []
+
+  difficultyKeys.forEach(key => {
+    if (cityQuestions[key] && cityQuestions[key].length > 0) {
+      const pool = cityQuestions[key]
+      const picked = pool[Math.floor(Math.random() * pool.length)]
+      questions.push(shuffleQuestionOptions(picked))
+    }
+  })
+
+  drillState.value = {
+    cityName,
+    questions,
+    currentIndex: 0,
+    answered: false,
+    userAnswer: null,
+    results: []
+  }
+
+  drillActive.value = true
+  drillFinished.value = false
+}
+
+function submitDrillAnswer(answer) {
+  if (drillState.value.answered) return
+
+  drillState.value.userAnswer = answer
+  drillState.value.answered = true
+
+  const question = drillState.value.questions[drillState.value.currentIndex]
+  drillState.value.results.push({
+    question: question.question,
+    options: question.options,
+    userAnswer: answer,
+    correctAnswer: question.answer,
+    isCorrect: answer === question.answer,
+    difficulty: difficultyLabels[drillState.value.currentIndex]
+  })
+}
+
+function nextDrillQuestion() {
+  if (drillState.value.currentIndex >= 2) {
+    drillFinished.value = true
+    return
+  }
+
+  drillState.value.currentIndex++
+  drillState.value.answered = false
+  drillState.value.userAnswer = null
+}
+
+function closeDrill() {
+  drillActive.value = false
+  drillFinished.value = false
+  drillSelectingCity.value = false
+  drillState.value = {
+    cityName: '',
+    questions: [],
+    currentIndex: 0,
+    answered: false,
+    userAnswer: null,
+    results: []
+  }
+}
+
 /**
  * 关闭题库
  */
 function close() {
   closeQuiz()
+  closeDrill()
   emit('update:modelValue', false)
 }
 
@@ -789,5 +1024,221 @@ onBeforeUnmount(() => {
 
 .quiz-close-btn:hover {
   background: #1976d2;
+}
+
+/* 按钮并排容器 */
+.quiz-buttons-row {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+/* 模拟演练按钮 */
+.drill-start-btn {
+  background: #7c4dff;
+  color: white;
+  border: none;
+  padding: 15px 40px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s;
+}
+
+.drill-start-btn:hover {
+  background: #651fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* 城市选择弹窗 */
+.city-select-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.city-select-content {
+  background: white;
+  margin: 20px;
+  max-width: 500px;
+  width: 100%;
+  border-radius: 8px;
+  padding: 30px;
+  text-align: center;
+}
+
+.city-select-title {
+  color: #7c4dff;
+  margin-bottom: 24px;
+}
+
+.city-select-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.city-select-btn {
+  background: #f5f5f5;
+  border: 2px solid #e0e0e0;
+  padding: 14px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: all 0.3s;
+}
+
+.city-select-btn:hover {
+  background: #ede7f6;
+  border-color: #7c4dff;
+  color: #7c4dff;
+  transform: translateY(-2px);
+}
+
+/* 模拟演练模态框 */
+.drill-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drill-content {
+  background: white;
+  margin: 20px;
+  max-width: 800px;
+  width: 100%;
+  border-radius: 8px;
+  padding: 30px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.drill-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.drill-city-name {
+  font-size: 20px;
+  font-weight: bold;
+  color: #7c4dff;
+}
+
+.drill-progress {
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+}
+
+.drill-difficulty-label {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: bold;
+  color: white;
+  margin-right: 8px;
+}
+
+.difficulty-easy {
+  background: #4caf50;
+}
+
+.difficulty-medium {
+  background: #ff9800;
+}
+
+.difficulty-hard {
+  background: #f44336;
+}
+
+/* 演练选项反馈 */
+.drill-option-correct {
+  background: #4caf50 !important;
+  border-color: #2e7d32 !important;
+  color: white !important;
+}
+
+.drill-option-wrong {
+  background: #f44336 !important;
+  border-color: #c62828 !important;
+  color: white !important;
+}
+
+.drill-feedback {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.drill-feedback-correct {
+  font-size: 20px;
+  font-weight: bold;
+  color: #4caf50;
+  margin-bottom: 16px;
+}
+
+.drill-feedback-wrong {
+  font-size: 20px;
+  font-weight: bold;
+  color: #f44336;
+  margin-bottom: 16px;
+}
+
+.drill-next-btn {
+  background: #7c4dff;
+  color: white;
+  border: none;
+  padding: 12px 36px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+
+.drill-next-btn:hover {
+  background: #651fff;
+}
+
+/* 演练结果 */
+.drill-summary {
+  text-align: center;
+}
+
+.drill-summary-title {
+  color: #7c4dff;
+  font-size: 28px;
+  margin-bottom: 16px;
+}
+
+.drill-summary-score {
+  font-size: 36px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 24px;
 }
 </style>

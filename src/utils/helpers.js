@@ -1,51 +1,10 @@
 /**
  * 城市卡牌游戏 - 工具函数模块
- * 包含各种辅助函数：颜色技能加成、城市追踪、保护检查等
+ * 包含各种辅助函数：城市追踪、保护检查等
+ *
+ * 注意：所有城市引用均使用 cityName (string) 而非 cityIdx (number)
+ * player.cities 是一个以城市名为键的对象：{ '北京市': { name, hp, ... }, ... }
  */
-
-// ========== 颜色技能加成函数 ==========
-
-/**
- * 获取红色技能加成值
- * @param {number} level - 技能等级(1-3)
- * @returns {number} 加成值
- */
-function getRedBonus(level) {
-  switch(level) {
-    case 1: return 500;
-    case 2: return 1000;
-    case 3: return 2000;
-    default: return 0;
-  }
-}
-
-/**
- * 获取绿色技能加成值
- * @param {number} level - 技能等级(1-3)
- * @returns {number} 加成值
- */
-function getGreenBonus(level) {
-  switch(level) {
-    case 1: return 500;
-    case 2: return 1000;
-    case 3: return 2000;
-    default: return 0;
-  }
-}
-
-/**
- * 获取黄色技能治疗值
- * @param {number} level - 技能等级(1-3)
- * @returns {number} 治疗值
- */
-function getYellowHeal(level) {
-  switch(level) {
-    case 1: return 500;
-    case 2: return 1000;
-    case 3: return 2000;
-    default: return 0;
-  }
-}
 
 // ========== 城市追踪函数 ==========
 
@@ -53,10 +12,10 @@ function getYellowHeal(level) {
  * 标记城市为已知（在战斗、交换等情况下调用）
  * @param {object} roomData - 房间数据
  * @param {string} ownerName - 城市拥有者名称
- * @param {number} cityIdx - 城市索引
+ * @param {string} cityName - 城市名称
  * @param {string} observerName - 观察者名称
  */
-function markCityAsKnown(roomData, ownerName, cityIdx, observerName) {
+function markCityAsKnown(roomData, ownerName, cityName, observerName) {
   if (!roomData.gameState.knownCities) {
     roomData.gameState.knownCities = {};
   }
@@ -67,9 +26,9 @@ function markCityAsKnown(roomData, ownerName, cityIdx, observerName) {
     roomData.gameState.knownCities[observerName][ownerName] = [];
   }
 
-  // 添加城市索引到已知列表（避免重复）
-  if (!roomData.gameState.knownCities[observerName][ownerName].includes(cityIdx)) {
-    roomData.gameState.knownCities[observerName][ownerName].push(cityIdx);
+  // 添加城市名称到已知列表（避免重复）
+  if (!roomData.gameState.knownCities[observerName][ownerName].includes(cityName)) {
+    roomData.gameState.knownCities[observerName][ownerName].push(cityName);
   }
 }
 
@@ -78,22 +37,25 @@ function markCityAsKnown(roomData, ownerName, cityIdx, observerName) {
  * @param {object} roomData - 房间数据
  * @param {string} targetPlayerName - 目标玩家名称
  * @param {string} observerName - 观察者名称
- * @returns {Array} 未知城市列表
+ * @returns {Array} 未知城市列表 [{city, cityName}]
  */
 function getUnknownCities(roomData, targetPlayerName, observerName) {
   const targetPlayer = roomData.players.find(p => p.name === targetPlayerName);
   if (!targetPlayer) return [];
 
-  const knownIndices = (roomData.gameState.knownCities &&
-                       roomData.gameState.knownCities[observerName] &&
-                       roomData.gameState.knownCities[observerName][targetPlayerName]) || [];
+  const knownNames = (roomData.gameState.knownCities &&
+                      roomData.gameState.knownCities[observerName] &&
+                      roomData.gameState.knownCities[observerName][targetPlayerName]) || [];
 
   const unknownCities = [];
-  targetPlayer.cities.forEach((city, idx) => {
-    if (city && city.hp > 0 && !knownIndices.includes(idx)) {
-      unknownCities.push({ city, idx });
+  const cities = targetPlayer.cities;
+
+  // cities 是对象 { cityName: cityObj }
+  for (const [name, city] of Object.entries(cities)) {
+    if (city && city.hp > 0 && !knownNames.includes(name)) {
+      unknownCities.push({ city, cityName: name });
     }
-  });
+  }
 
   return unknownCities;
 }
@@ -102,46 +64,44 @@ function getUnknownCities(roomData, targetPlayerName, observerName) {
 
 /**
  * 检查城市是否在谨慎交换集合中
- * 谨慎交换集合 = {钢铁城市、中心城市(2P/2v2)、定海神针城市、城市保护城市、已阵亡城市}
  * @param {object} roomData - 房间数据
  * @param {string} playerName - 玩家名称
- * @param {number} cityIdx - 城市索引
+ * @param {string} cityName - 城市名称
  * @returns {boolean} 是否在谨慎交换集合中
  */
-function isInCautiousSet(roomData, playerName, cityIdx) {
+function isInCautiousSet(roomData, playerName, cityName) {
   const player = roomData.players.find(p => p.name === playerName);
   if (!player) return false;
 
   // 检查城市是否已阵亡
-  const city = player.cities[cityIdx];
+  const city = player.cities[cityName];
   if (!city || city.hp <= 0) return true;
 
   const mode = roomData.gameMode || '2p';
 
   // 检查是否为中心城市（2P/2v2）
   if (mode === '2p' || mode === '2v2') {
-    const centerIdx = player.centerCity !== undefined ? player.centerCity : 0;
-    if (cityIdx === centerCityName) return true;
+    if (cityName === player.centerCityName) return true;
   }
 
   // 检查是否为钢铁城市
   if (roomData.gameState.ironCities &&
       roomData.gameState.ironCities[playerName] &&
-      roomData.gameState.ironCities[playerName][cityIdx] > 0) {
+      roomData.gameState.ironCities[playerName][cityName] > 0) {
     return true;
   }
 
   // 检查是否有定海神针
   if (roomData.gameState.anchored &&
       roomData.gameState.anchored[playerName] &&
-      roomData.gameState.anchored[playerName][cityIdx] > 0) {
+      roomData.gameState.anchored[playerName][cityName] > 0) {
     return true;
   }
 
   // 检查是否有城市保护
   if (roomData.gameState.protections &&
       roomData.gameState.protections[playerName] &&
-      roomData.gameState.protections[playerName][cityIdx] > 0) {
+      roomData.gameState.protections[playerName][cityName] > 0) {
     return true;
   }
 
@@ -189,16 +149,16 @@ function addPrivateLog(roomData, playerName, message) {
  * 清除城市的已知状态（当城市被替换或伪装时调用）
  * @param {object} roomData - 房间数据
  * @param {string} ownerName - 城市拥有者名称
- * @param {number} cityIdx - 城市索引
+ * @param {string} cityName - 城市名称
  */
-function clearCityKnownStatus(roomData, ownerName, cityIdx) {
+function clearCityKnownStatus(roomData, ownerName, cityName) {
   if (!roomData.gameState.knownCities) return;
 
   // 遍历所有观察者，从他们的已知列表中移除这个城市
   for (const observerName in roomData.gameState.knownCities) {
     if (roomData.gameState.knownCities[observerName][ownerName]) {
       const knownList = roomData.gameState.knownCities[observerName][ownerName];
-      const index = knownList.indexOf(cityIdx);
+      const index = knownList.indexOf(cityName);
       if (index > -1) {
         knownList.splice(index, 1);
       }
@@ -212,24 +172,24 @@ function clearCityKnownStatus(roomData, ownerName, cityIdx) {
  * 获取伪装配置
  * @param {object} roomData - 房间数据
  * @param {string} playerName - 玩家名称
- * @param {number} cityIdx - 城市索引
+ * @param {string} cityName - 城市名称
  * @returns {object|null} 伪装配置或null
  */
-function getDisguiseCfg(roomData, playerName, cityIdx) {
+function getDisguiseCfg(roomData, playerName, cityName) {
   if (!roomData.gameState.disguisedCities) return null;
   if (!roomData.gameState.disguisedCities[playerName]) return null;
-  return roomData.gameState.disguisedCities[playerName][cityIdx] || null;
+  return roomData.gameState.disguisedCities[playerName][cityName] || null;
 }
 
 /**
  * 检查城市是否处于伪装状态
  * @param {object} roomData - 房间数据
  * @param {string} playerName - 玩家名称
- * @param {number} cityIdx - 城市索引
+ * @param {string} cityName - 城市名称
  * @returns {boolean} 是否伪装
  */
-function isDisguised(roomData, playerName, cityIdx) {
-  const cfg = getDisguiseCfg(roomData, playerName, cityIdx);
+function isDisguised(roomData, playerName, cityName) {
+  const cfg = getDisguiseCfg(roomData, playerName, cityName);
   return !!(cfg && cfg.roundsLeft > 0);
 }
 
@@ -237,80 +197,34 @@ function isDisguised(roomData, playerName, cityIdx) {
  * 获取有效城市名称（伪装时返回伪装名，否则返回真实名）
  * @param {object} roomData - 房间数据
  * @param {string} playerName - 玩家名称
- * @param {number} cityIdx - 城市索引
+ * @param {string} cityName - 城市名称
  * @param {object} player - 玩家对象
  * @returns {string} 城市名称
  */
-function getEffectiveCityName(roomData, playerName, cityIdx, player) {
-  const cfg = getDisguiseCfg(roomData, playerName, cityIdx);
+function getEffectiveCityName(roomData, playerName, cityName, player) {
+  const cfg = getDisguiseCfg(roomData, playerName, cityName);
   if (cfg && cfg.roundsLeft > 0 && cfg.disguiseAsName) {
     return cfg.disguiseAsName;
   }
-  return player.cities[cityIdx].name || `#${cityIdx}`;
+  const city = player.cities[cityName];
+  return city ? city.name : cityName;
 }
 
 /**
  * 获取有效HP（伪装时返回伪装HP，否则返回真实HP）
  * @param {object} roomData - 房间数据
  * @param {string} playerName - 玩家名称
- * @param {number} cityIdx - 城市索引
+ * @param {string} cityName - 城市名称
  * @param {object} player - 玩家对象
  * @returns {number} HP值
  */
-function getEffectiveCityHP(roomData, playerName, cityIdx, player) {
-  const cfg = getDisguiseCfg(roomData, playerName, cityIdx);
+function getEffectiveCityHP(roomData, playerName, cityName, player) {
+  const cfg = getDisguiseCfg(roomData, playerName, cityName);
   if (cfg && cfg.roundsLeft > 0 && cfg.currentDisguiseHp !== undefined) {
     return cfg.currentDisguiseHp;
   }
-  return player.cities[cityIdx].hp || 0;
-}
-
-/**
- * 获取有效红色技能等级（伪装时返回伪装等级，否则返回真实等级）
- * @param {object} roomData - 房间数据
- * @param {string} playerName - 玩家名称
- * @param {number} cityIdx - 城市索引
- * @param {object} player - 玩家对象
- * @returns {number} 红色技能等级
- */
-function getEffectiveCityRed(roomData, playerName, cityIdx, player) {
-  const cfg = getDisguiseCfg(roomData, playerName, cityIdx);
-  if (cfg && cfg.roundsLeft > 0 && cfg.red !== undefined) {
-    return cfg.red;
-  }
-  return player.cities[cityIdx].red || 0;
-}
-
-/**
- * 获取有效绿色技能等级（伪装时返回伪装等级，否则返回真实等级）
- * @param {object} roomData - 房间数据
- * @param {string} playerName - 玩家名称
- * @param {number} cityIdx - 城市索引
- * @param {object} player - 玩家对象
- * @returns {number} 绿色技能等级
- */
-function getEffectiveCityGreen(roomData, playerName, cityIdx, player) {
-  const cfg = getDisguiseCfg(roomData, playerName, cityIdx);
-  if (cfg && cfg.roundsLeft > 0 && cfg.green !== undefined) {
-    return cfg.green;
-  }
-  return player.cities[cityIdx].green || 0;
-}
-
-/**
- * 获取有效蓝色技能等级（伪装时返回伪装等级，否则返回真实等级）
- * @param {object} roomData - 房间数据
- * @param {string} playerName - 玩家名称
- * @param {number} cityIdx - 城市索引
- * @param {object} player - 玩家对象
- * @returns {number} 蓝色技能等级
- */
-function getEffectiveCityBlue(roomData, playerName, cityIdx, player) {
-  const cfg = getDisguiseCfg(roomData, playerName, cityIdx);
-  if (cfg && cfg.roundsLeft > 0 && cfg.blue !== undefined) {
-    return cfg.blue;
-  }
-  return player.cities[cityIdx].blue || 0;
+  const city = player.cities[cityName];
+  return city ? (city.hp || 0) : 0;
 }
 
 // ========== 城市保护检查 ==========
@@ -319,27 +233,26 @@ function getEffectiveCityBlue(roomData, playerName, cityIdx, player) {
  * 检查并消耗城市保护（针对对手城市的金币技能）
  * @param {object} roomData - 房间数据
  * @param {string} targetPlayerName - 目标玩家名称
- * @param {number} targetCityIdx - 目标城市索引
+ * @param {string} targetCityName - 目标城市名称
  * @param {string} attackerName - 攻击者名称
  * @param {string} skillName - 技能名称
  * @returns {boolean} true表示城市受保护（技能被阻挡），false表示无保护（技能可执行）
  */
-function checkAndConsumeProtection(roomData, targetPlayerName, targetCityIdx, attackerName, skillName) {
+function checkAndConsumeProtection(roomData, targetPlayerName, targetCityName, attackerName, skillName) {
   if (!roomData.gameState.protections) return false;
   if (!roomData.gameState.protections[targetPlayerName]) return false;
-  if (!roomData.gameState.protections[targetPlayerName][targetCityIdx]) return false;
-  if (roomData.gameState.protections[targetPlayerName][targetCityIdx] <= 0) return false;
+  if (!roomData.gameState.protections[targetPlayerName][targetCityName]) return false;
+  if (roomData.gameState.protections[targetPlayerName][targetCityName] <= 0) return false;
 
   // 城市有保护，消耗保护
-  delete roomData.gameState.protections[targetPlayerName][targetCityIdx];
+  delete roomData.gameState.protections[targetPlayerName][targetCityName];
 
   // 记录日志
   const targetPlayer = roomData.players.find(p => p.name === targetPlayerName);
-  const targetCity = targetPlayer ? targetPlayer.cities[targetCityIdx] : null;
-  const cityName = getEffectiveCityName(roomData, targetPlayerName, targetCityIdx, targetPlayer) || `#${targetCityIdx}`;
+  const displayName = getEffectiveCityName(roomData, targetPlayerName, targetCityName, targetPlayer) || targetCityName;
 
-  addPrivateLog(roomData, attackerName, `你对${targetPlayerName}的${cityName}使用了${skillName}，但该城市有保护罩，技能无效，保护罩破裂`);
-  addPrivateLog(roomData, targetPlayerName, `${attackerName}对你的${cityName}使用了${skillName}，但你的城市保护罩阻挡了技能，保护罩破裂`);
+  addPrivateLog(roomData, attackerName, `你对${targetPlayerName}的${displayName}使用了${skillName}，但该城市有保护罩，技能无效，保护罩破裂`);
+  addPrivateLog(roomData, targetPlayerName, `${attackerName}对你的${displayName}使用了${skillName}，但你的城市保护罩阻挡了技能，保护罩破裂`);
   addPublicLog(roomData, `${attackerName}对${targetPlayerName}使用了${skillName}，但目标城市有保护`);
 
   return true;
@@ -347,9 +260,6 @@ function checkAndConsumeProtection(roomData, targetPlayerName, targetCityIdx, at
 
 // 导出所有函数
 export {
-  getRedBonus,
-  getGreenBonus,
-  getYellowHeal,
   markCityAsKnown,
   getUnknownCities,
   isInCautiousSet,
@@ -360,8 +270,5 @@ export {
   isDisguised,
   getEffectiveCityName,
   getEffectiveCityHP,
-  getEffectiveCityRed,
-  getEffectiveCityGreen,
-  getEffectiveCityBlue,
   checkAndConsumeProtection
 };

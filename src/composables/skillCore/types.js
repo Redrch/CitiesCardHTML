@@ -21,10 +21,6 @@
  * @property {number} [baseHp] - 基础HP
  * @property {boolean} isAlive - 是否存活
  * @property {boolean} [isCenter] - 是否为中心城市
- * @property {number} [red] - 红色技能等级
- * @property {number} [green] - 绿色技能等级
- * @property {number} [blue] - 蓝色技能等级
- * @property {number} [yellow] - 黄色技能等级
  * @property {string} [province] - 所属省份
  */
 
@@ -65,9 +61,9 @@
 /**
  * @typedef {Object} CityTransfer
  * @property {string} from - 来源玩家
- * @property {number} fromIdx - 来源城市索引
+ * @property {string} fromCityName - 来源城市名称
  * @property {string} to - 目标玩家
- * @property {number} toIdx - 目标城市索引
+ * @property {string} toCityName - 目标城市名称
  */
 
 /**
@@ -87,8 +83,8 @@
  * @typedef {Object} SkillParams
  * @property {Player} caster - 施法者
  * @property {Player} [target] - 目标玩家
- * @property {number} [cityIdx] - 城市索引
- * @property {number} [targetCityIdx] - 目标城市索引
+ * @property {string} [cityName] - 城市名称
+ * @property {string} [targetCityName] - 目标城市名称
  * @property {Object} gameStore - 游戏状态存储
  * @property {string} [gameMode] - 游戏模式（'2P', '3P', '2v2'）
  * @property {*} [additionalParams] - 额外参数

@@ -86,25 +86,25 @@
         </h4>
         <div class="city-cards-grid">
           <div
-            v-for="(city, idx) in props.currentPlayer.cities"
-            :key="idx"
+            v-for="(city, cityName) in props.currentPlayer.cities"
+            :key="cityName"
             :class="[
               'mini-city-card',
               {
                 'selected': selectedSkill.requiresMultipleSelfCities
-                  ? selectedSelfCities.includes(idx)
-                  : selfCity === idx,
-                'disabled': !canSelectCity(city, idx),
+                  ? selectedSelfCities.includes(cityName)
+                  : selfCity === cityName,
+                'disabled': !canSelectCity(city, cityName),
                 'dead': city.isAlive === false
               }
             ]"
-            @click="handleCityClick(idx, city, 'self')"
+            @click="handleCityClick(cityName, city, 'self')"
           >
             <div class="city-name">{{ city.name }}</div>
             <div class="city-hp">HP: {{ Math.floor(city.currentHp || city.hp) }}</div>
             <div v-if="city.isAlive === false" class="city-status dead">已阵亡</div>
-            <div v-if="selectedSkill.requiresMultipleSelfCities && selectedSelfCities.includes(idx)" class="check-mark">✓</div>
-            <div v-else-if="!selectedSkill.requiresMultipleSelfCities && selfCity === idx" class="check-mark">✓</div>
+            <div v-if="selectedSkill.requiresMultipleSelfCities && selectedSelfCities.includes(cityName)" class="check-mark">✓</div>
+            <div v-else-if="!selectedSkill.requiresMultipleSelfCities && selfCity === cityName" class="check-mark">✓</div>
           </div>
         </div>
       </div>
@@ -115,20 +115,20 @@
         <div class="city-cards-grid">
           <div
             v-for="item in getTargetCities()"
-            :key="item.originalIndex"
+            :key="item.cityName"
             :class="[
               'mini-city-card',
               {
-                'selected': targetCity === item.originalIndex,
+                'selected': targetCity === item.cityName,
                 'disabled': item.city.isAlive === false
               }
             ]"
-            @click="handleCityClick(item.originalIndex, item.city, 'target')"
+            @click="handleCityClick(item.cityName, item.city, 'target')"
           >
             <div class="city-name">{{ item.city.name }}</div>
             <div class="city-hp">HP: {{ Math.floor(item.city.currentHp || item.city.hp) }}</div>
             <div v-if="item.city.isAlive === false" class="city-status dead">已阵亡</div>
-            <div v-if="targetCity === item.originalIndex" class="check-mark">✓</div>
+            <div v-if="targetCity === item.cityName" class="check-mark">✓</div>
           </div>
         </div>
         <div v-if="getTargetCities().length === 0" class="no-cities-hint">
@@ -402,34 +402,34 @@ function resetParams() {
   selectedSkillName.value = ''
 }
 
-function handleCityClick(cityIdx, city, type) {
+function handleCityClick(cityName, city, type) {
   if (city.isAlive === false) return
 
   if (type === 'self') {
     if (selectedSkill.value.requiresMultipleSelfCities) {
-      toggleCitySelection(cityIdx, city)
+      toggleCitySelection(cityName, city)
     } else {
-      selfCity.value = cityIdx
+      selfCity.value = cityName
     }
   } else if (type === 'target') {
-    targetCity.value = cityIdx
+    targetCity.value = cityName
   }
 }
 
-function toggleCitySelection(cityIdx, city) {
-  if (!canSelectCity(city, cityIdx)) return
+function toggleCitySelection(cityName, city) {
+  if (!canSelectCity(city, cityName)) return
 
-  const index = selectedSelfCities.value.indexOf(cityIdx)
+  const index = selectedSelfCities.value.indexOf(cityName)
   if (index > -1) {
     selectedSelfCities.value.splice(index, 1)
   } else {
     if (selectedSelfCities.value.length < selectedSkill.value.targetCount) {
-      selectedSelfCities.value.push(cityIdx)
+      selectedSelfCities.value.push(cityName)
     }
   }
 }
 
-function canSelectCity(city, cityIdx) {
+function canSelectCity(city, cityName) {
   if (!city) return false
   if (city.isAlive === false) return false
 
@@ -451,27 +451,35 @@ function getTargetCities() {
   const player = opponents.value.find(p => p.name === targetPlayer.value)
   if (!player || !player.cities) return []
 
-  const centerIdx = player.centerCityName || 0
+  const centerName = player.centerCityName || ''
 
-  return player.cities
-    .map((city, idx) => ({ city, originalIndex: idx }))
+  return Object.entries(player.cities)
+    .map(([cityName, city]) => ({ city, cityName }))
     .filter(item => {
-      if (!item.city || item.city.currentHp <= 0 || item.city.isAlive === false) {
+      if (!item.city) return false
+
+      // 过滤掉已阵亡的城市（以礼来降除外，可以对已阵亡城市使用）
+      if (selectedSkill.value?.name !== '以礼来降' && (item.city.currentHp <= 0 || item.city.isAlive === false)) {
         return false
       }
 
-      if ((selectedSkill.value?.name === '言听计从' || selectedSkill.value?.name === '以礼来降') &&
-          item.originalIndex === centerCityName) {
+      if (selectedSkill.value?.name === '言听计从' && item.cityName === centerName) {
         return false
       }
 
-      // 关键修复：使用getKnownCitiesForPlayer来检查（内部会处理前缀）
+      // 对于以礼来降，过滤掉中心城市和谨慎交换集合中的城市
+      if (selectedSkill.value?.name === '以礼来降') {
+        if (item.cityName === centerName) return false
+        if (gameStore.isInCautiousSet(player.name, item.cityName)) return false
+      }
+
+      // 使用getKnownCitiesForPlayer来检查（内部会处理前缀）
       const knownCitiesList = gameStore.getKnownCitiesForPlayer(props.currentPlayer.name, player.name)
       if (!knownCitiesList || knownCitiesList.length === 0) {
         return true
       }
 
-      return gameStore.isCityKnown(player.name, item.originalIndex, props.currentPlayer.name)
+      return gameStore.isCityKnown(player.name, item.cityName, props.currentPlayer.name)
     })
 }
 

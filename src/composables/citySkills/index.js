@@ -390,9 +390,9 @@ export function processActivatedCitySkills(attacker, attackerState, defender, de
   const skillCount = Object.keys(attackerState.activatedCitySkills).length
   console.log(`[城市技能] ${attacker.name} 共激活了 ${skillCount} 个城市技能`)
 
-  Object.keys(attackerState.activatedCitySkills).forEach(cityIdx => {
-    const skillData = attackerState.activatedCitySkills[cityIdx]
-    console.log(`[城市技能] 处理技能: ${skillData.skillName} (城市索引: ${cityIdx}, 城市名: ${skillData.cityName})`)
+  Object.keys(attackerState.activatedCitySkills).forEach(cityName => {
+    const skillData = attackerState.activatedCitySkills[cityName]
+    console.log(`[城市技能] 处理技能: ${skillData.skillName} (城市名: ${cityName})`)
 
     const handler = SKILL_HANDLERS[skillData.skillName]
 

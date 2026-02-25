@@ -250,7 +250,7 @@ export function useCitySkills() {
 
     gameStore.players.forEach(player => {
       // 更新城市修饰符
-      player.cities.forEach(city => {
+      Object.values(player.cities).forEach(city => {
         if (city.modifiers && city.modifiers.length > 0) {
           city.modifiers = city.modifiers.filter(modifier => {
             const elapsed = currentRound - modifier.startRound

@@ -67,7 +67,7 @@ describe('战斗技能单元测试', () => {
       const selfCity = caster.cities['上海']  // 选择非中心城市
 
       // 设置上轮出战记录
-      caster.streaks = { '上海': 1 }  // 城市索引1上轮出战过
+      caster.streaks = { '上海': 1 }  // 上海上轮出战过
 
       const result = battleSkills.executeYueZhanYueYong(caster, selfCity)
 
@@ -230,7 +230,7 @@ describe('战斗技能单元测试', () => {
       expect(result.message).toContain('玉碎瓦全')
       expect(gameStore.yswq[caster.name]).toBeDefined()
       expect(gameStore.yswq[caster.name].targetPlayer).toBe(target.name)
-      expect(gameStore.yswq[caster.name].targetCityIdx).toBe(targetCityName)
+      expect(gameStore.yswq[caster.name].targetCityKey).toBe(targetCityName)
       expect(gameStore.yswq[caster.name].bannedProtection).toBe(true)
     })
 

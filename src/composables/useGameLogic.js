@@ -3,6 +3,7 @@ import { useGameStore } from '../stores/gameStore'
 import { processActivatedCitySkills } from './useCitySkillEffects'
 import { calculateBattleResult, calculateCityPower as calculateCityPowerSimulator } from './game/useBattleSimulator'
 import { updateFatigueStreaks } from './game/fatigueSystem'
+import { PROVINCE_MAP } from '../data/cities'
 
 /**
  * 游戏核心逻辑
@@ -100,7 +101,7 @@ export function useGameLogic() {
    * @param {Object} city - 城市对象
    * @param {number} damage - 伤害值
    * @param {Object} player - 玩家对象
-   * @param {number} cityName - 城市索引
+   * @param {string} cityName - 城市名称
    * @param {Object} gameState - 游戏状态
    * @returns {Object} { actualDamage, blocked, reason }
    */
@@ -136,7 +137,6 @@ export function useGameLogic() {
 
     // 更新HP和存活状态
     city.currentHp = newHp
-    if (city.hp !== undefined) city.hp = newHp  // 同步更新基础HP（为了兼容性）
 
     if (newHp <= 0) {
       city.isAlive = false
@@ -175,57 +175,16 @@ export function useGameLogic() {
     if (!state1.deadCities) state1.deadCities = []
     if (!state2.deadCities) state2.deadCities = []
 
-    // 处理战斗金币技能使用和金币扣除
+    // 处理战斗金币技能使用（金币已在SkillSelector中扣除，此处仅记录日志）
     ;[
       { player: player1, state: state1 },
       { player: player2, state: state2 }
     ].forEach(({ player, state }) => {
       if (state.battleGoldSkill) {
         const skillName = state.battleGoldSkill
-        let skillCost = 0
-
-        // 根据技能名称确定金币消耗
-        const skillCosts = {
-          '按兵不动': gameStore.gameMode === '3P' ? 4 : 2,
-          '擒贼擒王': 3,
-          '草木皆兵': 3,
-          '越战越勇': 3,
-          '吸引攻击': 4,
-          '既来则安': 4,
-          '铜墙铁壁': 5,
-          '玉碎瓦全': 5,
-          '背水一战': 6,
-          '料事如神': 6,
-          '暗度陈仓': 6,
-          '同归于尽': 7,
-          '声东击西': 7,
-          '欲擒故纵': 7,
-          '御驾亲征': 8,
-          '草船借箭': 8,
-          '移花接木': 8,
-          '狂暴模式': 9,
-          '以逸待劳': 9,
-          '晕头转向': 10,
-          '隔岸观火': 10,
-          '挑拨离间': 10,
-          '趁火打劫': 10,
-          '反戈一击': 11,
-          '围魏救赵': 13,
-          '设置屏障': 15,
-          '潜能激发': 20
-        }
-
-        skillCost = skillCosts[skillName] || 0
-
-        // 扣除金币
-        if (skillCost > 0) {
-          const beforeGold = player.gold
-          player.gold = Math.max(0, player.gold - skillCost)
-          addPublicLog(`${player.name} 使用战斗技能【${skillName}】，消耗${skillCost}金币（${beforeGold} → ${player.gold}）`)
-          console.log(`[战斗] ${player.name} 使用技能 ${skillName}，金币 ${beforeGold} -> ${player.gold}`)
-        } else {
-          addPublicLog(`${player.name} 使用战斗技能【${skillName}】`)
-        }
+        // 金币已经在SkillSelector -> executeXxx -> checkAndDeductGold中扣除
+        // 此处不再重复扣除，仅记录日志
+        addPublicLog(`${player.name} 使用战斗技能【${skillName}】`)
       }
     })
 
@@ -255,28 +214,34 @@ export function useGameLogic() {
     console.log('[战斗] state1.currentBattleCities:', state1.currentBattleCities)
     console.log('[战斗] state2.currentBattleCities:', state2.currentBattleCities)
 
-    const cities1 = (state1.currentBattleCities || []).map((card, mapIdx) => {
+    // Normalize currentBattleCities (Firebase may convert arrays to objects)
+    const rawBattle1 = Array.isArray(state1.currentBattleCities) ? state1.currentBattleCities : (state1.currentBattleCities ? Object.values(state1.currentBattleCities) : [])
+    const rawBattle2 = Array.isArray(state2.currentBattleCities) ? state2.currentBattleCities : (state2.currentBattleCities ? Object.values(state2.currentBattleCities) : [])
+
+    const cities1 = rawBattle1.filter(card => card && card.cityName).map((card, mapIdx) => {
       const city = player1.cities[card.cityName]
       console.log(`[战斗诊断] ${player1.name} [${mapIdx}] cityName=${card.cityName}, city.name=${city?.name}, city.currentHp=${city?.currentHp}, city.hp=${city?.hp}, city.isAlive=${city?.isAlive}`)
       if (!city) {
         console.error(`[战斗错误] ${player1.name} cityName=${card.cityName} 对应的城市不存在！`)
+        return null
       }
       return {
         ...city,
         cityName: card.cityName
       }
-    })
-    const cities2 = (state2.currentBattleCities || []).map((card, mapIdx) => {
+    }).filter(c => c !== null)
+    const cities2 = rawBattle2.filter(card => card && card.cityName).map((card, mapIdx) => {
       const city = player2.cities[card.cityName]
       console.log(`[战斗诊断] ${player2.name} [${mapIdx}] cityName=${card.cityName}, city.name=${city?.name}, city.currentHp=${city?.currentHp}, city.hp=${city?.hp}, city.isAlive=${city?.isAlive}`)
       if (!city) {
         console.error(`[战斗错误] ${player2.name} cityName=${card.cityName} 对应的城市不存在！`)
+        return null
       }
       return {
         ...city,
         cityName: card.cityName
       }
-    })
+    }).filter(c => c !== null)
 
     // 记录双方出战城市
     if (cities1 && cities1.length > 0) {
@@ -369,6 +334,19 @@ export function useGameLogic() {
       })
     }
 
+    // 草木皆兵：使用Firebase同步的battleGoldSkill判断（2P模式目标为对方）
+    // 效果：对手对我的伤害减半（即减半对方的攻击力）
+    if (state1.battleGoldSkill === '草木皆兵') {
+      const before = totalAttack2
+      totalAttack2 = Math.floor(totalAttack2 * 0.5)
+      addPublicLog(`${player1.name} 使用草木皆兵，${player2.name} 对 ${player1.name} 的伤害减半（${before} → ${totalAttack2}）`)
+    }
+    if (state2.battleGoldSkill === '草木皆兵') {
+      const before = totalAttack1
+      totalAttack1 = Math.floor(totalAttack1 * 0.5)
+      addPublicLog(`${player2.name} 使用草木皆兵，${player1.name} 对 ${player2.name} 的伤害减半（${before} → ${totalAttack1}）`)
+    }
+
     addPublicLog(`${player1.name} 总攻击力: ${totalAttack1}`)
     addPublicLog(`${player2.name} 总攻击力: ${totalAttack2}`)
 
@@ -426,6 +404,90 @@ export function useGameLogic() {
       }
     }
 
+    // ========== 围魏救赵处理 ==========
+    // 参考 citycard_web.html lines 4951-5015
+    const wwjzCapitals = [
+      '哈尔滨市', '长春市', '沈阳市', '呼和浩特市', '石家庄市', '太原市', '济南市',
+      '郑州市', '西安市', '兰州市', '银川市', '西宁市', '乌鲁木齐市', '拉萨市',
+      '南京市', '合肥市', '杭州市', '南昌市', '福州市', '武汉市', '长沙市',
+      '广州市', '南宁市', '海口市', '成都市', '贵阳市', '昆明市', '台北市'
+    ]
+    const isWwjzCapital = (cityName) => wwjzCapitals.includes(cityName)
+    const getProvName = (cityName) => {
+      const prov = PROVINCE_MAP[cityName]
+      return prov ? prov.name : null
+    }
+    const isActingCapitalCity = (playerName, cityName) => {
+      return !!(gameStore.actingCapital && gameStore.actingCapital[playerName] &&
+        gameStore.actingCapital[playerName][cityName])
+    }
+
+    for (let dir = 0; dir < 2; dir++) {
+      const attackerPlayer = dir === 0 ? player1 : player2
+      const defenderPlayer = dir === 0 ? player2 : player1
+      const attackerCities = dir === 0 ? cities1 : cities2
+      const attackerState = dir === 0 ? state1 : state2
+
+      // 检查battleGoldSkill（Firebase同步）或gameStore.wwjz（本地）
+      const hasWwjz = attackerState.battleGoldSkill === '围魏救赵' ||
+        (gameStore.wwjz[attackerPlayer.name] && gameStore.wwjz[attackerPlayer.name].active)
+      if (!hasWwjz) continue
+
+      const centerCityName = defenderPlayer.centerCityName
+      const centerCity = defenderPlayer.cities[centerCityName]
+      if (!centerCity || centerCity.isAlive === false) continue
+
+      // 直击中心城市（上限10000）
+      const totalAttack = dir === 0 ? totalAttack1 : totalAttack2
+      const cappedDamage = Math.min(Math.max(0, totalAttack), 10000)
+      const oldHp = centerCity.currentHp !== undefined ? centerCity.currentHp : centerCity.hp
+      centerCity.currentHp = Math.max(0, oldHp - cappedDamage)
+      if (centerCity.currentHp <= 0) centerCity.isAlive = false
+      addPublicLog(`  (围魏救赵) 直击中心 ${centerCity.name}，造成 ${cappedDamage} 伤害（上限10000，经屏障/绿色后）`)
+
+      // 检查出战城市与中心城市的省份关系
+      const centerProv = getProvName(centerCity.name)
+      let wwjzFailed = false
+
+      for (const attackCity of attackerCities) {
+        if (!attackCity || attackCity.hp <= 0) continue
+        const attackProv = getProvName(attackCity.name)
+
+        if (centerProv && attackProv && centerProv === attackProv && centerProv !== '直辖市和特区') {
+          // 检查是否是省会（包括代行省权）
+          let attackIsCapital = isWwjzCapital(attackCity.name)
+          if (!attackIsCapital && isActingCapitalCity(attackerPlayer.name, attackCity.cityName)) {
+            attackIsCapital = true
+          }
+          let centerIsCapital = isWwjzCapital(centerCity.name)
+          if (!centerIsCapital && isActingCapitalCity(defenderPlayer.name, centerCityName)) {
+            centerIsCapital = true
+          }
+
+          if (attackIsCapital && !centerIsCapital) {
+            // 出战城市是省会，中心城市归顺
+            addPublicLog(`  (围魏救赵+归顺) ${attackerPlayer.name}的省会${attackCity.name}使${defenderPlayer.name}的中心${centerCity.name}归顺`)
+            wwjzFailed = true
+            break
+          } else if (centerIsCapital && !attackIsCapital) {
+            // 中心城市是省会，出战城市归顺
+            addPublicLog(`  (围魏救赵+归顺) ${defenderPlayer.name}的省会中心${centerCity.name}使${attackerPlayer.name}的${attackCity.name}归顺并撤退`)
+            wwjzFailed = true
+            break
+          } else {
+            // 同省但都不是省会或都是省会，围魏救赵失效
+            addPublicLog(`  (围魏救赵失效) ${attackerPlayer.name}的${attackCity.name}与${defenderPlayer.name}的中心${centerCity.name}同属${centerProv}，围魏救赵失效`)
+            wwjzFailed = true
+            break
+          }
+        }
+      }
+
+      if (!wwjzFailed) {
+        addPublicLog(`  (围魏救赵) 原伤害将继续攻击对方出战城市`)
+      }
+    }
+
     // 使用战斗模拟器计算伤害分配（含擒贼擒王逻辑）
     // 参考 citycard_web.html lines 4615-5041
     // 关键修复：先计算双方战斗结果，再同时应用伤害，确保战斗同时进行
@@ -440,25 +502,36 @@ export function useGameLogic() {
       // 检查是否有擒贼擒王技能
       const hasCaptureKing = gameStore.qinwang && gameStore.qinwang.caster === player1.name && gameStore.qinwang.target === player2.name
 
-      const battleSkills = {
-        captureKing: hasCaptureKing
+      // 检查防守方(player2)是否使用了吸引攻击
+      const attractCity2 = (state2.battleGoldSkill === '吸引攻击' && state2.battleGoldSkillData?.selfCityName) || null
+      if (attractCity2) {
+        addPublicLog(`${player2.name} 使用吸引攻击，${attractCity2} 吸引全部伤害`)
       }
 
-      // 获取攻击方城市的完整对象（含索引）
-      const attackerCitiesWithIdx = cities1.map(c => {
+      // 草木皆兵：如果player2使用了草木皆兵，player1对player2的伤害减半
+      const cmjbMultiplier1 = state2.battleGoldSkill === '草木皆兵' ? 0.5 : 1
+
+      const battleSkills = {
+        captureKing: hasCaptureKing,
+        attractCity: attractCity2,
+        damageMultiplier: cmjbMultiplier1
+      }
+
+      // 获取攻击方城市的完整对象（含城市名）
+      const attackerCitiesWithName = cities1.map(c => {
         const city = player1.cities[c.cityName]
         return { ...city, cityName: c.cityName }
       })
 
-      // 获取防守方城市的完整对象（含索引）- 深度克隆避免被修改
-      const defenderCitiesWithIdx = cities2.map(c => {
+      // 获取防守方城市的完整对象（含城市名）- 深度克隆避免被修改
+      const defenderCitiesWithName = cities2.map(c => {
         const city = player2.cities[c.cityName]
         return JSON.parse(JSON.stringify({ ...city, cityName: c.cityName }))
       })
 
       battleResult1 = calculateBattleResult(
-        attackerCitiesWithIdx,
-        defenderCitiesWithIdx,
+        attackerCitiesWithName,
+        defenderCitiesWithName,
         player1,
         player2,
         gameStore,
@@ -466,10 +539,14 @@ export function useGameLogic() {
       )
 
       // 保存修改后的防守方城市状态（calculateBattleResult会直接修改传入的数组）
-      defenderCities1 = defenderCitiesWithIdx
+      defenderCities1 = defenderCitiesWithName
 
       // 记录战斗日志
       addPublicLog(`${player1.name} → ${player2.name}: 总攻击力 ${battleResult1.totalAttackPower}，净伤害 ${battleResult1.netDamage}`)
+
+      if (battleResult1.barrierAbsorbed > 0 || battleResult1.barrierReflected > 0) {
+        addPublicLog(`${player2.name} 的屏障吸收 ${battleResult1.barrierAbsorbed}，反弹 ${battleResult1.barrierReflected} 伤害${gameStore.barrier?.[player2.name] ? `（剩余${gameStore.barrier[player2.name].hp}HP）` : '（屏障被摧毁）'}`)
+      }
 
       if (battleResult1.destroyedCities.length > 0) {
         addPublicLog(`摧毁城市: ${battleResult1.destroyedCities.join('、')}`)
@@ -481,25 +558,36 @@ export function useGameLogic() {
       // 检查是否有擒贼擒王技能
       const hasCaptureKing = gameStore.qinwang && gameStore.qinwang.caster === player2.name && gameStore.qinwang.target === player1.name
 
-      const battleSkills = {
-        captureKing: hasCaptureKing
+      // 检查防守方(player1)是否使用了吸引攻击
+      const attractCity1 = (state1.battleGoldSkill === '吸引攻击' && state1.battleGoldSkillData?.selfCityName) || null
+      if (attractCity1) {
+        addPublicLog(`${player1.name} 使用吸引攻击，${attractCity1} 吸引全部伤害`)
       }
 
-      // 获取攻击方城市的完整对象（含索引）- 使用原始HP数据
-      const attackerCitiesWithIdx = cities2.map(c => {
+      // 草木皆兵：如果player1使用了草木皆兵，player2对player1的伤害减半
+      const cmjbMultiplier2 = state1.battleGoldSkill === '草木皆兵' ? 0.5 : 1
+
+      const battleSkills = {
+        captureKing: hasCaptureKing,
+        attractCity: attractCity1,
+        damageMultiplier: cmjbMultiplier2
+      }
+
+      // 获取攻击方城市的完整对象（含城市名）- 使用原始HP数据
+      const attackerCitiesWithName = cities2.map(c => {
         const city = player2.cities[c.cityName]
         return { ...city, cityName: c.cityName }
       })
 
-      // 获取防守方城市的完整对象（含索引）- 深度克隆避免被修改
-      const defenderCitiesWithIdx = cities1.map(c => {
+      // 获取防守方城市的完整对象（含城市名）- 深度克隆避免被修改
+      const defenderCitiesWithName = cities1.map(c => {
         const city = player1.cities[c.cityName]
         return JSON.parse(JSON.stringify({ ...city, cityName: c.cityName }))
       })
 
       battleResult2 = calculateBattleResult(
-        attackerCitiesWithIdx,
-        defenderCitiesWithIdx,
+        attackerCitiesWithName,
+        defenderCitiesWithName,
         player2,
         player1,
         gameStore,
@@ -507,10 +595,14 @@ export function useGameLogic() {
       )
 
       // 保存修改后的防守方城市状态（calculateBattleResult会直接修改传入的数组）
-      defenderCities2 = defenderCitiesWithIdx
+      defenderCities2 = defenderCitiesWithName
 
       // 记录战斗日志
       addPublicLog(`${player2.name} → ${player1.name}: 总攻击力 ${battleResult2.totalAttackPower}，净伤害 ${battleResult2.netDamage}`)
+
+      if (battleResult2.barrierAbsorbed > 0 || battleResult2.barrierReflected > 0) {
+        addPublicLog(`${player1.name} 的屏障吸收 ${battleResult2.barrierAbsorbed}，反弹 ${battleResult2.barrierReflected} 伤害${gameStore.barrier?.[player1.name] ? `（剩余${gameStore.barrier[player1.name].hp}HP）` : '（屏障被摧毁）'}`)
+      }
 
       if (battleResult2.destroyedCities.length > 0) {
         addPublicLog(`摧毁城市: ${battleResult2.destroyedCities.join('、')}`)
@@ -522,11 +614,9 @@ export function useGameLogic() {
       // 应用 player1 对 player2 的伤害
       defenderCities1.forEach((city) => {
         const originalCity = player2.cities[city.cityName]
+        if (!originalCity) { console.warn('[battle2P] 城市不存在:', city.cityName); return }
         originalCity.currentHp = city.currentHp
         originalCity.isAlive = city.isAlive
-        if (originalCity.hp !== undefined) {
-          originalCity.hp = city.currentHp
-        }
       })
 
       // 记录阵亡城市名称
@@ -543,11 +633,9 @@ export function useGameLogic() {
       // 应用 player2 对 player1 的伤害
       defenderCities2.forEach((city) => {
         const originalCity = player1.cities[city.cityName]
+        if (!originalCity) { console.warn('[battle2P] 城市不存在:', city.cityName); return }
         originalCity.currentHp = city.currentHp
         originalCity.isAlive = city.isAlive
-        if (originalCity.hp !== undefined) {
-          originalCity.hp = city.currentHp
-        }
       })
 
       // 记录阵亡城市名称
@@ -558,6 +646,38 @@ export function useGameLogic() {
           }
         })
       }
+    }
+
+    // 应用屏障反弹伤害到攻击方城市
+    if (battleResult1 && battleResult1.barrierReflectDamage) {
+      // player2的屏障反弹伤害到player1的出战城市
+      Object.entries(battleResult1.barrierReflectDamage).forEach(([cityName, dmg]) => {
+        const originalCity = player1.cities[cityName]
+        if (!originalCity || dmg <= 0) return
+        originalCity.currentHp = Math.max(0, (originalCity.currentHp ?? originalCity.hp) - dmg)
+        if (originalCity.currentHp <= 0) {
+          originalCity.currentHp = 0
+          originalCity.isAlive = false
+          if (!state1.deadCities.includes(cityName)) {
+            state1.deadCities.push(cityName)
+          }
+        }
+      })
+    }
+    if (battleResult2 && battleResult2.barrierReflectDamage) {
+      // player1的屏障反弹伤害到player2的出战城市
+      Object.entries(battleResult2.barrierReflectDamage).forEach(([cityName, dmg]) => {
+        const originalCity = player2.cities[cityName]
+        if (!originalCity || dmg <= 0) return
+        originalCity.currentHp = Math.max(0, (originalCity.currentHp ?? originalCity.hp) - dmg)
+        if (originalCity.currentHp <= 0) {
+          originalCity.currentHp = 0
+          originalCity.isAlive = false
+          if (!state2.deadCities.includes(cityName)) {
+            state2.deadCities.push(cityName)
+          }
+        }
+      })
     }
 
     // 输出战斗后各城市剩余HP
@@ -581,37 +701,31 @@ export function useGameLogic() {
       })
     }
 
-    // 草木皆兵：若目标本轮未出牌，抢走1金币
-    if (gameStore.cmjb) {
-      Object.keys(gameStore.cmjb).forEach(casterName => {
-        const cfg = gameStore.cmjb[casterName]
-        if (cfg && cfg.mode === '2P') {
-          const caster = players.find(p => p.name === casterName)
-          const target = players.find(p => p.name === cfg.target)
+    // 草木皆兵：若目标本轮未出牌，抢走1金币（使用Firebase同步的battleGoldSkill）
+    ;[
+      { caster: player1, casterState: state1, target: player2, targetState: state2 },
+      { caster: player2, casterState: state2, target: player1, targetState: state1 }
+    ].forEach(({ caster, casterState, target, targetState }) => {
+      if (casterState.battleGoldSkill === '草木皆兵') {
+        const rawTargetOut = Array.isArray(targetState.currentBattleCities)
+          ? targetState.currentBattleCities
+          : (targetState.currentBattleCities ? Object.values(targetState.currentBattleCities) : [])
+        const targetOut = rawTargetOut.filter(c => c && !c.isStandGroundCity)
 
-          if (caster && target) {
-            const targetState = gameState.playerStates[target.name]
-            const targetOut = (targetState.currentBattleCities || [])
-
-            if (targetOut.length === 0) {
-              // 目标未出牌，抢走1金币
-              const steal = Math.min(1, target.gold || 0)
-              if (steal > 0) {
-                const beforeCaster = caster.gold
-                const beforeTarget = target.gold
-                target.gold = Math.max(0, target.gold - steal)
-                caster.gold = Math.min(24, caster.gold + steal)
-                addPublicLog(`${caster.name} 对 ${target.name} 使用草木皆兵，${target.name}本轮未出牌，抢走${steal}金币（${caster.name} ${beforeCaster} -> ${caster.gold}，${target.name} ${beforeTarget} -> ${target.gold}）`)
-              } else {
-                addPublicLog(`${caster.name} 对 ${target.name} 使用草木皆兵，${target.name}本轮未出牌，但无金币可抢`)
-              }
-            }
+        if (targetOut.length === 0) {
+          const steal = Math.min(1, target.gold || 0)
+          if (steal > 0) {
+            const beforeCaster = caster.gold
+            const beforeTarget = target.gold
+            target.gold = Math.max(0, target.gold - steal)
+            caster.gold = Math.min(24, caster.gold + steal)
+            addPublicLog(`${caster.name} 对 ${target.name} 使用草木皆兵，${target.name}本轮未出牌，抢走${steal}金币（${caster.name} ${beforeCaster} -> ${caster.gold}，${target.name} ${beforeTarget} -> ${target.gold}）`)
+          } else {
+            addPublicLog(`${caster.name} 对 ${target.name} 使用草木皆兵，${target.name}本轮未出牌，但无金币可抢`)
           }
         }
-      })
-      // 清空草木皆兵状态
-      gameStore.cmjb = {}
-    }
+      }
+    })
 
     // 结算金币 - 每回合基础+3（已移除摧毁对手城市的奖励）
     const base = 3
@@ -626,68 +740,62 @@ export function useGameLogic() {
     state1.currentBattleCities = []
     state2.currentBattleCities = []
     state1.battleGoldSkill = null
+    state1.battleGoldSkillData = null
     state2.battleGoldSkill = null
+    state2.battleGoldSkillData = null
 
-    // 检查并标记需要补充预备城市的玩家
+    // 自动补充roster（战斗预备城市阵亡后自动填充）
     checkRosterRefillNeeded(player1, state1)
     checkRosterRefillNeeded(player2, state2)
+
+    // 检查生于紫室继承（必须在checkWinCondition之前）
+    // 当中心城市阵亡时，生于紫室城市自动成为新中心，玩家不应被判负
+    players.forEach(player => {
+      gameStore.checkCenterDeathAndPurpleChamberInheritance(player)
+    })
 
     // 检查胜负
     checkWinCondition(players, gameState)
   }
 
   /**
-   * 自动补充预备城市（与HTML版本一致）
+   * 自动补充战斗预备城市（roster不足时从存活城市自动填充）
    */
   function checkRosterRefillNeeded(player, playerState) {
     const rosterLimit = gameStore.gameMode === '2v2' ? 4 : 5
-    const mode = gameStore.gameMode || '2P'
 
-    console.log(`[checkRosterRefillNeeded] ===== 检查 ${player.name} =====`)
-    console.log(`[checkRosterRefillNeeded] rosterLimit: ${rosterLimit}, gameMode: ${mode}`)
-
-    // 获取所有存活城市的名称（使用currentHp和isAlive标志）
+    // 获取所有存活城市的名称
     const aliveCityNames = Object.entries(player.cities)
       .map(([cityName, c]) => {
         const currentHp = c.currentHp !== undefined ? c.currentHp : c.hp
         const alive = c.isAlive !== false && currentHp > 0
-        console.log(`  ${cityName}: ${c.name}, currentHp=${currentHp}, isAlive=${c.isAlive}, alive=${alive}`)
         return { cityName, alive }
       })
       .filter(x => x.alive)
       .map(x => x.cityName)
 
-    console.log(`[checkRosterRefillNeeded] 存活城市数: ${aliveCityNames.length}, 城市名:`, aliveCityNames)
-
     // 如果存活城市数 <= 预备名额，全部城市自动出阵
     if (aliveCityNames.length <= rosterLimit) {
       player.roster = aliveCityNames
-      playerState.needsRosterRefill = false
-      console.log(`[checkRosterRefillNeeded] ${player.name} 存活城市≤${rosterLimit}，全部自动出阵`)
       return
     }
 
-    // 保留存活的已出阵城市
+    // 保留存活的已在roster中的城市
     const currentRoster = player.roster || []
-    console.log(`[checkRosterRefillNeeded] 当前roster:`, currentRoster)
     const keepInRoster = aliveCityNames.filter(cityName => currentRoster.includes(cityName))
-    console.log(`[checkRosterRefillNeeded] 保留在roster中的存活城市:`, keepInRoster, `(${keepInRoster.length}个)`)
 
-    // 检查是否有城市需要补充
+    // 如果roster不足，自动从剩余存活城市中补充
     if (keepInRoster.length < rosterLimit) {
-      // 需要补充预备城市，设置标志让玩家手动选择
-      playerState.needsRosterRefill = true
-      playerState.rosterRefillReason = '战斗城市阵亡'
-      console.log(`[checkRosterRefillNeeded] ⚠️ ${player.name} 需要补充预备城市：当前${keepInRoster.length}个，需要${rosterLimit}个`)
-      console.log(`[checkRosterRefillNeeded] 设置 playerState.needsRosterRefill = true`)
+      const notInRoster = aliveCityNames.filter(cityName => !keepInRoster.includes(cityName))
+      const needed = rosterLimit - keepInRoster.length
+      const autoFill = notInRoster.slice(0, needed)
+      player.roster = [...keepInRoster, ...autoFill]
+      console.log(`[checkRosterRefillNeeded] ${player.name} 自动补充roster: +${autoFill.length}个城市`)
       return
     }
 
-    // 不需要补充，保持当前roster
+    // roster充足，保持当前
     player.roster = keepInRoster
-    playerState.needsRosterRefill = false
-    console.log(`[checkRosterRefillNeeded] ✅ ${player.name} 预备城市充足，不需要补充`)
-    console.log(`[checkRosterRefillNeeded] ${player.name} roster详情:`, keepInRoster.map(cityName => `${cityName}:${player.cities[cityName]?.name}`).join(', '))
   }
 
   /**
@@ -696,9 +804,15 @@ export function useGameLogic() {
   function checkWinCondition(players, gameState) {
     // 检查中心城市是否被摧毁
     const alivePlayers = players.filter(player => {
-      const centerCityName = player.centerCityName || Object.keys(player.cities)[0]
+      let centerCityName = player.centerCityName || Object.keys(player.cities)[0]
+      // Handle numeric centerCityName from Firebase
+      if (typeof centerCityName === 'number' || (typeof centerCityName === 'string' && !isNaN(centerCityName) && !player.cities[centerCityName])) {
+        const cityNames = Object.keys(player.cities)
+        centerCityName = cityNames[Number(centerCityName)] || cityNames[0]
+      }
       const centerCity = player.cities[centerCityName]
-      return centerCity && centerCity.hp > 0
+      const hp = centerCity ? (centerCity.currentHp !== undefined ? centerCity.currentHp : centerCity.hp) : 0
+      return hp > 0
     })
 
     if (alivePlayers.length === 1) {
@@ -754,48 +868,12 @@ export function useGameLogic() {
   function battle3P(players, gameState) {
     addPublicLog('\n=== 3人游戏战斗计算 ===')
 
-    // 处理战斗金币技能使用和金币扣除
+    // 处理战斗金币技能使用（金币已在SkillSelector中扣除，此处仅记录日志）
     players.forEach(player => {
       const state = gameState.playerStates[player.name]
       if (state && state.battleGoldSkill) {
         const skillName = state.battleGoldSkill
-        const skillCosts = {
-          '按兵不动': 4,
-          '擒贼擒王': 3,
-          '草木皆兵': 3,
-          '越战越勇': 3,
-          '吸引攻击': 4,
-          '既来则安': 4,
-          '铜墙铁壁': 5,
-          '玉碎瓦全': 5,
-          '背水一战': 6,
-          '料事如神': 6,
-          '暗度陈仓': 6,
-          '同归于尽': 7,
-          '声东击西': 7,
-          '欲擒故纵': 7,
-          '御驾亲征': 8,
-          '草船借箭': 8,
-          '移花接木': 8,
-          '狂暴模式': 9,
-          '以逸待劳': 9,
-          '晕头转向': 10,
-          '隔岸观火': 10,
-          '挑拨离间': 10,
-          '趁火打劫': 10,
-          '反戈一击': 11,
-          '围魏救赵': 13,
-          '设置屏障': 15,
-          '潜能激发': 20
-        }
-        const skillCost = skillCosts[skillName] || 0
-        if (skillCost > 0) {
-          const beforeGold = player.gold
-          player.gold = Math.max(0, player.gold - skillCost)
-          addPublicLog(`${player.name} 使用战斗技能【${skillName}】，消耗${skillCost}金币（${beforeGold} → ${player.gold}）`)
-        } else {
-          addPublicLog(`${player.name} 使用战斗技能【${skillName}】`)
-        }
+        addPublicLog(`${player.name} 使用战斗技能【${skillName}】`)
       }
     })
 
@@ -818,7 +896,7 @@ export function useGameLogic() {
 
           const battleSkills = { captureKing: hasCaptureKing }
 
-          // 获取攻击城市和防守城市的完整对象（含索引）
+          // 获取攻击城市和防守城市的完整对象（含城市名）
           const attackerCitiesData = attackingCities.map(card => ({
             ...attacker.cities[card.cityName],
             cityName: card.cityName
@@ -844,6 +922,10 @@ export function useGameLogic() {
 
             addPublicLog(`${attacker.name} → ${defender.name}: 总攻击力 ${battleResult.totalAttackPower}，净伤害 ${battleResult.netDamage}`)
 
+            if (battleResult.barrierAbsorbed > 0 || battleResult.barrierReflected > 0) {
+              addPublicLog(`${defender.name} 的屏障吸收 ${battleResult.barrierAbsorbed}，反弹 ${battleResult.barrierReflected} 伤害${gameStore.barrier?.[defender.name] ? `（剩余${gameStore.barrier[defender.name].hp}HP）` : '（屏障被摧毁）'}`)
+            }
+
             if (battleResult.destroyedCities.length > 0) {
               addPublicLog(`摧毁城市: ${battleResult.destroyedCities.join('、')}`)
 
@@ -859,12 +941,27 @@ export function useGameLogic() {
             // 同步HP变化
             defenderCitiesData.forEach(city => {
               const originalCity = defender.cities[city.cityName]
+              if (!originalCity) { console.warn('[battle3P] 城市不存在:', city.cityName); return }
               originalCity.currentHp = city.currentHp
               originalCity.isAlive = city.isAlive
-              if (originalCity.hp !== undefined) {
-                originalCity.hp = city.currentHp
-              }
             })
+
+            // 应用屏障反弹伤害到攻击方城市
+            if (battleResult.barrierReflectDamage) {
+              const attackerState = gameState.playerStates[attacker.name]
+              Object.entries(battleResult.barrierReflectDamage).forEach(([cityName, dmg]) => {
+                const originalCity = attacker.cities[cityName]
+                if (!originalCity || dmg <= 0) return
+                originalCity.currentHp = Math.max(0, (originalCity.currentHp ?? originalCity.hp) - dmg)
+                if (originalCity.currentHp <= 0) {
+                  originalCity.currentHp = 0
+                  originalCity.isAlive = false
+                  if (attackerState && attackerState.deadCities && !attackerState.deadCities.includes(cityName)) {
+                    attackerState.deadCities.push(cityName)
+                  }
+                }
+              })
+            }
           }
         }
       })
@@ -886,6 +983,11 @@ export function useGameLogic() {
       state.battleGoldSkill = null
     })
 
+    // 检查生于紫室继承（必须在checkWinCondition之前）
+    players.forEach(player => {
+      gameStore.checkCenterDeathAndPurpleChamberInheritance(player)
+    })
+
     // 检查胜负
     checkWinCondition(players, gameState)
   }
@@ -896,48 +998,12 @@ export function useGameLogic() {
   function battle2v2(players, gameState) {
     addPublicLog('\n=== 2v2 战斗计算 ===')
 
-    // 处理战斗金币技能使用和金币扣除
+    // 处理战斗金币技能使用（金币已在SkillSelector中扣除，此处仅记录日志）
     players.forEach(player => {
       const state = gameState.playerStates[player.name]
       if (state && state.battleGoldSkill) {
         const skillName = state.battleGoldSkill
-        const skillCosts = {
-          '按兵不动': 2,
-          '擒贼擒王': 3,
-          '草木皆兵': 3,
-          '越战越勇': 3,
-          '吸引攻击': 4,
-          '既来则安': 4,
-          '铜墙铁壁': 5,
-          '玉碎瓦全': 5,
-          '背水一战': 6,
-          '料事如神': 6,
-          '暗度陈仓': 6,
-          '同归于尽': 7,
-          '声东击西': 7,
-          '欲擒故纵': 7,
-          '御驾亲征': 8,
-          '草船借箭': 8,
-          '移花接木': 8,
-          '狂暴模式': 9,
-          '以逸待劳': 9,
-          '晕头转向': 10,
-          '隔岸观火': 10,
-          '挑拨离间': 10,
-          '趁火打劫': 10,
-          '反戈一击': 11,
-          '围魏救赵': 13,
-          '设置屏障': 15,
-          '潜能激发': 20
-        }
-        const skillCost = skillCosts[skillName] || 0
-        if (skillCost > 0) {
-          const beforeGold = player.gold
-          player.gold = Math.max(0, player.gold - skillCost)
-          addPublicLog(`${player.name} 使用战斗技能【${skillName}】，消耗${skillCost}金币（${beforeGold} → ${player.gold}）`)
-        } else {
-          addPublicLog(`${player.name} 使用战斗技能【${skillName}】`)
-        }
+        addPublicLog(`${player.name} 使用战斗技能【${skillName}】`)
       }
     })
 
@@ -977,8 +1043,7 @@ export function useGameLogic() {
       if (barrier.team === '红队') {
         // 蓝队攻击红队屏障
         const team1AttackPower = team1Cities.reduce((sum, { city, cityName, player }) => {
-          const realIdx = Object.keys(player.cities).indexOf(city.name)
-          return sum + calculateCityPower(city, realIdx, player, gameStore)
+          return sum + calculateCityPower(city, city.name, player, gameStore)
         }, 0)
 
         const oldHp = barrier.hp
@@ -992,8 +1057,7 @@ export function useGameLogic() {
       } else if (barrier.team === '蓝队') {
         // 红队攻击蓝队屏障
         const team0AttackPower = team0Cities.reduce((sum, { city, cityName, player }) => {
-          const realIdx = Object.keys(player.cities).indexOf(city.name)
-          return sum + calculateCityPower(city, realIdx, player, gameStore)
+          return sum + calculateCityPower(city, city.name, player, gameStore)
         }, 0)
 
         const oldHp = barrier.hp
@@ -1011,16 +1075,16 @@ export function useGameLogic() {
     if (team1Cities.length > 0 && team0Cities.length > 0 && (!barrier || !barrier.active || barrier.team !== '红队')) {
       const battleSkills = { captureKing: false }  // 2v2模式下暂不实现擒贼擒王
 
-      const attackerCitiesWithIdx = team1Cities.map(c => ({ ...c.city, cityName: c.cityName }))
-      const defenderCitiesWithIdx = team0Cities.map(c => ({ ...c.city, cityName: c.cityName }))
+      const attackerCitiesWithName = team1Cities.map(c => ({ ...c.city, cityName: c.cityName }))
+      const defenderCitiesWithName = team0Cities.map(c => ({ ...c.city, cityName: c.cityName }))
 
       // 使用第一个攻击方和第一个防守方作为代表（简化）
       const attackerPlayer = team1[0]
       const defenderPlayer = team0[0]
 
       const battleResult = calculateBattleResult(
-        attackerCitiesWithIdx,
-        defenderCitiesWithIdx,
+        attackerCitiesWithName,
+        defenderCitiesWithName,
         attackerPlayer,
         defenderPlayer,
         gameStore,
@@ -1046,31 +1110,44 @@ export function useGameLogic() {
       }
 
       // 同步HP变化
-      defenderCitiesWithIdx.forEach((city, idx) => {
+      defenderCitiesWithName.forEach((city, idx) => {
         const cityData = team0Cities[idx]
-        const originalCity = cityData.player.cities[cityData.cityName]
+        const originalCity = cityData?.player?.cities?.[cityData.cityName]
+        if (!originalCity) { console.warn('[battle2v2] 城市不存在:', cityData?.cityName); return }
         originalCity.currentHp = city.currentHp
         originalCity.isAlive = city.isAlive
-        if (originalCity.hp !== undefined) {
-          originalCity.hp = city.currentHp
-        }
       })
+
+      // 应用屏障反弹伤害到蓝队攻击方城市
+      if (battleResult.barrierReflectDamage) {
+        Object.entries(battleResult.barrierReflectDamage).forEach(([cityName, dmg]) => {
+          const cityData = team1Cities.find(c => c.cityName === cityName)
+          if (!cityData || dmg <= 0) return
+          const originalCity = cityData.player?.cities?.[cityName]
+          if (!originalCity) return
+          originalCity.currentHp = Math.max(0, (originalCity.currentHp ?? originalCity.hp) - dmg)
+          if (originalCity.currentHp <= 0) {
+            originalCity.currentHp = 0
+            originalCity.isAlive = false
+          }
+        })
+      }
     }
 
     // 红队攻击蓝队（使用calculateBattleResult）
     if (team0Cities.length > 0 && team1Cities.length > 0 && (!barrier || !barrier.active || barrier.team !== '蓝队')) {
       const battleSkills = { captureKing: false }  // 2v2模式下暂不实现擒贼擒王
 
-      const attackerCitiesWithIdx = team0Cities.map(c => ({ ...c.city, cityName: c.cityName }))
-      const defenderCitiesWithIdx = team1Cities.map(c => ({ ...c.city, cityName: c.cityName }))
+      const attackerCitiesWithName = team0Cities.map(c => ({ ...c.city, cityName: c.cityName }))
+      const defenderCitiesWithName = team1Cities.map(c => ({ ...c.city, cityName: c.cityName }))
 
       // 使用第一个攻击方和第一个防守方作为代表（简化）
       const attackerPlayer = team0[0]
       const defenderPlayer = team1[0]
 
       const battleResult = calculateBattleResult(
-        attackerCitiesWithIdx,
-        defenderCitiesWithIdx,
+        attackerCitiesWithName,
+        defenderCitiesWithName,
         attackerPlayer,
         defenderPlayer,
         gameStore,
@@ -1096,15 +1173,28 @@ export function useGameLogic() {
       }
 
       // 同步HP变化
-      defenderCitiesWithIdx.forEach((city, idx) => {
+      defenderCitiesWithName.forEach((city, idx) => {
         const cityData = team1Cities[idx]
-        const originalCity = cityData.player.cities[cityData.cityName]
+        const originalCity = cityData?.player?.cities?.[cityData.cityName]
+        if (!originalCity) { console.warn('[battle2v2] 城市不存在:', cityData?.cityName); return }
         originalCity.currentHp = city.currentHp
         originalCity.isAlive = city.isAlive
-        if (originalCity.hp !== undefined) {
-          originalCity.hp = city.currentHp
-        }
       })
+
+      // 应用屏障反弹伤害到红队攻击方城市
+      if (battleResult.barrierReflectDamage) {
+        Object.entries(battleResult.barrierReflectDamage).forEach(([cityName, dmg]) => {
+          const cityData = team0Cities.find(c => c.cityName === cityName)
+          if (!cityData || dmg <= 0) return
+          const originalCity = cityData.player?.cities?.[cityName]
+          if (!originalCity) return
+          originalCity.currentHp = Math.max(0, (originalCity.currentHp ?? originalCity.hp) - dmg)
+          if (originalCity.currentHp <= 0) {
+            originalCity.currentHp = 0
+            originalCity.isAlive = false
+          }
+        })
+      }
     }
 
     // 结算金币 - 每回合基础+3
@@ -1123,16 +1213,21 @@ export function useGameLogic() {
       state.battleGoldSkill = null
     })
 
+    // 检查生于紫室继承（必须在胜负判定之前）
+    players.forEach(player => {
+      gameStore.checkCenterDeathAndPurpleChamberInheritance(player)
+    })
+
     // 检查胜负（2v2模式：一个队伍的两个中心城市都被摧毁才算输）
     const team0Alive = team0.some(p => {
       const centerCityName = p.centerCityName || Object.keys(p.cities)[0]
       const center = p.cities[centerCityName]
-      return center && center.hp > 0
+      return center && (center.currentHp > 0 || center.hp > 0)
     })
     const team1Alive = team1.some(p => {
       const centerCityName = p.centerCityName || Object.keys(p.cities)[0]
       const center = p.cities[centerCityName]
-      return center && center.hp > 0
+      return center && (center.currentHp > 0 || center.hp > 0)
     })
 
     if (!team0Alive && team1Alive) {

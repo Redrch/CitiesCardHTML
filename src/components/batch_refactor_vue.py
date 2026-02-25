@@ -59,8 +59,6 @@ def main():
         'Game/PendingSwapsPanel.vue',
         'PlayerMode/CenterCitySelection.vue',
         'PlayerMode/PlayerModeOnline.vue',
-        'PlayerMode/RosterRefill.vue',
-        'PlayerMode/RosterSelection.vue',
         'AdminMode/CityEditor.vue',
         'Game/BattleAnimation.vue'
     ]

@@ -1,6 +1,12 @@
 <template>
   <div class="room-selection">
     <div class="room-container">
+      <!-- 返回按钮 -->
+      <button class="back-btn" @click="$emit('back')">
+        <span class="back-icon">←</span>
+        <span>返回主界面</span>
+      </button>
+
       <!-- 标题 -->
       <div class="room-title">
         <h1 class="title-text">房间设置</h1>
@@ -32,16 +38,43 @@
       <!-- 游戏模式选择 -->
       <div class="mode-selector-card">
         <label class="mode-label">选择游戏模式</label>
-        <select v-model="selectedMode" class="mode-select">
-          <option value="2P">2人对战 (1v1)</option>
-          <option value="3P">3人混战</option>
-          <option value="2v2">2v2 团队战</option>
-        </select>
+        <div class="mode-buttons">
+          <button
+            class="mode-option-btn active"
+            @click="selectedMode = '2P'"
+          >
+            <span class="mode-option-icon">👥</span>
+            <span class="mode-option-name">2人对战 (1v1)</span>
+          </button>
+          <button
+            class="mode-option-btn disabled"
+            @click="showComingSoon"
+          >
+            <span class="mode-option-icon">👥👤</span>
+            <span class="mode-option-name">3人混战</span>
+            <span class="mode-option-tag">敬请期待</span>
+          </button>
+          <button
+            class="mode-option-btn disabled"
+            @click="showComingSoon"
+          >
+            <span class="mode-option-icon">👥⚔️👥</span>
+            <span class="mode-option-name">2v2 团队战</span>
+            <span class="mode-option-tag">敬请期待</span>
+          </button>
+        </div>
         <div class="mode-description">
           <span class="mode-desc-icon">ℹ️</span>
           <span>{{ getModeDescription() }}</span>
         </div>
       </div>
+
+      <!-- 敬请期待提示 -->
+      <Transition name="toast">
+        <div v-if="showToast" class="toast-message">
+          🚧 敬请期待，该模式正在开发中...
+        </div>
+      </Transition>
 
       <!-- 创建房间按钮 -->
       <button class="action-btn create-btn" @click="handleCreateRoom">
@@ -79,13 +112,23 @@ import { ref } from 'vue'
 import { useRoom } from '../../composables/useRoom'
 import { useNotification } from '../../composables/useNotification'
 
-const emit = defineEmits(['room-created', 'room-joined'])
+const emit = defineEmits(['room-created', 'room-joined', 'back'])
 
 const { showNotification } = useNotification()
 const { createRoom, joinRoom } = useRoom()
 
 const roomIdInput = ref('')
 const selectedMode = ref('2P')
+const showToast = ref(false)
+let toastTimer = null
+
+function showComingSoon() {
+  showToast.value = true
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => {
+    showToast.value = false
+  }, 2000)
+}
 
 /**
  * 获取模式描述
@@ -182,6 +225,36 @@ async function handleJoinRoom() {
   max-width: 600px;
   width: 100%;
   animation: fadeIn 0.8s ease-out;
+}
+
+/* 返回按钮 */
+.back-btn {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: rgba(30, 41, 59, 0.8);
+  border: 2px solid rgba(148, 163, 184, 0.3);
+  border-radius: 12px;
+  padding: 12px 24px;
+  color: #e2e8f0;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  backdrop-filter: blur(10px);
+}
+
+.back-btn:hover {
+  background: rgba(51, 65, 85, 0.9);
+  border-color: rgba(148, 163, 184, 0.5);
+  transform: translateX(-4px);
+}
+
+.back-icon {
+  font-size: 20px;
 }
 
 @keyframes fadeIn {
@@ -334,10 +407,19 @@ async function handleJoinRoom() {
   margin-bottom: 12px;
 }
 
-.mode-select {
+.mode-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mode-option-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   width: 100%;
-  padding: 14px 16px;
-  font-size: 16px;
+  padding: 14px 18px;
+  font-size: 15px;
   border-radius: 12px;
   background: rgba(30, 41, 59, 0.8);
   color: #f1f5f9;
@@ -345,17 +427,78 @@ async function handleJoinRoom() {
   cursor: pointer;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
+  font-weight: 600;
+  text-align: left;
 }
 
-.mode-select:hover {
-  border-color: rgba(59, 130, 246, 0.5);
-  background: rgba(30, 41, 59, 0.9);
+.mode-option-btn.active {
+  border-color: rgba(59, 130, 246, 0.6);
+  background: rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
-.mode-select:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+.mode-option-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mode-option-btn.disabled:hover {
+  opacity: 0.6;
+}
+
+.mode-option-icon {
+  font-size: 18px;
+}
+
+.mode-option-name {
+  flex: 1;
+}
+
+.mode-option-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  background: rgba(100, 116, 139, 0.3);
+  padding: 3px 10px;
+  border-radius: 8px;
+  letter-spacing: 0.5px;
+}
+
+/* Toast 提示 */
+.toast-message {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%);
+  border: 2px solid rgba(100, 116, 139, 0.5);
+  border-radius: 16px;
+  padding: 16px 32px;
+  color: #e2e8f0;
+  font-size: 16px;
+  font-weight: 600;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  white-space: nowrap;
+}
+
+.toast-enter-active {
+  animation: toastIn 0.3s ease-out;
+}
+
+.toast-leave-active {
+  animation: toastOut 0.3s ease-in;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes toastOut {
+  from { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to { opacity: 0; transform: translateX(-50%) translateY(-20px); }
 }
 
 .mode-description {

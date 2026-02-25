@@ -10,6 +10,7 @@ import {
   healCity,
   increaseMaxHp,
   addShield,
+  findCity,
 } from './skillHelpers'
 
 /**
@@ -29,9 +30,9 @@ export function handleHaerbinSkill(attacker, defender, skillData, addPublicLog, 
   if (!gameStore.skillFrozen[defender.name]) gameStore.skillFrozen[defender.name] = {}
 
   // 标记所有对方城市2回合内无法使用技能
-  Object.values(defender.cities).forEach((city, idx) => {
+  Object.values(defender.cities).forEach(city => {
     if (city.isAlive !== false && getCurrentHp(city) > 0) {
-      gameStore.skillFrozen[defender.name][idx] = {
+      gameStore.skillFrozen[defender.name][city.name] = {
         roundsLeft: 2,
         appliedRound: gameStore.currentRound
       }
@@ -77,7 +78,7 @@ export function handleMudanjiangSkill(attacker, skillData, addPublicLog, gameSto
   if (selectedCityName !== null && selectedCityName !== undefined) {
     // 使用玩家选择的城市
     targetCity = attacker.cities[selectedCityName]
-    cityName = selectedCityIndex
+    cityName = selectedCityName
   } else {
     // 默认行为：选择HP最低的城市
     const aliveCities = getAliveCities(attacker)
@@ -87,7 +88,7 @@ export function handleMudanjiangSkill(attacker, skillData, addPublicLog, gameSto
     }
     const sorted = [...aliveCities].sort((a, b) => getCurrentHp(a) - getCurrentHp(b))
     targetCity = sorted[0]
-    cityName = getCityName(attacker, targetCity)
+    cityName = targetCity.name
   }
 
   if (!targetCity || targetCity.isAlive === false) {
@@ -141,7 +142,7 @@ export function handleDaqingSkill(attacker, skillData, addPublicLog, gameStore, 
 
   if (selectedCityNames && Array.isArray(selectedCityNames)) {
     // 使用玩家选择的城市
-    citiesToBuff = selectedCityNames.map(name => ({ city: attacker.cities[name], name })).filter(item => item.city)
+    citiesToBuff = selectedCityNames.map(name => ({ city: attacker.cities[name], cityName: name })).filter(item => item.city)
   } else {
     // 默认行为：选择HP最高的2座城市
     const aliveCities = getAliveCities(attacker)
@@ -150,7 +151,7 @@ export function handleDaqingSkill(attacker, skillData, addPublicLog, gameStore, 
       return
     }
     const sorted = [...aliveCities].sort((a, b) => getCurrentHp(b) - getCurrentHp(a))
-    citiesToBuff = sorted.slice(0, 2).map(city => ({ city, idx: getCityName(attacker, city) }))
+    citiesToBuff = sorted.slice(0, 2).map(city => ({ city, cityName: city.name }))
   }
 
   if (citiesToBuff.length === 0) {
@@ -159,9 +160,9 @@ export function handleDaqingSkill(attacker, skillData, addPublicLog, gameStore, 
   }
 
   const cityNames = []
-  citiesToBuff.forEach(({ city, idx }) => {
+  citiesToBuff.forEach(({ city, cityName }) => {
     // 添加护盾
-    addShield(gameStore, attacker.name, idx, {
+    addShield(gameStore, attacker.name, cityName, {
       hp: 2000,
       roundsLeft: -1  // 永久护盾，直到被打破
     })
@@ -170,7 +171,7 @@ export function handleDaqingSkill(attacker, skillData, addPublicLog, gameStore, 
     if (!gameStore.attackBoost) gameStore.attackBoost = {}
     if (!gameStore.attackBoost[attacker.name]) gameStore.attackBoost[attacker.name] = {}
 
-    gameStore.attackBoost[attacker.name][idx] = {
+    gameStore.attackBoost[attacker.name][cityName] = {
       multiplier: 1.3,  // 攻击力×1.3
       type: 'daqing',
       appliedRound: gameStore.currentRound
@@ -217,12 +218,14 @@ export function handleYichunSkill(attacker, defender, skillData, addPublicLog, g
  * 限2次，出战时增加己方城市2000攻击力（被动触发）
  */
 export function handleJixiSkill(attacker, skillData, addPublicLog, gameStore) {
-  // 找到鸡西市在城市列表中的索引
-  const jixiName = attacker.cities.findName(c => c.name === '鸡西市')
+  // 找到鸡西市
+  const jixiCity = findCity(attacker, '鸡西市')
 
-  if (jixiName === -1) {
+  if (!jixiCity) {
     return
   }
+
+  const jixiName = jixiCity.name
 
   // 初始化临时攻击力加成
   if (!gameStore.tempAttackBoost) gameStore.tempAttackBoost = {}
@@ -243,12 +246,14 @@ export function handleJixiSkill(attacker, skillData, addPublicLog, gameStore) {
  * 限2次，出战时随机抵挡1-500伤害
  */
 export function handleShuangyashanSkill(attacker, skillData, addPublicLog, gameStore) {
-  // 找到双鸭山市在城市列表中的索引
-  const cityName = attacker.cities.findName(c => c.name === '双鸭山市')
+  // 找到双鸭山市
+  const shuangyashanCity = findCity(attacker, '双鸭山市')
 
-  if (cityName === -1) {
+  if (!shuangyashanCity) {
     return
   }
+
+  const cityName = shuangyashanCity.name
 
   // 随机抵挡1-500伤害
   const blockAmount = Math.floor(Math.random() * 500) + 1
@@ -330,7 +335,7 @@ export function handleDaxinganlingSkill(attacker, skillData, addPublicLog, gameS
   if (selectedCityName !== null && selectedCityName !== undefined) {
     // 使用玩家选择的城市
     targetCity = attacker.cities[selectedCityName]
-    cityName = selectedCityIndex
+    cityName = selectedCityName
   } else {
     // 默认行为：选择HP最高的城市
     const aliveCities = getAliveCities(attacker)
@@ -340,7 +345,7 @@ export function handleDaxinganlingSkill(attacker, skillData, addPublicLog, gameS
     }
     const sorted = [...aliveCities].sort((a, b) => getCurrentHp(b) - getCurrentHp(a))
     targetCity = sorted[0]
-    cityName = getCityName(attacker, targetCity)
+    cityName = targetCity.name
   }
 
   if (!targetCity || targetCity.isAlive === false) {

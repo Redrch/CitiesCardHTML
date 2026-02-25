@@ -77,7 +77,7 @@ export function handleLishuiSkill(attacker, skillData, addPublicLog, gameStore) 
  * @param {Object} skillData - 技能数据
  * @param {Function} addPublicLog - 添加日志函数
  * @param {Object} gameStore - 游戏store
- * @param {Array} selectedCityNames - 可选，玩家选择的城市索引数组
+ * @param {Array} selectedCityNames - 可选，玩家选择的城市名称数组
  */
 export function handleZhoushanSkill(attacker, skillData, addPublicLog, gameStore, selectedCityNames = null) {
   let citiesToBoost
@@ -239,9 +239,9 @@ export function handleQuzhouSkill(attacker, defender, defenderCities, skillData,
 
       if (targetCity.hp !== undefined) targetCity.hp = newHp
 
-      // 获取城市索引并禁止出战2回合
+      // 获取城市名称并禁止出战2回合
       const cityName = targetCity.name
-      if (cityName !== -1) {
+      if (cityName) {
         if (!gameStore.bannedCities) gameStore.bannedCities = {}
         if (!gameStore.bannedCities[defender.name]) gameStore.bannedCities[defender.name] = {}
 
