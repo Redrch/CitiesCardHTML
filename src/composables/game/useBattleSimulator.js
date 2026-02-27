@@ -382,6 +382,9 @@ export function calculateBattleResult(
     }
   }
 
+  // 存活的防守方城市
+  const aliveDef = defenderCities.filter(c => c.isAlive !== false)
+
   // 吸引攻击：所有伤害集中到一个城市
   let targetOrder = [...aliveDef]
   if (battleSkills.attractCity) {
