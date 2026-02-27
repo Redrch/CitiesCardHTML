@@ -37,6 +37,7 @@ defineProps({
 const emit = defineEmits(['update:modelValue'])
 
 const changelog = [
+  { date: '2026.2.26', version: 'V1.0.6', desc: '修复了战斗动画无法显示的问题' },
   { date: '2026.2.22', version: 'V1.0.5', desc: '重构了游戏界面UI，为金币技能添加动画展示' },
   { date: '2026.2.19', version: 'V1.0.4', desc: '修复部分技能逻辑出错问题' },
   { date: '2026.2.12', version: 'V1.0.3', desc: '更新城市题库功能模拟演练' },

@@ -202,6 +202,8 @@ const gameMode = ref('2P')
 const centerCityIndex = ref(null)
 const playerDrawCount = ref(1)
 const isBattleProcessing = ref(false)  // 防止战斗处理被重复调用
+const battleRetryCount = ref(0)        // 战斗重试计数器（防止无限循环）
+const BATTLE_MAX_RETRIES = 2           // 最大重试次数
 const showBattleAnimation = ref(false)  // 控制战斗动画显示
 const battleAnimationData = ref(null)   // 战斗动画数据
 const showSkillFailureModal = ref(false)  // 控制技能失败弹窗显示
@@ -376,6 +378,7 @@ async function handleAllReady(players) {
           currentRound: currentRound,
           playerStates: finalPlayerStates,  // 使用非空对象或null
           battleProcessed: false,
+          battleLock: null,
           knownCities: null,  // 用null代替{}，后续需要时再初始化
           ironCities: null,
           strengthBoost: null,
@@ -1125,6 +1128,7 @@ async function handleSkillSelected(skillData) {
         roomData.gameState = {
           currentRound: 1,
           battleProcessed: false,
+          battleLock: null,
           playerStates: {},
           knownCities: {},
           ironCities: {},
@@ -1393,6 +1397,7 @@ async function handleDeploymentConfirmed({ cities, skill, skillData, activatedCi
       roomData.gameState = {
         currentRound: 1,
         battleProcessed: false,
+        battleLock: null,
         playerStates: Object.keys(playerStates).length > 0 ? playerStates : null,
         barrier: null,
         protections: null,
@@ -2115,44 +2120,48 @@ function startRoomDataListener() {
       console.log('[PlayerMode] 第一个玩家:', data.players[0]?.name)
       console.log('[PlayerMode] 是否为第一个玩家:', data.players[0]?.name === currentPlayer.value.name)
 
-      if (allDeployed && !data.gameState.battleProcessed && !isBattleProcessing.value) {
+      if (allDeployed && !data.gameState.battleProcessed && !data.gameState.battleLock && !isBattleProcessing.value) {
         console.log(`[PlayerMode] 战斗触发条件满足 (${triggerTimestamp})`)
 
+        // 检查重试次数限制
+        if (battleRetryCount.value >= BATTLE_MAX_RETRIES) {
+          console.error(`[PlayerMode] ❌ 已达最大重试次数(${BATTLE_MAX_RETRIES})，停止重试`)
+        }
         // 只有第一个玩家负责触发战斗计算
-        if (data.players[0].name === currentPlayer.value.name) {
-          console.log(`[PlayerMode] 第一个玩家开始处理战斗 (${triggerTimestamp})`)
+        else if (data.players[0].name === currentPlayer.value.name) {
+          console.log(`[PlayerMode] 第一个玩家开始处理战斗 (${triggerTimestamp}), 重试次数: ${battleRetryCount.value}`)
 
           // 设置本地标志，防止同一客户端重复调用
           isBattleProcessing.value = true
-          console.log(`[PlayerMode] 已设置isBattleProcessing=true (${triggerTimestamp})`)
 
           try {
-            // 使用Firebase事务尝试获取战斗锁
+            // 使用Firebase事务尝试获取战斗锁（独立于battleProcessed）
             const lockAcquired = await tryAcquireBattleLock(currentRoomId.value)
 
             if (lockAcquired) {
               console.log(`[PlayerMode] ✅ 成功获取战斗锁，开始处理战斗 (${triggerTimestamp})`)
               await processBattle(data)
               console.log(`[PlayerMode] ✅ 战斗处理完成 (${triggerTimestamp})`)
+              // 战斗成功，重置重试计数
+              battleRetryCount.value = 0
             } else {
               console.log(`[PlayerMode] ⚠️ 未能获取战斗锁，其他客户端已在处理 (${triggerTimestamp})`)
             }
           } catch (error) {
             console.error(`[PlayerMode] ❌ 战斗处理异常 (${triggerTimestamp}):`, error)
-            // 关键修复：战斗异常时，重置battleProcessed为false，避免游戏卡死
-            // 使用partial update（不覆盖其他数据）
+            battleRetryCount.value++
+            // 释放战斗锁，记录错误
             try {
+              await releaseBattleLock(currentRoomId.value)
               await updateRoomGameState(currentRoomId.value, {
-                battleProcessed: false,
                 battleError: error.message || '战斗处理异常'
               })
-              console.log('[PlayerMode] 已重置battleProcessed为false，允许重试')
+              console.log(`[PlayerMode] 已释放战斗锁，重试次数: ${battleRetryCount.value}/${BATTLE_MAX_RETRIES}`)
             } catch (resetError) {
-              console.error('[PlayerMode] 重置battleProcessed失败:', resetError)
+              console.error('[PlayerMode] 释放战斗锁失败:', resetError)
             }
           } finally {
             isBattleProcessing.value = false
-            console.log(`[PlayerMode] 已重置isBattleProcessing=false (${triggerTimestamp})`)
           }
         } else {
           console.log(`[PlayerMode] 非第一个玩家，等待战斗结果 (${triggerTimestamp})`)
@@ -2192,29 +2201,19 @@ function startRoomDataListener() {
       }
       console.log('[PlayerMode] ===========================================')
 
-      // 关键修复：如果battleProcessed=true但battleAnimationData缺失，
-      // 等待并重新读取数据（处理tryAcquireBattleLock先于processBattle完成的竞态）
+      // battleProcessed 和 battleAnimationData 现在通过同一次 saveRoomData 原子保存
+      // 极少数情况下可能出现不一致，做一次重读作为安全网
       let animationData = data.gameState.battleAnimationData
       if (data.gameState.battleProcessed && !animationData && !showBattleAnimation.value) {
-        console.log('[PlayerMode] battleProcessed=true但battleAnimationData缺失，等待数据就绪...')
-        // 轮询等待最多10秒
-        for (let i = 0; i < 20; i++) {
-          await new Promise(resolve => setTimeout(resolve, 500))
-          const freshData = await getRoomData(currentRoomId.value)
-          if (freshData?.gameState?.battleAnimationData) {
-            console.log('[PlayerMode] ✅ 轮询成功，battleAnimationData已就绪（等待了', (i + 1) * 500, 'ms）')
-            animationData = freshData.gameState.battleAnimationData
-            // 同时更新其他可能变化的字段
-            data.gameState = freshData.gameState
-            break
-          }
-          if (!freshData?.gameState?.battleProcessed) {
-            console.log('[PlayerMode] battleProcessed已被重置（可能战斗失败），停止等待')
-            break
-          }
-        }
-        if (!animationData) {
-          console.error('[PlayerMode] ❌ 等待10秒后battleAnimationData仍不存在，可能战斗处理失败')
+        console.log('[PlayerMode] battleProcessed=true但battleAnimationData缺失，尝试重读...')
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        const freshData = await getRoomData(currentRoomId.value)
+        if (freshData?.gameState?.battleAnimationData) {
+          console.log('[PlayerMode] ✅ 重读成功，battleAnimationData已就绪')
+          animationData = freshData.gameState.battleAnimationData
+          data.gameState = freshData.gameState
+        } else {
+          console.error('[PlayerMode] ❌ 重读后battleAnimationData仍不存在')
         }
       }
 
@@ -2288,6 +2287,7 @@ function startRoomDataListener() {
               specialEventThisRound: null,     // 删除
               fatigueThisRound: null,          // 删除
               battleProcessed: false,          // 重置
+              battleLock: null,               // 释放锁
               battleError: null,               // 清理错误信息
               currentRound: nextRound          // 回合+1
             })
@@ -2315,6 +2315,7 @@ function startRoomDataListener() {
 
 /**
  * 尝试获取战斗锁（使用Firebase事务）
+ * 使用独立的 battleLock 字段，不影响 battleProcessed
  * @param {string} roomId - 房间ID
  * @returns {Promise<boolean>} - 是否成功获取锁
  */
@@ -2322,16 +2323,15 @@ async function tryAcquireBattleLock(roomId) {
   try {
     const { getDatabase, ref: dbRef, runTransaction } = await import('firebase/database')
     const db = getDatabase()
-    const battleProcessedRef = dbRef(db, `rooms/${roomId}/gameState/battleProcessed`)
+    const battleLockRef = dbRef(db, `rooms/${roomId}/gameState/battleLock`)
 
-    const result = await runTransaction(battleProcessedRef, (currentValue) => {
-      // 如果已经是true，中止事务
-      if (currentValue === true) {
+    const result = await runTransaction(battleLockRef, (currentValue) => {
+      // 如果已被锁定，中止事务
+      if (currentValue) {
         return undefined  // 中止事务
       }
-
-      // 否则设置为true
-      return true
+      // 设置锁（使用时间戳）
+      return Date.now()
     })
 
     // 如果事务提交成功，说明我们获取了锁
@@ -2343,12 +2343,24 @@ async function tryAcquireBattleLock(roomId) {
 }
 
 /**
+ * 释放战斗锁
+ */
+async function releaseBattleLock(roomId) {
+  try {
+    await updateRoomGameState(roomId, { battleLock: null })
+  } catch (error) {
+    console.error('[PlayerMode] 释放战斗锁失败:', error)
+  }
+}
+
+/**
  * 战斗动画完成处理
  */
 function handleBattleAnimationComplete() {
   console.log('[PlayerMode] 战斗动画播放完成')
   showBattleAnimation.value = false
   battleAnimationData.value = null
+  battleRetryCount.value = 0  // 新回合重置重试计数
 
   // 动画完成后，继续原有的逻辑（显示日志一段时间后进入下一回合）
   // 这里不需要额外处理，监听器会自动检测battleProcessed并切换界面
@@ -2642,6 +2654,9 @@ async function processBattle(roomData) {
   console.log('[PlayerMode] ==========================================')
 
   // ========== 执行战斗计算 ==========
+  // 记录战斗前日志数量，便于失败时回滚（防止重试时日志重复）
+  const logCountBeforeBattle = gameStore.logs.length
+
   // 记录战斗前已阵亡的城市，用于检测本轮新阵亡的城市（触发守望相助等）
   const deadBeforeBattle = new Set()
   for (const player of roomData.players) {
@@ -2813,11 +2828,7 @@ async function processBattle(roomData) {
             const newCity = {
               ...summonedCity,
               currentHp: summonedCity.hp,
-              isAlive: true,
-              red: 0,
-              green: 0,
-              blue: 0,
-              yellow: 0
+              isAlive: true
             }
             player.cities[summonedCity.name] = newCity
             gameStore.markCityAsUsed(summonedCity.name)
@@ -2978,10 +2989,14 @@ async function processBattle(roomData) {
   }
 
   } catch (battleError) {
-    // 关键修复：战斗计算或保存过程中出错，确保不卡死
+    // 战斗计算或保存过程中出错
     console.error('[PlayerMode] ❌ 战斗计算/保存过程中出错:', battleError)
-    console.error('[PlayerMode] 错误堆栈:', battleError.stack)
-    // 重新抛出让外层catch处理（外层会重置battleProcessed）
+    // 回滚日志到战斗前状态，防止重试时日志重复
+    if (logCountBeforeBattle !== undefined && gameStore.logs.length > logCountBeforeBattle) {
+      gameStore.logs.splice(logCountBeforeBattle)
+      console.log(`[PlayerMode] 已回滚日志到战斗前状态 (${logCountBeforeBattle}条)`)
+    }
+    // 重新抛出让外层catch处理（外层会释放battleLock）
     throw battleError
   }
 }
