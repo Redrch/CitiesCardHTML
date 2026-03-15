@@ -171,7 +171,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(city, idx) in selectedPlayer.cities" :key="idx">
+              <tr v-for="(city, cityName) in selectedPlayer.cities" :key="cityName">
                 <td>{{ city.name }}</td>
                 <td>{{ city.currentHp || city.hp }}/{{ city.hp }}</td>
                 <td>

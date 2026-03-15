@@ -364,7 +364,7 @@ function formatTime(timestamp) {
   background: white;
   padding: 15px;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(100, 116, 145, 0.12);
 }
 
 .player-name {
@@ -548,7 +548,7 @@ function formatTime(timestamp) {
   padding: 15px;
   border-radius: 8px;
   margin-bottom: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(100, 116, 145, 0.12);
 }
 
 .global-effects h4 {
@@ -570,7 +570,7 @@ function formatTime(timestamp) {
   background: white;
   padding: 15px;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(100, 116, 145, 0.12);
 }
 
 .skill-logs h4 {

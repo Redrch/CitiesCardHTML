@@ -70,7 +70,7 @@
             :class="['player-btn', { selected: targetPlayer === player.name }]"
             @click="targetPlayer = player.name"
           >
-            {{ player.name }} (💰{{ player.gold }})
+            {{ player.name }} (🏙️{{ getAliveCitiesCount(player) }})
           </button>
         </div>
       </div>
@@ -647,18 +647,15 @@ const controlSkills = computed(() => {
 
 const opponents = computed(() => {
   if (!gameStore.players || !Array.isArray(gameStore.players)) {
-    console.warn('[SkillSelector] gameStore.players 不是数组:', gameStore.players)
     return []
   }
-  const opps = gameStore.players.filter(p => p && p.name !== props.currentPlayer?.name)
-  console.log('[SkillSelector] opponents 完整对象:', JSON.stringify(opps, null, 2))
-  console.log('[SkillSelector] opponents 名称:', opps.map(p => p.name))
-  console.log('[SkillSelector] opponents[0] 的类型:', typeof opps[0])
-  console.log('[SkillSelector] opponents[0] 的 cities:', opps[0]?.cities)
-  console.log('[SkillSelector] currentPlayer:', props.currentPlayer?.name)
-  console.log('[SkillSelector] gameStore.players:', gameStore.players.map(p => p?.name))
-  return opps
+  return gameStore.players.filter(p => p && p.name !== props.currentPlayer?.name)
 })
+
+function getAliveCitiesCount(player) {
+  if (!player.cities) return 0
+  return Object.values(player.cities).filter(c => (c.currentHp || c.hp || 0) > 0 && c.isAlive !== false).length
+}
 
 function getSkillCost(skillName) {
   return SKILL_COSTS[skillName] || 0
@@ -700,10 +697,8 @@ function canUseSkill(skill) {
 
 function selectSkill(skill) {
   if (!canUseSkill(skill)) {
-    console.log('[SkillSelector] 无法使用技能:', skill.name, '原因: 金币不足或其他限制')
     return
   }
-  console.log('[SkillSelector] 选择技能:', skill.name)
   selectedSkill.value = skill
   resetParams()
 }
@@ -847,30 +842,17 @@ function getBannableSkills() {
 
 // 切换城市选择状态
 function toggleCitySelection(cityName, city) {
-  console.log('[SkillSelector] toggleCitySelection 被调用:', { cityName, city: city.name })
-  console.log('[SkillSelector] canSelectCity 结果:', canSelectCity(city, cityName))
-
   if (!canSelectCity(city, cityName)) {
-    console.log('[SkillSelector] 城市不可选择，返回')
     return
   }
 
   const index = selectedSelfCities.value.indexOf(cityName)
-  console.log('[SkillSelector] 当前 selectedSelfCities:', selectedSelfCities.value)
-  console.log('[SkillSelector] cityName 在数组中的位置:', index)
-
   if (index > -1) {
-    // 取消选择
     selectedSelfCities.value.splice(index, 1)
-    console.log('[SkillSelector] 取消选择后:', selectedSelfCities.value)
   } else {
-    // 添加选择
     const maxCount = selectedSkill.value.maxTargetCount || selectedSkill.value.targetCount
     if (selectedSelfCities.value.length < maxCount) {
       selectedSelfCities.value.push(cityName)
-      console.log('[SkillSelector] 添加选择后:', selectedSelfCities.value)
-    } else {
-      console.log('[SkillSelector] 已达到最大选择数量')
     }
   }
 }
@@ -949,14 +931,10 @@ function canSelectCity(city, cityName) {
  */
 function getSelectableSelfCities() {
   if (!props.currentPlayer || !props.currentPlayer.cities) {
-    console.log('[SkillSelector] getSelectableSelfCities: currentPlayer或cities不存在')
     return []
   }
 
   const cities = props.currentPlayer.cities
-  console.log('[SkillSelector] getSelectableSelfCities: cities类型:', typeof cities)
-  console.log('[SkillSelector] getSelectableSelfCities: cities是否为数组:', Array.isArray(cities))
-  console.log('[SkillSelector] getSelectableSelfCities: cities内容:', cities)
 
   const result = []
 
@@ -992,40 +970,21 @@ function getSelectableSelfCities() {
     })
   }
 
-  console.log('[SkillSelector] getSelectableSelfCities: 返回结果数量:', result.length)
   return result
 }
 
 function getTargetCities() {
-  console.log('[SkillSelector] getTargetCities 开始')
-  console.log('[SkillSelector] targetPlayer.value:', targetPlayer.value)
-  console.log('[SkillSelector] opponents.value:', opponents.value)
-
   if (!targetPlayer.value) {
-    console.log('[SkillSelector] targetPlayer.value 为空，返回空数组')
     return []
   }
 
   const player = opponents.value.find(p => p.name === targetPlayer.value)
-  console.log('[SkillSelector] 找到的player:', player)
 
   if (!player || !player.cities) {
-    console.log('[SkillSelector] player不存在或没有cities，返回空数组')
     return []
   }
 
   const centerCityName = player.centerCityName
-
-  console.log('[SkillSelector] ===== getTargetCities 诊断 =====')
-  console.log('[SkillSelector] 当前玩家:', props.currentPlayer.name)
-  console.log('[SkillSelector] 目标玩家:', player.name)
-  console.log('[SkillSelector] player.cities类型:', typeof player.cities)
-  console.log('[SkillSelector] player.cities是否为数组:', Array.isArray(player.cities))
-  console.log('[SkillSelector] player.cities:', player.cities)
-  console.log('[SkillSelector] centerCityName:', centerCityName)
-  console.log('[SkillSelector] gameStore.knownCities:', JSON.stringify(gameStore.knownCities, null, 2))
-  console.log('[SkillSelector] gameStore.knownCities[当前玩家]:', gameStore.knownCities[props.currentPlayer.name])
-  console.log('[SkillSelector] gameStore.knownCities[当前玩家][目标玩家]:', gameStore.knownCities[props.currentPlayer.name]?.[player.name])
 
   const result = []
 
@@ -1061,14 +1020,14 @@ function getTargetCities() {
       const knownCitiesList = gameStore.getKnownCitiesForPlayer(props.currentPlayer.name, player.name)
       if (!knownCitiesList || knownCitiesList.length === 0) {
         // 未初始化或没有已知城市：显示所有非中心城市
-        console.log(`[SkillSelector] knownCities未初始化或为空，显示所有城市`)
+        // knownCities未初始化或为空，显示所有城市
         result.push({ city, originalIndex: cityName })
         return
       }
 
       // 检查城市是否为当前玩家所知
       const isKnown = gameStore.isCityKnown(player.name, cityName, props.currentPlayer.name)
-      console.log(`[SkillSelector] 检查城市 ${cityName}: isKnown=${isKnown}`)
+      // check city known status
       if (isKnown) {
         result.push({ city, originalIndex: cityName })
       }
@@ -1076,7 +1035,7 @@ function getTargetCities() {
   } else {
     // 兼容旧版本：cities是数组
     player.cities
-      .map((city, idx) => ({ city, originalIndex: idx }))
+      .map((city) => ({ city, originalIndex: city.name }))
       .forEach(item => {
         if (!item.city) return
 
@@ -1099,22 +1058,20 @@ function getTargetCities() {
         // 主持人模式或knownCities未初始化时，显示所有城市（除中心外）
         const knownCitiesList = gameStore.getKnownCitiesForPlayer(props.currentPlayer.name, player.name)
         if (!knownCitiesList || knownCitiesList.length === 0) {
-          console.log(`[SkillSelector] knownCities未初始化或为空，显示所有城市`)
+          // knownCities未初始化或为空，显示所有城市
           result.push(item)
           return
         }
 
         // 检查城市是否为当前玩家所知
         const isKnown = gameStore.isCityKnown(player.name, item.city.name, props.currentPlayer.name)
-        console.log(`[SkillSelector] 检查城市 ${item.city.name}: isKnown=${isKnown}`)
+        // check city known status
         if (isKnown) {
           result.push(item)
         }
       })
   }
 
-  console.log('[SkillSelector] 最终返回城市数量:', result.length)
-  console.log('[SkillSelector] ==========================================')
   return result
 }
 
@@ -1443,10 +1400,13 @@ function finishBxdcQuiz(correctCount) {
     }
 
     // Store emit payload and show animation
+    // 关键修复：保存技能执行后的gameStore.players快照（同executeSkill）
+    const playersSnapshot = JSON.parse(JSON.stringify(gameStore.players))
     pendingSkillEmit.value = {
       skillName: skill.name,
       result,
-      selfCityName: selfCity.value
+      selfCityName: selfCity.value,
+      playersSnapshot
     }
     skillAnimationConfig.value = getSkillAnimation(skill.name)
     showSkillAnimation.value = true
@@ -1477,10 +1437,6 @@ onBeforeUnmount(() => {
 
 function executeSkill() {
   if (!canExecuteSkill()) {
-    console.log('[SkillSelector] 无法执行技能 - 参数不完整')
-    console.log('[SkillSelector] requiresTarget:', selectedSkill.value?.requiresTarget, 'targetPlayer:', targetPlayer.value)
-    console.log('[SkillSelector] requiresTargetCity:', selectedSkill.value?.requiresTargetCity, 'targetCity:', targetCity.value)
-    console.log('[SkillSelector] requiresSelfCity:', selectedSkill.value?.requiresSelfCity, 'selfCity:', selfCity.value)
     return
   }
 
@@ -1495,18 +1451,10 @@ function executeSkill() {
   let result
 
   try {
-    console.log('[SkillSelector] 执行技能:', skill.name)
-    console.log('[SkillSelector] 目标玩家:', targetPlayer.value)
-    console.log('[SkillSelector] 目标城市:', targetCity.value)
-    console.log('[SkillSelector] 自己城市:', selfCity.value)
-    console.log('[SkillSelector] 选中的多个城市:', selectedSelfCities.value)
-    console.log('[SkillSelector] 数量:', amount.value)
-
     // 使用映射表执行技能
     const executor = SKILL_EXECUTOR_MAP[skill.name]
     if (executor) {
       result = executor()
-      console.log('[SkillSelector] 技能执行结果:', result)
     } else {
       result = { success: false, message: `技能 "${skill.name}" 尚未实现` }
       console.warn('[SkillSelector] 技能未实现:', skill.name)
@@ -1523,13 +1471,18 @@ function executeSkill() {
       }
 
       // Store emit payload and show animation
+      // 关键修复：保存技能执行后的gameStore.players快照
+      // 动画播放期间Firebase监听器可能用旧数据覆盖gameStore.players
+      // 快照确保handleSkillSelected能获取正确的技能执行后状态
+      const playersSnapshot = JSON.parse(JSON.stringify(gameStore.players))
       pendingSkillEmit.value = {
         skillName: skill.name,
         result,
         targetPlayerName: targetPlayer.value,
         targetCityName: targetCity.value,
         selfCityName: selfCity.value,
-        amount: amount.value
+        amount: amount.value,
+        playersSnapshot
       }
       skillAnimationConfig.value = getSkillAnimation(skill.name)
       showSkillAnimation.value = true
@@ -1546,9 +1499,11 @@ function executeSkill() {
 
 <style scoped>
 .skill-selector {
-  padding: 20px;
-  background: #f5f5f5;
-  border-radius: 8px;
+  padding: 24px;
+  min-height: 100vh;
+  background: linear-gradient(150deg, #2a2340 0%, #1e2a4a 30%, #2a3a5c 60%, #3a2a4a 100%);
+  border-radius: 12px;
+  border: 2px solid rgba(212, 160, 23, 0.25);
 }
 
 .skill-header {
@@ -1558,7 +1513,10 @@ function executeSkill() {
 .skill-header h3 {
   margin: 0 0 15px 0;
   font-size: 24px;
-  color: #333;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 800;
+  padding-bottom: 10px;
+  border-bottom: 2px solid rgba(212, 160, 23, 0.5);
 }
 
 .skill-filters {
@@ -1569,22 +1527,26 @@ function executeSkill() {
 
 .filter-btn {
   padding: 8px 16px;
-  border: 2px solid #ddd;
-  background: white;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  background: rgba(30, 40, 65, 0.6);
   border-radius: 20px;
   cursor: pointer;
   transition: all 0.3s;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .filter-btn:hover {
-  border-color: #4CAF50;
-  background: #f0f8f0;
+  border-color: rgba(212, 160, 23, 0.5);
+  background: rgba(212, 160, 23, 0.12);
+  color: #d4a017;
 }
 
 .filter-btn.active {
-  background: #4CAF50;
+  background: linear-gradient(135deg, #d4a017 0%, #b8860b 100%);
   color: white;
-  border-color: #4CAF50;
+  border-color: #b8860b;
+  box-shadow: 0 2px 8px rgba(212, 160, 23, 0.35);
 }
 
 .skill-grid {
@@ -1604,17 +1566,17 @@ function executeSkill() {
 }
 
 .skill-grid::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 4px;
 }
 
 .skill-grid::-webkit-scrollbar-thumb {
-  background: #4CAF50;
+  background: linear-gradient(90deg, #d4a017, #b8860b);
   border-radius: 4px;
 }
 
 .skill-grid::-webkit-scrollbar-thumb:hover {
-  background: #45a049;
+  background: linear-gradient(90deg, #e6b422, #d4a017);
 }
 
 .skill-card {
@@ -1622,25 +1584,27 @@ function executeSkill() {
   flex-direction: row;
   gap: 12px;
   padding: 15px;
-  background: white;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
+  background: rgba(30, 40, 65, 0.85);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.3s;
   min-width: 280px;
   max-width: 280px;
   flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 .skill-card:hover:not(.disabled) {
-  border-color: #4CAF50;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  border-color: rgba(212, 160, 23, 0.5);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(212, 160, 23, 0.25);
 }
 
 .skill-card.selected {
-  border-color: #4CAF50;
-  background: #f0f8f0;
+  border-color: #d4a017;
+  background: rgba(50, 45, 30, 0.9);
+  box-shadow: 0 0 0 3px rgba(212, 160, 23, 0.15), 0 4px 12px rgba(212, 160, 23, 0.3);
 }
 
 .skill-card.disabled {
@@ -1661,13 +1625,14 @@ function executeSkill() {
   font-weight: bold;
   font-size: 16px;
   margin-bottom: 5px;
-  color: #333;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .skill-cost {
   font-size: 14px;
-  color: #f57c00;
+  color: #d4a017;
   margin-bottom: 8px;
+  font-weight: 600;
 }
 
 .gold-icon {
@@ -1676,13 +1641,13 @@ function executeSkill() {
 
 .skill-description {
   font-size: 13px;
-  color: #666;
+  color: rgba(255, 255, 255, 0.45);
   margin-bottom: 8px;
 }
 
 .skill-usage {
   font-size: 12px;
-  color: #2196F3;
+  color: rgba(100, 180, 255, 0.85);
   margin-top: 6px;
   display: flex;
   align-items: center;
@@ -1694,7 +1659,7 @@ function executeSkill() {
 }
 
 .usage-count {
-  background: #E3F2FD;
+  background: rgba(100, 180, 255, 0.15);
   padding: 2px 8px;
   border-radius: 12px;
   font-weight: bold;
@@ -1702,12 +1667,12 @@ function executeSkill() {
 
 .skill-cooldown-active {
   font-size: 12px;
-  color: #f44336;
+  color: #ef5350;
   margin-top: 6px;
   display: flex;
   align-items: center;
   gap: 4px;
-  background: #FFEBEE;
+  background: rgba(239, 83, 80, 0.12);
   padding: 4px 8px;
   border-radius: 12px;
   font-weight: 600;
@@ -1723,12 +1688,12 @@ function executeSkill() {
 
 .skill-cooldown-ready {
   font-size: 12px;
-  color: #4CAF50;
+  color: #4ade80;
   margin-top: 6px;
   display: flex;
   align-items: center;
   gap: 4px;
-  background: #E8F5E9;
+  background: rgba(74, 222, 128, 0.12);
   padding: 4px 8px;
   border-radius: 12px;
   font-weight: 600;
@@ -1744,19 +1709,23 @@ function executeSkill() {
 
 /* ====== 目标选择区域样式 ====== */
 .target-selection-section {
-  background: white;
+  background: rgba(30, 40, 65, 0.85);
   padding: 20px;
-  border-radius: 8px;
-  border: 2px solid #4CAF50;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-top: 4px solid #d4a017;
   margin-top: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
 .section-title {
   margin: 0 0 20px 0;
   font-size: 20px;
-  color: #4CAF50;
+  color: rgba(255, 255, 255, 0.85);
   text-align: center;
-  font-weight: bold;
+  font-weight: 800;
+  padding-bottom: 12px;
+  border-bottom: 2px dashed rgba(212, 160, 23, 0.4);
 }
 
 /* 对手玩家选择器 */
@@ -1768,8 +1737,8 @@ function executeSkill() {
 .city-card-selector h4 {
   margin: 0 0 12px 0;
   font-size: 16px;
-  color: #555;
-  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 700;
 }
 
 .player-buttons {
@@ -1780,10 +1749,10 @@ function executeSkill() {
 
 .player-btn {
   padding: 12px 24px;
-  border: 2px solid #ddd;
-  background: white;
-  color: #333;
-  border-radius: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  background: rgba(30, 40, 65, 0.6);
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.3s;
   font-size: 15px;
@@ -1791,16 +1760,16 @@ function executeSkill() {
 }
 
 .player-btn:hover {
-  border-color: #4CAF50;
-  background: #f0f8f0;
+  border-color: rgba(212, 160, 23, 0.5);
+  background: rgba(212, 160, 23, 0.12);
 }
 
 .player-btn.selected {
-  border-color: #4CAF50;
-  background: #4CAF50;
+  border-color: #b8860b;
+  background: linear-gradient(135deg, #d4a017 0%, #b8860b 100%);
   color: white;
   font-weight: bold;
-  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+  box-shadow: 0 3px 12px rgba(212, 160, 23, 0.35);
 }
 
 /* 城市卡牌选择器 */
@@ -1817,9 +1786,9 @@ function executeSkill() {
 .mini-city-card {
   position: relative;
   padding: 12px;
-  background: #fafafa;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
+  background: rgba(30, 40, 65, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.3s;
   text-align: center;
@@ -1830,16 +1799,16 @@ function executeSkill() {
 }
 
 .mini-city-card:hover:not(.disabled):not(.dead) {
-  border-color: #4CAF50;
-  background: #f0f8f0;
+  border-color: rgba(212, 160, 23, 0.5);
+  background: rgba(212, 160, 23, 0.12);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+  box-shadow: 0 4px 12px rgba(212, 160, 23, 0.25);
 }
 
 .mini-city-card.selected {
-  border-color: #4CAF50;
-  background: #e8f5e9;
-  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+  border-color: #d4a017;
+  background: rgba(212, 160, 23, 0.15);
+  box-shadow: 0 0 0 3px rgba(212, 160, 23, 0.15), 0 3px 10px rgba(212, 160, 23, 0.3);
 }
 
 .mini-city-card.disabled {
@@ -1849,21 +1818,21 @@ function executeSkill() {
 
 .mini-city-card.dead {
   opacity: 0.7;
-  background: #f5f5f5;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 /* 借尸还魂：已阵亡城市可以选择，显示正常样式 */
 .mini-city-card.dead:not(.disabled) {
   opacity: 0.85;
   cursor: pointer;
-  background: #fff3e0;
-  border-color: #ff9800;
+  background: rgba(245, 124, 0, 0.12);
+  border-color: #f57c00;
 }
 
 /* 已阵亡城市的hover效果（可选择时） */
 .mini-city-card.dead:not(.disabled):hover {
   opacity: 1;
-  background: #ffe0b2;
+  background: rgba(245, 124, 0, 0.2);
   border-color: #f57c00;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
@@ -1872,9 +1841,9 @@ function executeSkill() {
 /* 选中已阵亡城市的高亮效果 */
 .mini-city-card.dead.selected {
   opacity: 1 !important;
-  background: linear-gradient(135deg, #81c784 0%, #66bb6a 100%) !important;
-  border-color: #4CAF50 !important;
-  box-shadow: 0 4px 16px rgba(76, 175, 80, 0.5) !important;
+  background: linear-gradient(135deg, #d4a017 0%, #b8860b 100%) !important;
+  border-color: #a67c00 !important;
+  box-shadow: 0 4px 16px rgba(212, 160, 23, 0.5) !important;
 }
 
 /* 选中时文字颜色优化 */
@@ -1900,25 +1869,25 @@ function executeSkill() {
 .mini-city-card.dead.disabled {
   opacity: 0.4;
   cursor: not-allowed;
-  background: #f5f5f5;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .city-name {
   font-size: 14px;
   font-weight: bold;
   margin-bottom: 6px;
-  color: #333;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .city-hp {
   font-size: 13px;
-  color: #f57c00;
-  font-weight: 500;
+  color: #d4a017;
+  font-weight: 600;
 }
 
 .city-status.dead {
   font-size: 11px;
-  color: #f44336;
+  color: #ef5350;
   margin-top: 4px;
   font-weight: 600;
 }
@@ -1929,7 +1898,7 @@ function executeSkill() {
   right: 6px;
   width: 24px;
   height: 24px;
-  background: #4CAF50;
+  background: linear-gradient(135deg, #d4a017 0%, #b8860b 100%);
   color: white;
   border-radius: 50%;
   display: flex;
@@ -1937,7 +1906,7 @@ function executeSkill() {
   justify-content: center;
   font-weight: bold;
   font-size: 16px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 6px rgba(212, 160, 23, 0.4);
 }
 
 /* 禁用原因标记 */
@@ -1959,15 +1928,15 @@ function executeSkill() {
 }
 
 .reason-badge.center {
-  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  background: linear-gradient(135deg, #d4a017 0%, #b8860b 100%);
   color: white;
-  box-shadow: 0 1px 3px rgba(251, 191, 36, 0.3);
+  box-shadow: 0 1px 3px rgba(212, 160, 23, 0.3);
 }
 
 .reason-badge.cautious {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  background: linear-gradient(135deg, #c0392b 0%, #a93226 100%);
   color: white;
-  box-shadow: 0 1px 3px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 1px 3px rgba(192, 57, 43, 0.3);
 }
 
 /* 已知城市信息展示（只读） */
@@ -1978,8 +1947,8 @@ function executeSkill() {
 .mini-city-card.info-only {
   cursor: default;
   opacity: 0.85;
-  border-color: #ccc;
-  background: #f5f5f5;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .mini-city-card.info-only:hover {
@@ -1990,7 +1959,7 @@ function executeSkill() {
 .no-cities-hint {
   text-align: center;
   padding: 30px;
-  color: #999;
+  color: rgba(255, 255, 255, 0.45);
   font-size: 14px;
   font-style: italic;
 }
@@ -2004,7 +1973,7 @@ function executeSkill() {
   display: block;
   margin-bottom: 6px;
   font-weight: bold;
-  color: #555;
+  color: rgba(255, 255, 255, 0.85);
   font-size: 14px;
 }
 
@@ -2012,16 +1981,19 @@ function executeSkill() {
 .param-group input {
   width: 100%;
   padding: 10px;
-  border: 2px solid #ddd;
-  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
   font-size: 14px;
   transition: border-color 0.3s;
+  background: rgba(30, 40, 65, 0.6);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .param-group select:focus,
 .param-group input:focus {
   outline: none;
-  border-color: #4CAF50;
+  border-color: #d4a017;
+  box-shadow: 0 0 0 3px rgba(212, 160, 23, 0.2);
 }
 
 /* 按钮 */
@@ -2034,9 +2006,9 @@ function executeSkill() {
 
 .btn-primary,
 .btn-secondary {
-  padding: 12px 32px;
-  border: none;
-  border-radius: 6px;
+  padding: 13px 36px;
+  border: 2px solid transparent;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 15px;
   font-weight: bold;
@@ -2044,29 +2016,38 @@ function executeSkill() {
 }
 
 .btn-primary {
-  background: #4CAF50;
+  background: linear-gradient(135deg, #d4a017 0%, #b8860b 100%);
+  border-color: #a67c00;
   color: white;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 4px 14px rgba(212, 160, 23, 0.35);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #45a049;
+  background: linear-gradient(135deg, #e6b422 0%, #d4a017 100%);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 6px 20px rgba(212, 160, 23, 0.45);
 }
 
 .btn-primary:disabled {
-  background: #ccc;
+  background: rgba(30, 40, 65, 0.4);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.3);
   cursor: not-allowed;
   transform: none;
+  box-shadow: none;
 }
 
 .btn-secondary {
-  background: #f0f0f0;
-  color: #333;
+  background: rgba(30, 40, 65, 0.6);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .btn-secondary:hover {
-  background: #e0e0e0;
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
 }
 
 /* 事半功倍目标技能选择网格 */
@@ -2084,21 +2065,23 @@ function executeSkill() {
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  border: 2px solid #ddd;
-  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
   transition: all 0.2s;
+  background: rgba(30, 40, 65, 0.6);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .target-skill-item:hover {
-  border-color: #4CAF50;
-  background: #f0fff0;
+  border-color: rgba(212, 160, 23, 0.5);
+  background: rgba(212, 160, 23, 0.12);
 }
 
 .target-skill-item.selected {
-  border-color: #4CAF50;
-  background: #e8f5e9;
+  border-color: #d4a017;
+  background: rgba(212, 160, 23, 0.15);
   font-weight: bold;
 }
 
@@ -2108,7 +2091,7 @@ function executeSkill() {
 
 .target-skill-item .skill-cost {
   font-size: 12px;
-  color: #888;
+  color: rgba(255, 255, 255, 0.45);
   margin-left: 8px;
   white-space: nowrap;
 }
@@ -2123,20 +2106,22 @@ function executeSkill() {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(10, 12, 20, 0.7);
   z-index: 10000;
   display: flex;
   align-items: center;
   justify-content: center;
+  backdrop-filter: blur(6px);
 }
 .bxdc-modal {
-  background: #1a1a2e;
-  color: #fff;
-  border-radius: 12px;
+  background: linear-gradient(150deg, #2a2340 0%, #1e2a4a 50%, #3a2a4a 100%);
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 14px;
+  border: 2px solid #d4a017;
   padding: 24px;
   max-width: 500px;
   width: 90%;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
 }
 .bxdc-header {
   display: flex;
@@ -2145,10 +2130,10 @@ function executeSkill() {
   margin-bottom: 16px;
   font-size: 14px;
 }
-.bxdc-progress { color: #aaa; }
+.bxdc-progress { color: rgba(255, 255, 255, 0.45); }
 .bxdc-difficulty {
-  background: #e6a817;
-  color: #000;
+  background: linear-gradient(135deg, #d4a017, #b8860b);
+  color: #fff;
   padding: 2px 10px;
   border-radius: 10px;
   font-weight: bold;
@@ -2157,10 +2142,10 @@ function executeSkill() {
 .bxdc-timer {
   font-size: 20px;
   font-weight: bold;
-  color: #4caf50;
+  color: #4ade80;
 }
 .bxdc-timer.timer-warn {
-  color: #f44336;
+  color: #ef5350;
   animation: bxdc-pulse 0.5s infinite alternate;
 }
 @keyframes bxdc-pulse {
@@ -2172,6 +2157,7 @@ function executeSkill() {
   font-weight: bold;
   margin-bottom: 20px;
   line-height: 1.5;
+  color: rgba(255, 255, 255, 0.85);
 }
 .bxdc-options {
   display: flex;
@@ -2179,34 +2165,34 @@ function executeSkill() {
   gap: 10px;
 }
 .bxdc-option {
-  background: #16213e;
-  border: 2px solid #333;
-  color: #ddd;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
   padding: 12px 16px;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 15px;
   text-align: left;
   transition: all 0.2s;
 }
 .bxdc-option:hover:not(:disabled) {
-  background: #1a3a5c;
-  border-color: #4a9eff;
+  background: rgba(212, 160, 23, 0.12);
+  border-color: rgba(212, 160, 23, 0.5);
 }
 .bxdc-option:disabled { cursor: default; }
 .bxdc-option.correct {
-  background: #1b5e20;
-  border-color: #4caf50;
-  color: #fff;
+  background: rgba(74, 222, 128, 0.15);
+  border-color: #4ade80;
+  color: #4ade80;
 }
 .bxdc-option.wrong {
-  background: #b71c1c;
-  border-color: #f44336;
-  color: #fff;
+  background: rgba(239, 83, 80, 0.15);
+  border-color: #ef5350;
+  color: #ef5350;
 }
 .bxdc-timeout {
   text-align: center;
-  color: #ff9800;
+  color: #d4a017;
   font-weight: bold;
   margin-top: 12px;
   font-size: 16px;
@@ -2218,29 +2204,31 @@ function executeSkill() {
 .bxdc-result h3 {
   font-size: 22px;
   margin-bottom: 16px;
+  color: rgba(255, 255, 255, 0.85);
 }
 .bxdc-score {
   font-size: 28px;
   font-weight: bold;
-  color: #e6a817;
+  color: #d4a017;
   margin-bottom: 8px;
 }
 .bxdc-multiplier {
   font-size: 18px;
-  color: #4caf50;
+  color: #4ade80;
   margin-bottom: 20px;
 }
 .bxdc-confirm {
-  background: #4caf50;
+  background: linear-gradient(135deg, #d4a017, #b8860b);
   color: #fff;
-  border: none;
+  border: 2px solid #a67c00;
   padding: 12px 40px;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 16px;
   cursor: pointer;
   font-weight: bold;
+  box-shadow: 0 4px 12px rgba(212, 160, 23, 0.3);
 }
 .bxdc-confirm:hover {
-  background: #45a049;
+  background: linear-gradient(135deg, #e6b422, #d4a017);
 }
 </style>

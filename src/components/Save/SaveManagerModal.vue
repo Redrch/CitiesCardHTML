@@ -136,6 +136,9 @@
 <script setup>
 import { ref } from 'vue'
 import { useGameSave } from '../../composables/useGameSave'
+import { useDialog } from '../../composables/useDialog'
+
+const { showAlert, showConfirm } = useDialog()
 
 const props = defineProps({
   mode: {
@@ -177,9 +180,9 @@ function saveToSlot(index) {
   showSaveNameDialog.value = true
 }
 
-function confirmSave() {
+async function confirmSave() {
   if (!saveName.value.trim()) {
-    alert('请输入存档名称')
+    await showAlert('请输入存档名称', { title: '提示', icon: '💡' })
     return
   }
 
@@ -188,14 +191,14 @@ function confirmSave() {
   if (result.success) {
     showSaveNameDialog.value = false
     emit('saved', result)
-    alert(result.message)
+    await showAlert(result.message, { title: '保存成功', icon: '✅' })
   } else {
-    alert(result.message)
+    await showAlert(result.message, { title: '保存失败', icon: '❌' })
   }
 }
 
-function loadFromSlot(index) {
-  if (!confirm(`确定要加载槽位 ${index + 1} 的存档吗？当前进度将被覆盖！`)) {
+async function loadFromSlot(index) {
+  if (!await showConfirm(`确定要加载槽位 ${index + 1} 的存档吗？当前进度将被覆盖！`, { title: '加载存档', icon: '📂' })) {
     return
   }
 
@@ -204,14 +207,14 @@ function loadFromSlot(index) {
   if (result.success) {
     emit('loaded', result)
     emit('close')
-    alert(result.message)
+    await showAlert(result.message, { title: '加载成功', icon: '✅' })
   } else {
-    alert(result.message)
+    await showAlert(result.message, { title: '加载失败', icon: '❌' })
   }
 }
 
-function loadAutoSaved() {
-  if (!confirm('确定要加载自动保存吗？当前进度将被覆盖！')) {
+async function loadAutoSaved() {
+  if (!await showConfirm('确定要加载自动保存吗？当前进度将被覆盖！', { title: '加载自动保存', icon: '📂' })) {
     return
   }
 
@@ -220,25 +223,25 @@ function loadAutoSaved() {
   if (result.success) {
     emit('loaded', result)
     emit('close')
-    alert(result.message)
+    await showAlert(result.message, { title: '加载成功', icon: '✅' })
   } else {
-    alert(result.message)
+    await showAlert(result.message, { title: '加载失败', icon: '❌' })
   }
 }
 
-function deleteSlot(index) {
-  if (!confirm(`确定要删除槽位 ${index + 1} 的存档吗？此操作不可恢复！`)) {
+async function deleteSlot(index) {
+  if (!await showConfirm(`确定要删除槽位 ${index + 1} 的存档吗？此操作不可恢复！`, { title: '删除存档', icon: '🗑️' })) {
     return
   }
 
   const result = deleteSave(index)
-  alert(result.message)
+  await showAlert(result.message, { title: '提示', icon: '💡' })
 }
 
-function exportSlot(index) {
+async function exportSlot(index) {
   const result = exportSave(index)
   if (!result.success) {
-    alert(result.message)
+    await showAlert(result.message, { title: '导出失败', icon: '❌' })
   }
 }
 
@@ -252,20 +255,20 @@ async function handleFileImport(event) {
   if (!file) return
 
   const result = await importSave(file, pendingImportSlot.value)
-  alert(result.message)
+  await showAlert(result.message, { title: '导入结果', icon: '📦' })
 
   // 清空文件输入
   event.target.value = ''
   pendingImportSlot.value = null
 }
 
-function clearAll() {
-  if (!confirm('确定要清除所有存档吗？此操作不可恢复！')) {
+async function clearAll() {
+  if (!await showConfirm('确定要清除所有存档吗？此操作不可恢复！', { title: '清除存档', icon: '🗑️' })) {
     return
   }
 
   const result = clearAllSaves()
-  alert(result.message)
+  await showAlert(result.message, { title: '提示', icon: '💡' })
 }
 
 function formatDate(timestamp) {
@@ -286,7 +289,7 @@ function formatDate(timestamp) {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(30, 41, 59, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -301,12 +304,12 @@ function formatDate(timestamp) {
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 60px rgba(100, 116, 145, 0.18);
 }
 
 .save-manager-header {
   padding: 20px;
-  border-bottom: 1px solid #1f2937;
+  border-bottom: 1px solid #e2e8f0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -351,7 +354,7 @@ function formatDate(timestamp) {
 .save-slot {
   padding: 16px;
   background: var(--bg);
-  border: 2px solid #1f2937;
+  border: 2px solid #e2e8f0;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
@@ -362,7 +365,7 @@ function formatDate(timestamp) {
 
 .save-slot:hover {
   border-color: var(--accent);
-  background: #0e1526;
+  background: rgba(59, 130, 246, 0.06);
 }
 
 .save-slot.save-slot-current {
@@ -434,7 +437,7 @@ function formatDate(timestamp) {
 .auto-save-section {
   padding: 16px;
   background: var(--bg);
-  border: 2px solid #1f2937;
+  border: 2px solid #e2e8f0;
   border-radius: 8px;
   margin-top: 12px;
 }
@@ -446,7 +449,7 @@ function formatDate(timestamp) {
 
 .save-manager-footer {
   padding: 16px 20px;
-  border-top: 1px solid #1f2937;
+  border-top: 1px solid #e2e8f0;
   display: flex;
   gap: 8px;
   justify-content: flex-end;
@@ -467,7 +470,7 @@ function formatDate(timestamp) {
   border-radius: 8px;
   border: 2px solid var(--accent);
   min-width: 300px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 40px rgba(100, 116, 145, 0.18);
 }
 
 .save-name-dialog h3 {

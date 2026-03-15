@@ -482,14 +482,14 @@ function closeOpponentCitySelector() {
   background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
   border-radius: 16px;
   padding: 20px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 16px rgba(100, 116, 145, 0.08);
   transition: all 0.3s ease;
 }
 
 .player-panel--active {
   border: 3px solid #ffd700;
   box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.3),
-              0 8px 16px rgba(0, 0, 0, 0.2);
+              0 8px 16px rgba(100, 116, 145, 0.08);
   transform: scale(1.02);
 }
 
@@ -514,7 +514,7 @@ function closeOpponentCitySelector() {
   font-weight: bold;
   color: white;
   text-transform: uppercase;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 8px rgba(100, 116, 145, 0.08);
 }
 
 .player-panel__info {
@@ -557,7 +557,7 @@ function closeOpponentCitySelector() {
 }
 
 .stat {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(59, 130, 246, 0.12);
   padding: 6px 12px;
   border-radius: 8px;
   color: white;
@@ -583,7 +583,7 @@ function closeOpponentCitySelector() {
 
 .player-panel__opponent-info {
   padding: 20px;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(100, 116, 145, 0.12);
   border-radius: 12px;
   margin-bottom: 16px;
 }
@@ -599,13 +599,13 @@ function closeOpponentCitySelector() {
   flex-direction: column;
   gap: 8px;
   padding: 16px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(59, 130, 246, 0.05);
   border-radius: 8px;
   border-left: 4px solid #60a5fa;
 }
 
 .summary-label {
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.5);
   font-size: 13px;
   font-weight: 500;
 }
@@ -617,7 +617,7 @@ function closeOpponentCitySelector() {
 }
 
 .player-panel__battle-modifiers {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(100, 116, 145, 0.08);
   padding: 12px;
   border-radius: 8px;
   margin-bottom: 16px;
@@ -638,7 +638,7 @@ function closeOpponentCitySelector() {
 }
 
 .modifier-item {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(59, 130, 246, 0.08);
   padding: 6px 12px;
   border-radius: 6px;
   color: white;

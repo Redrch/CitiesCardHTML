@@ -181,7 +181,7 @@ function formatTime(timestamp) {
 
 .battle-card {
   background: var(--panel);
-  border: 1px solid #1f2937;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 16px;
   transition: all 0.3s ease;
@@ -194,7 +194,7 @@ function formatTime(timestamp) {
 
 .battle-card:hover {
   border-color: var(--accent);
-  background: #0e1526;
+  background: rgba(59, 130, 246, 0.06);
 }
 
 .battle-header {
@@ -203,7 +203,7 @@ function formatTime(timestamp) {
   align-items: center;
   margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #1f2937;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .battle-matchup {
@@ -336,7 +336,7 @@ function formatTime(timestamp) {
   margin-top: 12px;
   padding: 8px;
   background: var(--bg);
-  border: 1px solid #1f2937;
+  border: 1px solid #e2e8f0;
   border-radius: 4px;
   color: var(--accent);
   cursor: pointer;
@@ -346,7 +346,7 @@ function formatTime(timestamp) {
 
 .detail-toggle:hover {
   background: var(--accent);
-  color: #0f172a;
+  color: #ffffff;
 }
 
 .detailed-log {
@@ -362,7 +362,7 @@ function formatTime(timestamp) {
 
 .log-line {
   padding: 4px 0;
-  border-bottom: 1px solid #1f2937;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .log-line:last-child {

@@ -222,7 +222,7 @@ function useSkill() {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(30, 41, 59, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -231,14 +231,14 @@ function useSkill() {
 }
 
 .modal-content {
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  background: linear-gradient(135deg, #f1f5f9 0%, #f0f3f9 100%);
   border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 60px rgba(100, 116, 145, 0.18);
   max-width: 500px;
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;
-  color: white;
+  color: #1e293b;
 }
 
 .modal-header {
@@ -246,7 +246,7 @@ function useSkill() {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 2px solid rgba(209, 217, 230, 0.6);
 }
 
 .modal-title {
@@ -262,9 +262,9 @@ function useSkill() {
 }
 
 .close-button {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(59, 130, 246, 0.08);
   border: none;
-  color: white;
+  color: #1e293b;
   font-size: 24px;
   width: 36px;
   height: 36px;
@@ -277,7 +277,7 @@ function useSkill() {
 }
 
 .close-button:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(59, 130, 246, 0.15);
   transform: rotate(90deg);
 }
 
@@ -290,7 +290,7 @@ function useSkill() {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(59, 130, 246, 0.08);
   border-radius: 8px;
   margin-bottom: 16px;
 }
@@ -302,7 +302,7 @@ function useSkill() {
 
 .city-hp {
   font-size: 14px;
-  color: #a0d8ff;
+  color: #60a5fa;
 }
 
 .skill-badges {
@@ -352,7 +352,7 @@ function useSkill() {
 }
 
 .skill-description {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(100, 116, 145, 0.08);
   padding: 16px;
   border-radius: 8px;
   line-height: 1.6;
@@ -366,13 +366,13 @@ function useSkill() {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(59, 130, 246, 0.05);
   border-radius: 8px;
   margin-bottom: 12px;
 }
 
 .label {
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(30, 41, 59, 0.7);
   font-size: 14px;
 }
 
@@ -387,7 +387,7 @@ function useSkill() {
 
 .effects-title {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(30, 41, 59, 0.7);
   margin-bottom: 12px;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -399,7 +399,7 @@ function useSkill() {
 }
 
 .effect-item {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(59, 130, 246, 0.06);
   padding: 10px 14px;
   border-radius: 6px;
   display: flex;
@@ -413,9 +413,9 @@ function useSkill() {
 }
 
 .error-message {
-  background: rgba(239, 68, 68, 0.2);
-  border: 2px solid rgba(239, 68, 68, 0.5);
-  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.1);
+  border: 2px solid rgba(239, 68, 68, 0.4);
+  color: #dc2626;
   padding: 12px 16px;
   border-radius: 8px;
   margin-top: 16px;
@@ -425,12 +425,12 @@ function useSkill() {
 
 .modal-footer {
   padding: 16px 24px;
-  border-top: 2px solid rgba(255, 255, 255, 0.1);
+  border-top: 2px solid rgba(209, 217, 230, 0.6);
 }
 
 .passive-note {
   text-align: center;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(30, 41, 59, 0.7);
   font-size: 14px;
   padding: 8px;
 }
@@ -470,12 +470,12 @@ function useSkill() {
 }
 
 .btn--secondary {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  background: rgba(59, 130, 246, 0.08);
+  color: #1e293b;
 }
 
 .btn--secondary:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(59, 130, 246, 0.15);
 }
 
 .btn--primary {

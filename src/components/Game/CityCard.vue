@@ -149,44 +149,82 @@ function handleSkillClick() {
 
 <style scoped>
 .city-card {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #4a5a8a 0%, #6b5b8a 100%);
   border-radius: 12px;
+  border: 2px solid rgba(212, 160, 23, 0.3);
   padding: 16px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(60, 75, 100, 0.2);
   transition: all 0.3s ease;
   min-width: 200px;
   position: relative;
 }
 
+/* Fortification gradient at top */
+.city-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, #d4a017, transparent);
+  border-radius: 10px 10px 0 0;
+}
+
 .city-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 20px rgba(60, 75, 100, 0.25);
+  border-color: rgba(212, 160, 23, 0.5);
 }
 
 .city-card--dead {
   opacity: 0.5;
-  filter: grayscale(1);
+  filter: grayscale(0.8);
+  border-style: dashed;
+  border-color: rgba(168, 180, 200, 0.5);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.15);
+}
+
+.city-card--dead::before {
+  display: none;
 }
 
 .city-card--center {
-  border: 3px solid gold;
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  border: 3px solid #d4a017;
+  background: linear-gradient(135deg, #8a4a6b 0%, #a85070 100%);
+  box-shadow: 0 0 0 2px rgba(212, 160, 23, 0.2), 0 4px 12px rgba(60, 75, 100, 0.2);
+}
+
+/* Crown decoration for center city */
+.city-card--center::after {
+  content: '\265B';
+  position: absolute;
+  top: -12px;
+  right: 12px;
+  font-size: 22px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .city-card--protected {
-  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5),
-              0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0 0 3px rgba(58, 123, 213, 0.5),
+              0 0 16px rgba(58, 123, 213, 0.2),
+              0 4px 12px rgba(60, 75, 100, 0.2);
 }
 
 .city-card--unknown {
-  background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+  background: linear-gradient(135deg, #c5cdd8 0%, #b0b8c5 100%);
   opacity: 0.8;
   cursor: not-allowed;
+  border-color: rgba(168, 180, 200, 0.4);
+}
+
+.city-card--unknown::before {
+  display: none;
 }
 
 .city-card--unknown:hover {
   transform: none;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(60, 75, 100, 0.15);
 }
 
 .city-card__unknown-hint {
@@ -205,7 +243,7 @@ function handleSkillClick() {
 }
 
 .unknown-text {
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(30, 41, 59, 0.65);
   font-size: 14px;
   font-weight: 500;
   letter-spacing: 1px;
@@ -227,31 +265,34 @@ function handleSkillClick() {
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .city-card__province {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.6);
   font-weight: normal;
   margin-top: 2px;
 }
 
 .city-card__center-badge {
-  background: gold;
-  color: #333;
+  background: linear-gradient(135deg, #f0c850, #d4a017);
+  color: #2d2000;
   font-size: 10px;
-  padding: 2px 6px;
+  padding: 2px 8px;
   border-radius: 4px;
   font-weight: bold;
+  box-shadow: 0 1px 3px rgba(212, 160, 23, 0.4);
 }
 
 .city-card__protection {
-  background: rgba(66, 153, 225, 0.9);
+  background: rgba(58, 123, 213, 0.9);
   color: white;
   font-size: 12px;
-  padding: 4px 8px;
+  padding: 4px 10px;
   border-radius: 6px;
   font-weight: bold;
+  box-shadow: 0 2px 6px rgba(58, 123, 213, 0.3);
 }
 
 .city-card__hp {
@@ -260,17 +301,19 @@ function handleSkillClick() {
 
 .city-card__hp-bar {
   width: 100%;
-  height: 20px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 10px;
+  height: 22px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 11px;
   overflow: hidden;
   margin-bottom: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .city-card__hp-fill {
   height: 100%;
   transition: width 0.5s ease, background-color 0.3s ease;
-  border-radius: 10px;
+  border-radius: 11px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .hp-fill--high {
@@ -283,6 +326,12 @@ function handleSkillClick() {
 
 .hp-fill--low {
   background: linear-gradient(90deg, #f56565, #e53e3e);
+  animation: hpPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes hpPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 .city-card__hp-text {
@@ -290,6 +339,7 @@ function handleSkillClick() {
   font-size: 14px;
   font-weight: bold;
   text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .city-card__skill-section {
@@ -298,8 +348,8 @@ function handleSkillClick() {
 
 .skill-button {
   width: 100%;
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: linear-gradient(135deg, #d4a017 0%, #b8860b 100%);
+  border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
   padding: 8px 12px;
   color: white;
@@ -313,8 +363,8 @@ function handleSkillClick() {
 
 .skill-button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(245, 87, 108, 0.4);
-  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 12px rgba(212, 160, 23, 0.4);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .skill-button:disabled {
@@ -334,7 +384,7 @@ function handleSkillClick() {
 }
 
 .skill-usage {
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.15);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 11px;
@@ -350,11 +400,12 @@ function handleSkillClick() {
 .modifier-badge {
   font-size: 16px;
   cursor: help;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
 }
 
 .city-card__actions {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
 }
 </style>

@@ -24,6 +24,9 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 import { useGameStore } from '../../stores/gameStore'
+import { useDialog } from '../../composables/useDialog'
+
+const { showAlert, showConfirm } = useDialog()
 
 const props = defineProps({
   currentPlayerName: {
@@ -105,7 +108,7 @@ function togglePrivateLogs() {
 async function copyLogs() {
   try {
     await navigator.clipboard.writeText(formattedLogs.value)
-    alert('日志已复制到剪贴板')
+    await showAlert('日志已复制到剪贴板', { title: '复制成功', icon: '📋' })
   } catch (err) {
     console.error('复制失败:', err)
     // 备用方案：使用textarea
@@ -115,15 +118,15 @@ async function copyLogs() {
     textarea.select()
     document.execCommand('copy')
     document.body.removeChild(textarea)
-    alert('日志已复制到剪贴板')
+    await showAlert('日志已复制到剪贴板', { title: '复制成功', icon: '📋' })
   }
 }
 
 /**
  * 清空日志
  */
-function clearLogs() {
-  if (confirm('确定要清空所有日志吗？')) {
+async function clearLogs() {
+  if (await showConfirm('确定要清空所有日志吗？', { title: '清空日志', icon: '🗑️' })) {
     gameStore.clearLogs()
   }
 }
@@ -152,11 +155,12 @@ watch(() => combinedLogs.value.length, () => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  background: linear-gradient(135deg, rgba(42, 35, 64, 0.95) 0%, rgba(30, 42, 74, 0.95) 100%);
   border-radius: 12px;
   overflow: visible;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(96, 165, 250, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 3px solid rgba(212, 160, 23, 0.5);
   transition: all 0.3s ease;
   position: relative;
   z-index: 100;
@@ -179,8 +183,8 @@ watch(() => combinedLogs.value.length, () => {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
-  border-bottom: 2px solid rgba(96, 165, 250, 0.3);
+  background: linear-gradient(135deg, rgba(212, 160, 23, 0.12) 0%, rgba(30, 42, 74, 0.8) 100%);
+  border-bottom: 2px solid rgba(212, 160, 23, 0.3);
   position: relative;
   z-index: 10;
   min-height: 50px;
@@ -189,9 +193,9 @@ watch(() => combinedLogs.value.length, () => {
 .log-header h3 {
   margin: 0;
   font-size: 16px;
-  color: #60a5fa;
+  color: #f0c850;
   font-weight: 700;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   letter-spacing: 0.5px;
   flex-shrink: 0;
 }
@@ -207,10 +211,10 @@ watch(() => combinedLogs.value.length, () => {
 
 .log-btn {
   padding: 6px 10px;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.15) 100%);
-  border: 1px solid rgba(59, 130, 246, 0.4);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 6px;
-  color: #60a5fa;
+  color: rgba(255, 255, 255, 0.7);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -222,10 +226,10 @@ watch(() => combinedLogs.value.length, () => {
 }
 
 .log-btn:hover {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3) 0%, rgba(37, 99, 235, 0.3) 100%);
-  border-color: rgba(59, 130, 246, 0.7);
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .log-btn:active {
@@ -233,8 +237,8 @@ watch(() => combinedLogs.value.length, () => {
 }
 
 .toggle-btn {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(124, 58, 237, 0.15) 100%);
-  border-color: rgba(139, 92, 246, 0.4);
+  background: rgba(139, 92, 246, 0.15);
+  border-color: rgba(139, 92, 246, 0.35);
   color: #a78bfa;
   font-weight: bold;
   font-size: 16px;
@@ -246,8 +250,8 @@ watch(() => combinedLogs.value.length, () => {
 }
 
 .toggle-btn:hover {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(124, 58, 237, 0.3) 100%);
-  border-color: rgba(139, 92, 246, 0.7);
+  background: rgba(139, 92, 246, 0.25);
+  border-color: rgba(139, 92, 246, 0.6);
   box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
 }
 
@@ -255,7 +259,7 @@ watch(() => combinedLogs.value.length, () => {
   flex: 1;
   overflow-y: auto;
   padding: 20px;
-  background: #0a0e27;
+  background: rgba(0, 0, 0, 0.15);
   position: relative;
 }
 
@@ -266,7 +270,7 @@ watch(() => combinedLogs.value.length, () => {
   left: 0;
   right: 0;
   height: 20px;
-  background: linear-gradient(to bottom, rgba(10, 14, 39, 0.9), transparent);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.15), transparent);
   pointer-events: none;
 }
 
@@ -275,39 +279,38 @@ watch(() => combinedLogs.value.length, () => {
   font-family: 'SF Mono', 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.8;
-  color: #e2e8f0;
+  color: rgba(255, 255, 255, 0.8);
   white-space: pre-wrap;
   word-wrap: break-word;
   user-select: text;
   cursor: text;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .empty-log {
-  color: #6b7280 !important;
+  color: rgba(255, 255, 255, 0.35) !important;
   font-style: italic;
   text-align: center;
   padding: 40px 20px;
 }
 
-/* 自定义滚动条 */
+/* 自定义滚动条 - gold themed */
 .log-content::-webkit-scrollbar {
   width: 10px;
 }
 
 .log-content::-webkit-scrollbar-track {
-  background: rgba(16, 33, 62, 0.5);
+  background: rgba(212, 160, 23, 0.06);
   border-radius: 5px;
 }
 
 .log-content::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(180deg, #d4a017 0%, #b8860b 100%);
   border-radius: 5px;
-  border: 2px solid rgba(16, 33, 62, 0.5);
+  border: 2px solid rgba(212, 160, 23, 0.06);
 }
 
 .log-content::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
+  background: linear-gradient(180deg, #e6b422 0%, #d4a017 100%);
 }
 
 /* 响应式 */

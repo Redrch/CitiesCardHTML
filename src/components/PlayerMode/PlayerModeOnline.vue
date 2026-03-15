@@ -22,6 +22,7 @@
         :room-id="currentRoomId"
         :force-spectator="forceSpectator"
         :initial-room-data="initialRoomData"
+        :reconnected-player-name="waitingRoomReconnectName"
         @all-ready="handleAllReady"
         @player-joined="handlePlayerJoined"
       />
@@ -31,7 +32,7 @@
         v-if="currentStep === 'center-city-selection'"
         :player-name="currentPlayer?.name || ''"
         :cities="currentPlayer?.cities ? Object.values(currentPlayer.cities) : []"
-        :initial-center-index="centerCityIndex"
+        :initial-center-name="centerCityName"
         :current-draw-count="playerDrawCount"
         :game-mode="gameMode"
         @center-selected="handleCenterSelected"
@@ -57,6 +58,9 @@
         :room-id="currentRoomId"
         @deployment-confirmed="handleDeploymentConfirmed"
         @skill-used="handleSkillSelected"
+        @exit-room="handleExit"
+        @surrender="handleSurrender"
+        @request-draw="handleRequestDraw"
       />
 
       <!-- 游戏进行中 - 战斗会自动在后台进行，玩家通过日志查看 -->
@@ -78,6 +82,15 @@
       @complete="handleBattleAnimationComplete"
     />
 
+    <!-- 断线重连弹窗 -->
+    <ReconnectModal
+      v-model="showReconnectModal"
+      :player-name="reconnectPlayerName"
+      :room-id="currentRoomId"
+      @reconnect="handleReconnect"
+      @cancel="handleReconnectCancel"
+    />
+
     <!-- 游戏日志模态框（仅在非game步骤显示） -->
     <GameLog v-if="currentStep !== 'game'" :show="showLog" @close="showLog = false" />
 
@@ -96,6 +109,14 @@
       :current-player="currentPlayer"
       @swap-accepted="handleSwapAccepted"
       @swap-rejected="handleSwapRejected"
+    />
+
+    <!-- 求和请求面板 -->
+    <DrawRequestPanel
+      v-if="currentPlayer && (currentStep === 'city-deployment' || currentStep === 'game')"
+      :current-player="currentPlayer"
+      @draw-accepted="handleDrawAccepted"
+      @draw-rejected="handleDrawRejected"
     />
 
     <!-- 技能失败提示弹窗 -->
@@ -123,38 +144,84 @@
       </div>
     </div>
 
+    <!-- 强制选择新中心城市（强制转移等技能触发） -->
+    <div v-if="showNewCenterSelection" class="new-center-modal">
+      <div class="new-center-content">
+        <div class="new-center-header">
+          <span class="new-center-icon">🏛️</span>
+          <h3 class="new-center-title">选择新的中心城市</h3>
+        </div>
+        <p class="new-center-reason">
+          因对手使用了【{{ newCenterReason }}】，你的中心城市已被淘汰，请选择新的中心城市。
+        </p>
+        <div class="new-center-cities">
+          <div
+            v-for="[cityName, city] in aliveCitiesForNewCenter"
+            :key="cityName"
+            class="new-center-city-card"
+            :class="{ 'selected': newCenterSelected === cityName }"
+            @click="newCenterSelected = cityName"
+          >
+            <strong>{{ city.name }}</strong>
+            <div class="new-center-city-hp">
+              HP: {{ Math.floor(city.currentHp !== undefined ? city.currentHp : city.hp) }}
+            </div>
+          </div>
+        </div>
+        <button
+          class="new-center-confirm-btn"
+          :disabled="!newCenterSelected"
+          @click="confirmNewCenter"
+        >
+          确认选择
+        </button>
+      </div>
+    </div>
+
     <!-- 胜利/失败模态框 -->
-    <div v-if="showVictory && gameLogic?.isGameOver?.value" class="victory-modal" @click.self="handleExit">
+    <div v-if="showVictory && gameLogic?.isGameOver?.value" class="victory-modal">
       <div class="victory-content">
         <div class="victory-animation">
-          <div class="trophy">🏆</div>
-          <div class="fireworks">✨🎉✨</div>
+          <div class="trophy">{{ gameLogic.winner.value ? '🏆' : '🤝' }}</div>
         </div>
         <h2 class="victory-title">
-          {{ gameLogic.winner.value?.name }} 获得胜利！
+          {{ gameLogic.winner.value ? gameLogic.winner.value.name + ' 获得胜利！' : '平局！' }}
         </h2>
-        <div class="victory-stats">
-          <div class="stat-item">
-            <span class="stat-label">总回合数</span>
-            <span class="stat-value">{{ gameStore.currentRound }}</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">剩余金币</span>
-            <span class="stat-value">{{ gameLogic.winner.value?.gold || 0 }}</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">存活城市</span>
-            <span class="stat-value">
-              {{ gameLogic.winner.value?.cities ? Object.values(gameLogic.winner.value.cities).filter(c => c.isAlive).length : 0 }}
-            </span>
+        <div class="victory-round-badge">第 {{ gameStore.currentRound }} 回合结束</div>
+
+        <!-- 所有玩家结算 -->
+        <div class="victory-players">
+          <div
+            v-for="(player, idx) in gameStore.players"
+            :key="idx"
+            class="victory-player"
+            :class="{ 'is-winner': gameLogic.winner.value && player.name === gameLogic.winner.value?.name }"
+          >
+            <div class="vp-header">
+              <span class="vp-rank">{{ gameLogic.winner.value ? (player.name === gameLogic.winner.value?.name ? '👑' : '💀') : '⚔️' }}</span>
+              <span class="vp-name">{{ player.name }}</span>
+              <span class="vp-gold">{{ player.gold || 0 }} 金币</span>
+            </div>
+            <div class="vp-cities">
+              <div
+                v-for="[cityName, city] in Object.entries(player.cities || {})"
+                :key="cityName"
+                class="vp-city"
+                :class="{ 'city-dead': city.isAlive === false || (city.currentHp !== undefined ? city.currentHp : city.hp) <= 0 }"
+              >
+                <span class="vp-city-name">{{ city.name }}</span>
+                <span class="vp-city-hp">{{ Math.floor(city.currentHp !== undefined ? city.currentHp : city.hp) }}</span>
+              </div>
+            </div>
           </div>
         </div>
+
         <div class="victory-actions">
           <button class="victory-btn victory-btn--restart" @click="restartGame">
-            🔄 再来一局
+            再来一局
           </button>
           <button class="victory-btn victory-btn--exit" @click="handleExit">
-            🏠 返回主菜单
+            返回主菜单
           </button>
         </div>
       </div>
@@ -163,12 +230,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { useGameStore } from '../../stores/gameStore'
+import { useDialog } from '../../composables/useDialog'
 import { autoInitFirebase } from '../../composables/useFirebase'
 import { useRoom } from '../../composables/useRoom'
 import { useGameLogic } from '../../composables/useGameLogic'
 import { useCityDraw } from '../../composables/useCityDraw'
+import { useSession } from '../../composables/useSession'
 import { addSkillUsageLog, addSkillEffectLog } from '../../composables/game/logUtils'
 import { getProvinceName } from '../../utils/cityHelpers'
 import FirebaseConfig from '../Firebase/FirebaseConfig.vue'
@@ -180,14 +249,18 @@ import GameLog from '../Game/GameLog.vue'
 import GameLogSimple from '../Game/GameLogSimple.vue'
 import SkillSelector from '../Skills/SkillSelector.vue'
 import PendingSwapsPanel from '../Game/PendingSwapsPanel.vue'
+import DrawRequestPanel from '../Game/DrawRequestPanel.vue'
 import BattleAnimation from '../Game/BattleAnimation.vue'
+import ReconnectModal from '../Modals/ReconnectModal.vue'
 
 const emit = defineEmits(['exit'])
 
 const gameStore = useGameStore()
-const { leaveRoom, getRoomData, saveRoomData, updateRoomGameState, startRoomListener, stopRoomListener } = useRoom()
+const { showAlert, showConfirm } = useDialog()
+const { leaveRoom, getRoomData, saveRoomData, updateRoomGameState, startRoomListener, stopRoomListener, startHeartbeat, stopHeartbeat, addPlayerToRoom } = useRoom()
 const gameLogic = useGameLogic()
 const { drawCities, getUsedNames } = useCityDraw()
+const { saveSession, loadSession, clearSession } = useSession()
 
 // 步骤: firebase-config, room-selection, waiting-room, center-city-selection, game
 const currentStep = ref('firebase-config')
@@ -199,7 +272,7 @@ const showSkillSelector = ref(false)
 const showVictory = ref(false)
 const currentPlayer = ref(null)
 const gameMode = ref('2P')
-const centerCityIndex = ref(null)
+const centerCityName = ref(null)
 const playerDrawCount = ref(1)
 const isBattleProcessing = ref(false)  // 防止战斗处理被重复调用
 const battleRetryCount = ref(0)        // 战斗重试计数器（防止无限循环）
@@ -208,16 +281,191 @@ const showBattleAnimation = ref(false)  // 控制战斗动画显示
 const battleAnimationData = ref(null)   // 战斗动画数据
 const showSkillFailureModal = ref(false)  // 控制技能失败弹窗显示
 const skillFailureInfo = ref(null)       // 技能失败信息
+const showNewCenterSelection = ref(false) // 强制选择新中心城市弹窗
+const newCenterSelected = ref('')         // 用户选择的新中心城市名
+const newCenterReason = ref('')           // 触发原因（如"强制转移·普通"）
+const showReconnectModal = ref(false)    // 断线重连弹窗
+const reconnectPlayerName = ref('')      // 重连玩家昵称
+const reconnectSession = ref(null)       // 重连会话数据
+const waitingRoomReconnectName = ref('') // 传给WaitingRoom的重连昵称
 let roomDataListener = null
 
-onMounted(() => {
+/**
+ * Determine which step to restore to based on session + room state
+ */
+function determineRestorationStep(session, roomData, playerData) {
+  if (!roomData || !playerData) return 'room-selection'
+
+  const hasGameState = roomData.gameState && roomData.gameState.playerStates
+  const playerState = hasGameState ? roomData.gameState.playerStates[playerData.name] : null
+
+  // Has cities deployed (playerState with battle cities) → city-deployment
+  if (hasGameState && playerState) {
+    // Game is active, restore to city-deployment
+    return 'city-deployment'
+  }
+
+  // Player has a center city selected and confirmed (ready=true) → waiting-for-center-confirmation or city-deployment
+  if (playerData.centerCityName) {
+    const allPlayersReady = roomData.players.every(p => p.ready === true)
+    if (allPlayersReady) {
+      return 'city-deployment'
+    }
+    return 'waiting-for-center-confirmation'
+  }
+
+  // Player has cities assigned but no center yet → center-city-selection
+  if (playerData.cities && Object.keys(playerData.cities).length > 0) {
+    return 'center-city-selection'
+  }
+
+  // Otherwise → waiting-room
+  return 'waiting-room'
+}
+
+onMounted(async () => {
   // 尝试自动初始化Firebase
   const initialized = autoInitFirebase()
   if (initialized) {
-    // 如果自动初始化成功，跳过配置步骤
+    // Skip firebase-config immediately (synchronous) so the config screen never flashes
     currentStep.value = 'room-selection'
+
+    // Then check for saved session to restore (async)
+    const session = loadSession()
+    if (session) {
+      console.log('[PlayerMode] Found saved session, attempting restore:', session)
+      try {
+        const roomData = await getRoomData(session.roomId)
+        if (roomData) {
+          // Validate player still exists in room
+          const playerData = roomData.players?.find(p => p.name === session.playerName)
+          if (playerData) {
+            console.log('[PlayerMode] Session valid, restoring...')
+            normalizePlayerCities(playerData)
+
+            // Restore state
+            currentRoomId.value = session.roomId
+            currentPlayer.value = JSON.parse(JSON.stringify(playerData))
+            gameMode.value = session.gameMode || roomData.mode || '2P'
+            centerCityName.value = session.centerCityName || playerData.centerCityName || null
+
+            // Re-add player to room (refresh heartbeat entry) and start heartbeat
+            await addPlayerToRoom(session.roomId, { name: session.playerName }, false)
+            startHeartbeat(session.roomId, session.playerName)
+
+            // Determine which step to restore to
+            const targetStep = determineRestorationStep(session, roomData, playerData)
+            console.log('[PlayerMode] Restoring to step:', targetStep)
+
+            // Sync room data to game store if we're past waiting-room
+            if (['center-city-selection', 'waiting-for-center-confirmation', 'city-deployment', 'game'].includes(targetStep)) {
+              // Normalize all players' cities
+              roomData.players?.forEach(p => normalizePlayerCities(p))
+              syncRoomDataToGameStore(roomData)
+            }
+
+            // Start room data listener if we're past center selection
+            if (['waiting-for-center-confirmation', 'city-deployment', 'game'].includes(targetStep)) {
+              startRoomDataListener()
+            }
+
+            currentStep.value = targetStep
+            return
+          } else {
+            console.log('[PlayerMode] Player not found in room, clearing session')
+            clearSession()
+          }
+        } else {
+          console.log('[PlayerMode] Room not found, clearing session')
+          clearSession()
+        }
+      } catch (e) {
+        console.warn('[PlayerMode] Session restore failed:', e)
+        clearSession()
+      }
+    }
+    // No session or restore failed → already at room-selection
   }
 })
+
+// Auto-save session on every step transition
+watch(currentStep, (newStep) => {
+  if (currentRoomId.value && currentPlayer.value?.name) {
+    saveSession({
+      roomId: currentRoomId.value,
+      playerName: currentPlayer.value.name,
+      currentStep: newStep,
+      gameMode: gameMode.value,
+      centerCityName: centerCityName.value
+    })
+  }
+})
+
+/**
+ * Handle reconnect from ReconnectModal
+ */
+async function handleReconnect() {
+  const session = reconnectSession.value
+  if (!session) return
+
+  console.log('[PlayerMode] Reconnecting with session:', session)
+  showReconnectModal.value = false
+
+  try {
+    const roomData = await getRoomData(session.roomId)
+    if (!roomData) {
+      console.warn('[PlayerMode] Room no longer exists')
+      clearSession()
+      return
+    }
+
+    const playerData = roomData.players?.find(p => p.name === session.playerName)
+    if (!playerData) {
+      console.warn('[PlayerMode] Player no longer in room')
+      clearSession()
+      return
+    }
+
+    normalizePlayerCities(playerData)
+    roomData.players?.forEach(p => normalizePlayerCities(p))
+
+    // Restore state
+    currentPlayer.value = JSON.parse(JSON.stringify(playerData))
+    gameMode.value = session.gameMode || roomData.mode || '2P'
+    centerCityName.value = session.centerCityName || playerData.centerCityName || null
+
+    // Re-add player to room (refresh heartbeat entry)
+    await addPlayerToRoom(session.roomId, { name: session.playerName }, false)
+    startHeartbeat(session.roomId, session.playerName)
+
+    // Determine and restore step
+    const targetStep = determineRestorationStep(session, roomData, playerData)
+    console.log('[PlayerMode] Reconnect restoring to step:', targetStep)
+
+    if (['center-city-selection', 'waiting-for-center-confirmation', 'city-deployment', 'game'].includes(targetStep)) {
+      syncRoomDataToGameStore(roomData)
+    }
+    if (['waiting-for-center-confirmation', 'city-deployment', 'game'].includes(targetStep)) {
+      startRoomDataListener()
+    }
+
+    currentStep.value = targetStep
+  } catch (e) {
+    console.error('[PlayerMode] Reconnect failed:', e)
+    clearSession()
+  }
+}
+
+/**
+ * Handle cancel from ReconnectModal - continue normal join flow
+ */
+function handleReconnectCancel() {
+  showReconnectModal.value = false
+  reconnectSession.value = null
+  clearSession()
+  // Continue normal waiting-room flow
+  currentStep.value = 'waiting-room'
+}
 
 /**
  * Firebase初始化完成
@@ -256,6 +504,19 @@ function normalizePlayerCities(player) {
       player.cities = citiesObj
     }
   }
+
+  // 修正numeric centerCityName
+  if (player.centerCityName !== null && player.centerCityName !== undefined) {
+    const ccn = player.centerCityName
+    if ((typeof ccn === 'number' || (typeof ccn === 'string' && !isNaN(ccn) && ccn !== '')) && !player.cities[ccn]) {
+      const cityNames = Object.keys(player.cities)
+      const idx = Number(ccn)
+      if (idx >= 0 && idx < cityNames.length) {
+        player.centerCityName = cityNames[idx]
+        console.log(`[normalizePlayerCities] 修正centerCityName: ${ccn} → ${player.centerCityName}`)
+      }
+    }
+  }
 }
 
 /**
@@ -269,11 +530,30 @@ function handleRoomCreated(roomId) {
 /**
  * 加入房间完成
  */
-function handleRoomJoined({ roomId, roomData, isRoomFull }) {
+function handleRoomJoined({ roomId, roomData, isRoomFull, reconnectInfo }) {
   currentRoomId.value = roomId
   forceSpectator.value = isRoomFull
   initialRoomData.value = roomData
   gameMode.value = roomData.mode || '2P'
+
+  // If reconnect info is present, show reconnect modal
+  if (reconnectInfo) {
+    console.log('[PlayerMode] Reconnect info detected:', reconnectInfo)
+    reconnectPlayerName.value = reconnectInfo.playerName
+    reconnectSession.value = {
+      roomId,
+      playerName: reconnectInfo.playerName,
+      savedStep: reconnectInfo.savedStep,
+      gameMode: reconnectInfo.gameMode,
+      centerCityName: reconnectInfo.centerCityName
+    }
+    showReconnectModal.value = true
+    // Also go to waiting-room so it's visible behind the modal
+    waitingRoomReconnectName.value = ''
+    currentStep.value = 'waiting-room'
+    return
+  }
+
   currentStep.value = 'waiting-room'
 }
 
@@ -290,11 +570,19 @@ async function handleAllReady(players) {
     roomData.players?.forEach(p => normalizePlayerCities(p))
     const playerData = roomData.players.find(p => p.name === currentPlayer.value?.name)
     if (playerData) {
+      // 检查玩家是否有城市（重新加入的玩家可能没有城市）
+      const playerCities = (playerData.cities && typeof playerData.cities === 'object' && !Array.isArray(playerData.cities))
+        ? playerData.cities : {}
+      if (Object.keys(playerCities).length === 0) {
+        console.warn('[PlayerMode] handleAllReady - 玩家没有城市，等待城市分配')
+        return
+      }
+
       console.log('[PlayerMode] ===== BUG 6 诊断: handleAllReady =====')
       console.log('[PlayerMode] 玩家名称:', playerData.name)
-      console.log('[PlayerMode] 城市数量:', Object.keys(playerData.cities).length)
+      console.log('[PlayerMode] 城市数量:', Object.keys(playerCities).length)
       console.log('[PlayerMode] 城市列表:')
-      Object.entries(playerData.cities).forEach(([cityName, city]) => {
+      Object.entries(playerCities).forEach(([cityName, city]) => {
         console.log(`  ${cityName}: ${city.name} (HP: ${city.hp})`)
       })
       console.log('[PlayerMode] centerCityName (from Firebase):', playerData.centerCityName)
@@ -385,7 +673,8 @@ async function handleAllReady(players) {
           morale: null,
           yqgzMarks: [],
           battleLogs: [],
-          pendingSwaps: []
+          pendingSwaps: [],
+          drawRequests: []
         }
 
         console.log('[PlayerMode] gameState初始化完成')
@@ -427,6 +716,21 @@ function handlePlayerJoined({ name, asSpectator }) {
   if (!currentPlayer.value) {
     currentPlayer.value = { name }
   }
+  // 在 PlayerModeOnline 层启动心跳，确保 WaitingRoom 卸载后心跳不中断
+  if (currentRoomId.value && name) {
+    startHeartbeat(currentRoomId.value, name)
+    console.log('[PlayerMode] 已在父组件启动心跳，防止步骤切换时心跳中断')
+  }
+  // Save session immediately when player joins
+  if (!asSpectator && currentRoomId.value && name) {
+    saveSession({
+      roomId: currentRoomId.value,
+      playerName: name,
+      currentStep: currentStep.value,
+      gameMode: gameMode.value,
+      centerCityName: centerCityName.value
+    })
+  }
 }
 
 /**
@@ -436,17 +740,24 @@ async function handleCenterSelected(cityName) {
   console.log('[PlayerMode] ===== 选择中心城市 (使用城市名称) =====')
   console.log('[PlayerMode] 选择的城市名称:', cityName)
 
-  // 保存到房间数据
+  // 保存到房间数据（使用partial update避免覆盖其他玩家数据）
   if (currentRoomId.value && currentPlayer.value) {
-    const roomData = await getRoomData(currentRoomId.value)
-    if (roomData) {
-      const playerIdx = roomData.players.findIndex(p => p.name === currentPlayer.value.name)
-      if (playerIdx !== -1) {
-        // 保存城市名称
-        roomData.players[playerIdx].centerCityName = cityName
-        await saveRoomData(currentRoomId.value, roomData)
-        console.log('[PlayerMode] 中心城市已保存到房间数据:', cityName)
+    try {
+      const { getDatabase, ref: dbRef, update } = await import('firebase/database')
+      const db = getDatabase()
+      const roomData = await getRoomData(currentRoomId.value)
+      if (roomData) {
+        const playerIdx = roomData.players.findIndex(p => p.name === currentPlayer.value.name)
+        if (playerIdx !== -1) {
+          // 使用partial update只更新自己的centerCityName，避免覆盖其他玩家数据
+          await update(dbRef(db), {
+            [`rooms/${currentRoomId.value}/players/${playerIdx}/centerCityName`]: cityName
+          })
+          console.log('[PlayerMode] 中心城市已通过partial update保存:', cityName)
+        }
       }
+    } catch (error) {
+      console.error('[PlayerMode] 保存中心城市失败:', error)
     }
   }
   console.log('[PlayerMode] ==========================================')
@@ -464,15 +775,32 @@ async function handleCenterConfirmed(cityName) {
   if (currentRoomId.value && currentPlayer.value) {
     const roomData = await getRoomData(currentRoomId.value)
     if (roomData) {
+      // 规范化Firebase返回的cities数据
+      roomData.players?.forEach(p => normalizePlayerCities(p))
+
       const playerIdx = roomData.players.findIndex(p => p.name === currentPlayer.value.name)
       if (playerIdx !== -1) {
-        // 3P不需要设置centerCityName
-        if (!is3P && cityName) {
-          roomData.players[playerIdx].centerCityName = cityName
+        // 使用partial update只更新自己的字段，避免覆盖其他玩家数据
+        try {
+          const { getDatabase, ref: dbRef, update } = await import('firebase/database')
+          const db = getDatabase()
+          const updates = {}
+          if (!is3P && cityName) {
+            updates[`rooms/${currentRoomId.value}/players/${playerIdx}/centerCityName`] = cityName
+            roomData.players[playerIdx].centerCityName = cityName
+          }
+          updates[`rooms/${currentRoomId.value}/players/${playerIdx}/ready`] = true
+          roomData.players[playerIdx].ready = true
+          await update(dbRef(db), updates)
+          console.log('[PlayerMode] 确认数据已通过partial update保存')
+        } catch (error) {
+          console.error('[PlayerMode] partial update失败，回退到全量保存:', error)
+          if (!is3P && cityName) {
+            roomData.players[playerIdx].centerCityName = cityName
+          }
+          roomData.players[playerIdx].ready = true
+          await saveRoomData(currentRoomId.value, roomData)
         }
-        roomData.players[playerIdx].ready = true
-
-        await saveRoomData(currentRoomId.value, roomData)
       }
 
       // 同步玩家数据到 gameStore
@@ -539,7 +867,13 @@ async function handleRedrawCities() {
     const citiesPerPlayer = gameMode.value === '2v2' ? 7 : 10
 
     // 重新抽取城市
-    const newCities = drawCities(citiesPerPlayer, excludeCities)
+    const newCitiesArray = drawCities(citiesPerPlayer, excludeCities)
+
+    // 关键修复：将数组转换为城市名称键的对象
+    const newCities = {}
+    newCitiesArray.forEach(city => {
+      if (city && city.name) newCities[city.name] = city
+    })
 
     // 更新玩家城市
     roomData.players[playerIdx].cities = newCities
@@ -556,7 +890,7 @@ async function handleRedrawCities() {
     console.log('[PlayerMode] 重新抽取后更新currentPlayer（深度克隆）')
     console.log('[PlayerMode] 新城市列表:', Object.values(updatedPlayerData.cities).map(c => c.name))
     currentPlayer.value = updatedPlayerData
-    centerCityIndex.value = null
+    centerCityName.value = null
     // 注意：roster只在3P模式使用，2P模式不需要清空rosterCities
 
     // 增加抽取次数
@@ -569,10 +903,26 @@ async function handleRedrawCities() {
 }
 
 /**
+ * 游戏结束时停止所有后台活动（心跳、监听器）
+ * 防止Firebase更新导致页面在结算画面中闪回战斗页面
+ */
+function stopAllOnGameOver() {
+  console.log('[PlayerMode] 游戏结束，停止心跳和监听器')
+  stopHeartbeat()
+  if (roomDataListener) {
+    stopRoomListener()
+    roomDataListener = null
+  }
+}
+
+/**
  * 处理退出
  */
 async function handleExit() {
-  if (confirm('确定要退出到主菜单吗？当前数据可能会丢失。')) {
+  if (await showConfirm('确定要退出到主菜单吗？当前数据可能会丢失。', { title: '退出游戏', icon: '🚪' })) {
+    // Clear saved session
+    clearSession()
+
     // 停止监听
     if (roomDataListener) {
       stopRoomListener()
@@ -585,6 +935,120 @@ async function handleExit() {
     }
 
     emit('exit')
+  }
+}
+
+/**
+ * 处理认输
+ */
+async function handleSurrender() {
+  if (!await showConfirm('确定要认输吗？对方将直接获胜！', { title: '认输确认', icon: '🏳️' })) return
+
+  const myName = currentPlayer.value?.name
+  if (!myName) return
+
+  // 找到对手
+  const roomData = await getRoomData(currentRoomId.value)
+  if (!roomData || !roomData.players) return
+
+  const opponent = roomData.players.find(p => p.name !== myName)
+  if (!opponent) return
+
+  // 设置游戏结束状态
+  if (!roomData.gameState) roomData.gameState = {}
+  roomData.gameState.gameOver = true
+  roomData.gameState.winner = opponent.name
+
+  await saveRoomData(currentRoomId.value, roomData)
+  console.log(`[认输] ${myName} 认输，${opponent.name} 获胜`)
+
+  // 设置本地游戏结束状态
+  const winnerPlayer = roomData.players.find(p => p.name === opponent.name)
+  gameLogic.winner.value = winnerPlayer ? JSON.parse(JSON.stringify(winnerPlayer)) : null
+  gameLogic.isGameOver.value = true
+  showVictory.value = true
+  stopAllOnGameOver()
+}
+
+/**
+ * 处理求和请求
+ */
+async function handleRequestDraw() {
+  const myName = currentPlayer.value?.name
+  if (!myName) return
+
+  // 找到对手
+  const roomData = await getRoomData(currentRoomId.value)
+  if (!roomData || !roomData.players) return
+
+  const opponent = roomData.players.find(p => p.name !== myName)
+  if (!opponent) return
+
+  // 检查是否已有待处理的求和请求
+  const existing = gameStore.drawRequests.filter(r =>
+    r.status === 'pending' && r.initiatorName === myName
+  )
+  if (existing.length > 0) {
+    await showAlert('你已经发送了求和请求，请等待对方回应。', { title: '提示', icon: '💡' })
+    return
+  }
+
+  // 创建求和请求
+  gameStore.createDrawRequest(myName, opponent.name)
+  console.log(`[求和] ${myName} 向 ${opponent.name} 发送求和请求`)
+
+  // 同步到Firebase
+  await syncDrawRequestsToFirebase()
+  await showAlert('求和请求已发送，等待对方回应。', { title: '求和', icon: '🤝' })
+}
+
+/**
+ * 处理接受和棋
+ */
+async function handleDrawAccepted({ request }) {
+  gameStore.updateDrawRequestStatus(request.id, 'accepted')
+
+  // 设置游戏结束 - 平局
+  const roomData = await getRoomData(currentRoomId.value)
+  if (!roomData) return
+
+  if (!roomData.gameState) roomData.gameState = {}
+  roomData.gameState.gameOver = true
+  roomData.gameState.winner = '平局'
+  roomData.gameState.drawRequests = gameStore.drawRequests
+
+  await saveRoomData(currentRoomId.value, roomData)
+  console.log('[求和] 双方达成和棋')
+
+  // 设置本地游戏结束状态
+  gameLogic.winner.value = null
+  gameLogic.isGameOver.value = true
+  showVictory.value = true
+  stopAllOnGameOver()
+}
+
+/**
+ * 处理拒绝和棋
+ */
+async function handleDrawRejected({ request }) {
+  gameStore.updateDrawRequestStatus(request.id, 'rejected')
+  console.log(`[求和] ${currentPlayer.value?.name} 拒绝了 ${request.initiatorName} 的求和请求`)
+
+  // 同步到Firebase
+  await syncDrawRequestsToFirebase()
+}
+
+/**
+ * 同步drawRequests到Firebase
+ */
+async function syncDrawRequestsToFirebase() {
+  try {
+    await updateRoomGameState(currentRoomId.value, {
+      drawRequests: gameStore.drawRequests
+    })
+    console.log('[求和] drawRequests已同步到Firebase')
+  } catch (error) {
+    console.error('[求和] 同步drawRequests失败:', error)
   }
 }
 
@@ -771,22 +1235,50 @@ async function handleSkillSelected(skillData) {
   if (skillData.result && skillData.result.success) {
     console.log('[PlayerMode] 技能已在SkillSelector中执行，直接同步数据到Firebase')
 
+    // 关键修复：使用SkillSelector保存的快照（技能执行后、动画前的状态）
+    // 动画播放期间Firebase监听器可能用旧数据覆盖gameStore.players
+    // 快照确保我们获取正确的技能执行后状态
+    const playersSource = skillData.playersSnapshot || gameStore.players
+    const updatedPlayer = playersSource.find(p => p.name === currentPlayer.value?.name)
+    if (updatedPlayer) {
+      currentPlayer.value = JSON.parse(JSON.stringify(updatedPlayer))
+      console.log('[PlayerMode] 已从快照同步 currentPlayer（金币/HP等）')
+    }
+
+    // 关键修复：同时恢复gameStore.players（可能被监听器覆盖了）
+    if (skillData.playersSnapshot) {
+      skillData.playersSnapshot.forEach((snapshotPlayer, idx) => {
+        const storeIdx = gameStore.players.findIndex(p => p.name === snapshotPlayer.name)
+        if (storeIdx >= 0) {
+          gameStore.players[storeIdx] = JSON.parse(JSON.stringify(snapshotPlayer))
+        }
+      })
+      console.log('[PlayerMode] 已从快照恢复 gameStore.players')
+    }
+
     try {
-      // 关键修复：不依赖getRoomData，直接使用gameStore的最新状态
-      // 构建玩家数据更新（使用gameStore.players，不需要读取Firebase）
+      // 使用快照数据（而非可能已被监听器覆盖的gameStore.players）
       const { getDatabase, ref: dbRef, update } = await import('firebase/database')
       const db = getDatabase()
 
       const playerUpdates = {}
-      gameStore.players.forEach((gameStorePlayer, idx) => {
-        // 更新城市HP和存活状态
-        playerUpdates[`rooms/${currentRoomId.value}/players/${idx}/cities`] = Object.values(gameStorePlayer.cities).map(city => ({
-          ...city,
-          currentHp: city.currentHp,
-          isAlive: city.isAlive !== false
-        }))
+      playersSource.forEach((player, idx) => {
+        // 更新城市HP和存活状态（保持name-keyed对象格式，避免Firebase转为数组）
+        const citiesForFirebase = {}
+        Object.entries(player.cities).forEach(([cityName, city]) => {
+          citiesForFirebase[cityName] = {
+            ...city,
+            currentHp: city.currentHp,
+            isAlive: city.isAlive !== false
+          }
+        })
+        playerUpdates[`rooms/${currentRoomId.value}/players/${idx}/cities`] = citiesForFirebase
         // 更新金币
-        playerUpdates[`rooms/${currentRoomId.value}/players/${idx}/gold`] = gameStorePlayer.gold
+        playerUpdates[`rooms/${currentRoomId.value}/players/${idx}/gold`] = player.gold
+        // 更新中心城市（点石成金等技能可能更改）
+        if (player.centerCityName !== undefined) {
+          playerUpdates[`rooms/${currentRoomId.value}/players/${idx}/centerCityName`] = player.centerCityName
+        }
       })
 
       console.log('[PlayerMode] 准备更新玩家数据:', Object.keys(playerUpdates))
@@ -822,6 +1314,11 @@ async function handleSkillSelected(skillData) {
       // 同步禁用技能状态到Firebase（事半功倍）
       if (gameStore.bannedSkills && Object.keys(gameStore.bannedSkills).length > 0) {
         playerUpdates[`rooms/${currentRoomId.value}/gameState/bannedSkills`] = JSON.parse(JSON.stringify(gameStore.bannedSkills))
+      }
+
+      // 同步技能保护状态到Firebase
+      if (gameStore.skillProtection && Object.keys(gameStore.skillProtection).length > 0) {
+        playerUpdates[`rooms/${currentRoomId.value}/gameState/skillProtection`] = JSON.parse(JSON.stringify(gameStore.skillProtection))
       }
 
       // 同步已知城市到Firebase（劫富济贫等技能会调用setCityKnown）
@@ -880,6 +1377,16 @@ async function handleSkillSelected(skillData) {
       // 同步bannedCities状态到Firebase（高级治疗等禁用城市）
       if (gameStore.bannedCities && Object.keys(gameStore.bannedCities).length > 0) {
         playerUpdates[`rooms/${currentRoomId.value}/gameState/bannedCities`] = JSON.parse(JSON.stringify(gameStore.bannedCities))
+      }
+
+      // 同步playerStates到Firebase（强制转移等技能会设置needsNewCenter标记）
+      if (gameStore.playerStates && Object.keys(gameStore.playerStates).length > 0) {
+        playerUpdates[`rooms/${currentRoomId.value}/gameState/playerStates`] = JSON.parse(JSON.stringify(gameStore.playerStates))
+      }
+
+      // 同步技能冷却状态到Firebase
+      if (gameStore.cooldowns && Object.keys(gameStore.cooldowns).length > 0) {
+        playerUpdates[`rooms/${currentRoomId.value}/gameState/cooldowns`] = JSON.parse(JSON.stringify(gameStore.cooldowns))
       }
 
       console.log('[PlayerMode] 准备一次性更新到Firebase:', Object.keys(playerUpdates).length, '个字段')
@@ -1107,12 +1614,16 @@ async function handleSkillSelected(skillData) {
       roomData.players.forEach((player, idx) => {
         const gameStorePlayer = gameStore.players.find(p => p.name === player.name)
         if (gameStorePlayer) {
-          // 更新城市HP和存活状态
-          playerUpdates[`rooms/${currentRoomId.value}/players/${idx}/cities`] = Object.values(gameStorePlayer.cities).map(city => ({
-            ...city,
-            currentHp: city.currentHp,
-            isAlive: city.isAlive !== false
-          }))
+          // 更新城市HP和存活状态（保持name-keyed对象格式）
+          const citiesForFirebase = {}
+          Object.entries(gameStorePlayer.cities).forEach(([cityName, city]) => {
+            citiesForFirebase[cityName] = {
+              ...city,
+              currentHp: city.currentHp,
+              isAlive: city.isAlive !== false
+            }
+          })
+          playerUpdates[`rooms/${currentRoomId.value}/players/${idx}/cities`] = citiesForFirebase
           // 更新金币
           playerUpdates[`rooms/${currentRoomId.value}/players/${idx}/gold`] = gameStorePlayer.gold
         }
@@ -1210,6 +1721,63 @@ function handleSkillFailed(failureData) {
 function closeSkillFailureModal() {
   showSkillFailureModal.value = false
   skillFailureInfo.value = null
+}
+
+/**
+ * 获取存活的非中心城市列表（用于选择新中心城市）
+ */
+const aliveCitiesForNewCenter = computed(() => {
+  if (!currentPlayer.value?.cities) return []
+  return Object.entries(currentPlayer.value.cities).filter(([cityName, city]) => {
+    const hp = city.currentHp !== undefined ? city.currentHp : city.hp
+    return hp > 0 && city.isAlive !== false
+  })
+})
+
+/**
+ * 确认选择新的中心城市
+ */
+async function confirmNewCenter() {
+  if (!newCenterSelected.value || !currentPlayer.value) return
+
+  console.log('[PlayerMode] 确认新中心城市:', newCenterSelected.value)
+
+  // 更新本地状态
+  currentPlayer.value.centerCityName = newCenterSelected.value
+
+  // 更新 gameStore
+  const storePlayer = gameStore.players.find(p => p.name === currentPlayer.value.name)
+  if (storePlayer) {
+    storePlayer.centerCityName = newCenterSelected.value
+  }
+
+  // 清除 needsNewCenter 标记
+  if (gameStore.playerStates[currentPlayer.value.name]) {
+    delete gameStore.playerStates[currentPlayer.value.name].needsNewCenter
+    delete gameStore.playerStates[currentPlayer.value.name].newCenterReason
+  }
+
+  // 同步到 Firebase
+  try {
+    const { getDatabase, ref: dbRef, update } = await import('firebase/database')
+    const db = getDatabase()
+    const playerIdx = gameStore.players.findIndex(p => p.name === currentPlayer.value.name)
+    if (playerIdx >= 0) {
+      const updates = {}
+      updates[`rooms/${currentRoomId.value}/players/${playerIdx}/centerCityName`] = newCenterSelected.value
+      updates[`rooms/${currentRoomId.value}/gameState/playerStates/${currentPlayer.value.name}/needsNewCenter`] = null
+      updates[`rooms/${currentRoomId.value}/gameState/playerStates/${currentPlayer.value.name}/newCenterReason`] = null
+      await update(dbRef(db), updates)
+      console.log('[PlayerMode] 新中心城市已同步到Firebase')
+    }
+  } catch (error) {
+    console.error('[PlayerMode] 同步新中心城市失败:', error)
+  }
+
+  // 关闭弹窗
+  showNewCenterSelection.value = false
+  newCenterSelected.value = ''
+  newCenterReason.value = ''
 }
 
 /**
@@ -1406,7 +1974,8 @@ async function handleDeploymentConfirmed({ cities, skill, skillData, activatedCi
         morale: null,
         yqgzMarks: [],
         battleLogs: [],
-        pendingSwaps: []  // 先声夺人待处理请求数组
+        pendingSwaps: [],  // 先声夺人待处理请求数组
+        drawRequests: []   // 求和请求数组
       }
 
       console.log('[PlayerMode] handleDeploymentConfirmed - gameState初始化完成，playerStates keys:', Object.keys(playerStates))
@@ -1780,6 +2349,12 @@ function syncRoomDataToGameStore(roomData) {
       console.log(`[PlayerMode] syncRoomDataToGameStore中同步pendingSwaps: ${gameStore.pendingSwaps.length}条`)
     }
 
+    // 同步drawRequests
+    if (roomData.gameState.drawRequests && Array.isArray(roomData.gameState.drawRequests)) {
+      gameStore.drawRequests = roomData.gameState.drawRequests
+      console.log(`[PlayerMode] syncRoomDataToGameStore中同步drawRequests: ${gameStore.drawRequests.length}条`)
+    }
+
     // 关键修复：同步knownCities到gameStore
     // Firebase存储的是数组，gameStore需要Set
     if (roomData.gameState.knownCities) {
@@ -1860,6 +2435,16 @@ function syncRoomDataToGameStore(roomData) {
         gameStore.bannedCities[playerName] = roomData.gameState.bannedCities[playerName]
       })
     }
+
+    // 同步技能冷却状态
+    if (roomData.gameState.cooldowns) {
+      // 清理旧的cooldowns并同步新的
+      Object.keys(gameStore.cooldowns).forEach(k => { delete gameStore.cooldowns[k] })
+      Object.keys(roomData.gameState.cooldowns).forEach(playerName => {
+        gameStore.cooldowns[playerName] = roomData.gameState.cooldowns[playerName]
+      })
+      console.log('[PlayerMode] syncRoomDataToGameStore - 同步cooldowns:', JSON.stringify(gameStore.cooldowns))
+    }
   }
 
   console.log('[PlayerMode] gameStore已更新，玩家数量:', gameStore.players.length)
@@ -1897,6 +2482,34 @@ function startRoomDataListener() {
 
     // 同步数据到 gameStore
     syncRoomDataToGameStore(data)
+
+    // 关键修复：在监听器顶层检查游戏是否结束
+    // 确保第二个玩家（非战斗处理方）也能看到胜利/失败画面
+    if (data.gameState?.gameOver && !showVictory.value) {
+      console.log('[PlayerMode] 监听器顶层检测到游戏结束，获胜者:', data.gameState.winner)
+      // 同步最终的城市数据到currentPlayer（确保结算画面显示正确HP）
+      const finalPlayerData = data.players?.find(p => p.name === currentPlayer.value?.name)
+      if (finalPlayerData) {
+        currentPlayer.value = JSON.parse(JSON.stringify(finalPlayerData))
+      }
+      // 设置winner到gameLogic（如果尚未设置）
+      if (gameLogic && !gameLogic.isGameOver?.value) {
+        const winnerName = data.gameState.winner
+        if (winnerName && winnerName !== '平局') {
+          const winnerPlayer = data.players?.find(p => p.name === winnerName)
+          gameLogic.winner.value = winnerPlayer ? JSON.parse(JSON.stringify(winnerPlayer)) : null
+        } else {
+          gameLogic.winner.value = null  // null = draw
+        }
+        gameLogic.isGameOver.value = true
+      }
+      showVictory.value = true
+      stopAllOnGameOver()
+      return
+    }
+
+    // 游戏已结束，不再处理后续更新
+    if (showVictory.value) return
 
     // 关键修复：选择性更新currentPlayer，不覆盖cities（防止数据被错误同步）
     const updatedPlayerData = data.players.find(p => p.name === currentPlayer.value?.name)
@@ -1943,28 +2556,35 @@ function startRoomDataListener() {
       console.log('[PlayerMode] ==========================================')
 
       // 只在特定情况下更新cities（如重新抽取、战斗后HP变化、城市交换）
-      // 检查是否需要更新cities（通过比较城市数量判断）
-      if (updatedPlayerData.cities && Object.keys(updatedPlayerData.cities).length !== Object.keys(currentPlayer.value.cities).length) {
-        console.log('[PlayerMode] 监听器 - cities数量变化，更新cities')
-        currentPlayer.value.cities = updatedPlayerData.cities
-      } else if (updatedPlayerData.cities) {
-        // 检查是否有城市名称变化（表示发生了交换）
-        const updatedCityNames = Object.keys(updatedPlayerData.cities).sort()
-        const currentCityNames = Object.keys(currentPlayer.value.cities).sort()
+      if (updatedPlayerData.cities) {
+        const updatedCityNames = new Set(Object.keys(updatedPlayerData.cities))
+        const currentCityNames = new Set(Object.keys(currentPlayer.value.cities))
 
-        const hasCitySwap = !updatedCityNames.every((name, i) => name === currentCityNames[i])
+        // 检查城市数量变化
+        const sizeChanged = updatedCityNames.size !== currentCityNames.size
+        // 使用Set比较检查是否有城市名称变化（真正的交换）
+        // 计算差异数量：当前有但更新没有的城市数
+        const removedCities = [...currentCityNames].filter(name => !updatedCityNames.has(name))
+        const addedCities = [...updatedCityNames].filter(name => !currentCityNames.has(name))
+        const hasCitySwap = !sizeChanged && removedCities.length > 0
 
-        if (hasCitySwap) {
-          console.log(`[PlayerMode] 监听器 - 检测到城市交换`)
-          console.log(`  之前: ${currentCityNames.join(', ')}`)
-          console.log(`  之后: ${updatedCityNames.join(', ')}`)
-        }
-
-        if (hasCitySwap) {
-          // 发生了城市交换，完全更新cities数组
-          console.log('[PlayerMode] 监听器 - 检测到城市交换，完全更新cities')
-          // 深拷贝整个cities对象
+        if (sizeChanged) {
+          console.log('[PlayerMode] 监听器 - cities数量变化，更新cities')
           currentPlayer.value.cities = JSON.parse(JSON.stringify(updatedPlayerData.cities))
+        } else if (hasCitySwap) {
+          // 安全检查：真正的交换通常只涉及1-2座城市
+          // 如果超过一半的城市都不同，很可能是数据同步错误，忽略
+          if (removedCities.length > currentCityNames.size / 2) {
+            console.warn(`[PlayerMode] 监听器 - 检测到大量城市变化(${removedCities.length}/${currentCityNames.size})，可能是数据同步错误，忽略`)
+            console.warn(`  本地: ${[...currentCityNames].join(', ')}`)
+            console.warn(`  Firebase: ${[...updatedCityNames].join(', ')}`)
+          } else {
+            // 真正的城市交换（1-2座城市不同）
+            console.log(`[PlayerMode] 监听器 - 检测到城市交换(${removedCities.length}座)，更新cities`)
+            console.log(`  移除: ${removedCities.join(', ')}`)
+            console.log(`  新增: ${addedCities.join(', ')}`)
+            currentPlayer.value.cities = JSON.parse(JSON.stringify(updatedPlayerData.cities))
+          }
         } else {
           // 没有交换，只更新HP和存活状态，不改变城市列表
           Object.entries(updatedPlayerData.cities).forEach(([cityName, updatedCity]) => {
@@ -1976,6 +2596,10 @@ function startRoomDataListener() {
               }
               if (updatedCity.isAlive !== undefined) {
                 localCity.isAlive = updatedCity.isAlive
+              }
+              // 同步isInHealing状态
+              if (updatedCity.isInHealing !== undefined) {
+                localCity.isInHealing = updatedCity.isInHealing
               }
             }
           })
@@ -2056,6 +2680,25 @@ function startRoomDataListener() {
         console.log('[PlayerMode] 已同步bannedSkills:', JSON.stringify(gameStore.bannedSkills))
       }
 
+      // 同步技能保护状态
+      if (data.gameState.skillProtection) {
+        // 先清理旧数据
+        Object.keys(gameStore.skillProtection).forEach(k => { delete gameStore.skillProtection[k] })
+        Object.keys(data.gameState.skillProtection).forEach(playerName => {
+          gameStore.skillProtection[playerName] = data.gameState.skillProtection[playerName]
+        })
+        console.log('[PlayerMode] 已同步skillProtection:', JSON.stringify(gameStore.skillProtection))
+      }
+
+      // 同步技能冷却状态
+      if (data.gameState.cooldowns) {
+        Object.keys(gameStore.cooldowns).forEach(k => { delete gameStore.cooldowns[k] })
+        Object.keys(data.gameState.cooldowns).forEach(playerName => {
+          gameStore.cooldowns[playerName] = data.gameState.cooldowns[playerName]
+        })
+        console.log('[PlayerMode] 已同步cooldowns:', JSON.stringify(gameStore.cooldowns))
+      }
+
       // 同步代行省权状态
       if (data.gameState.actingCapital) {
         gameStore.actingCapital = JSON.parse(JSON.stringify(data.gameState.actingCapital))
@@ -2078,6 +2721,17 @@ function startRoomDataListener() {
       // 最终状态验证
       console.log('[PlayerMode] 监听器处理完毕，最终本地pendingSwaps:', gameStore.pendingSwaps?.length || 0, '条')
       console.log('[PlayerMode] =================================')
+
+      // 检查是否需要选择新的中心城市（强制转移等技能触发）
+      if (currentPlayer.value && data.gameState.playerStates) {
+        const myState = data.gameState.playerStates[currentPlayer.value.name]
+        if (myState?.needsNewCenter && !showNewCenterSelection.value) {
+          console.log('[PlayerMode] 检测到需要选择新中心城市:', myState.newCenterReason)
+          newCenterReason.value = myState.newCenterReason || '未知技能'
+          newCenterSelected.value = ''
+          showNewCenterSelection.value = true
+        }
+      }
 
       // 检查是否所有玩家都完成了中心城市选择
       if (currentStep.value === 'waiting-for-center-confirmation') {
@@ -2302,6 +2956,7 @@ function startRoomDataListener() {
         if (data.gameState.gameOver) {
           console.log('[PlayerMode] 游戏结束，获胜者:', data.gameState.winner)
           showVictory.value = true
+          stopAllOnGameOver()
           return
         }
 
@@ -2757,6 +3412,13 @@ async function processBattle(roomData) {
     roomData.gameState.bannedCities = null
   }
 
+  // 同步技能冷却回roomData
+  if (gameStore.cooldowns && Object.keys(gameStore.cooldowns).length > 0) {
+    roomData.gameState.cooldowns = JSON.parse(JSON.stringify(gameStore.cooldowns))
+  } else {
+    roomData.gameState.cooldowns = null
+  }
+
   // ========== 更新战斗结果并保存到Firebase ==========
   if (battleAnimationData.value) {
     console.log('[PlayerMode] ===== 保存战斗动画数据到Firebase =====')
@@ -2889,6 +3551,7 @@ async function processBattle(roomData) {
     roomData.gameState.winner = gameLogic.winner.value?.name || '平局'
     await saveRoomData(currentRoomId.value, roomData)
     showVictory.value = true
+    stopAllOnGameOver()
     return
   }
 
@@ -3006,11 +3669,24 @@ async function processBattle(roomData) {
  */
 function restartGame() {
   console.log('[PlayerMode] 重新开始游戏')
+  clearSession()
+
+  // 重置游戏结束状态
+  showVictory.value = false
+  gameLogic.isGameOver.value = false
+  gameLogic.winner.value = null
+
+  // 重置gameStore
+  gameStore.resetGame()
+
   // 重置到房间选择步骤
   currentStep.value = 'room-selection'
   currentRoomId.value = ''
   currentPlayer.value = null
-  centerCityIndex.value = null
+  centerCityName.value = null
+  playerDrawCount.value = 1
+  isBattleProcessing.value = false
+  battleRetryCount.value = 0
 }
 </script>
 
@@ -3050,70 +3726,146 @@ function restartGame() {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(30, 41, 59, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  backdrop-filter: blur(4px);
 }
 
 .victory-content {
-  background: var(--panel);
-  border-radius: 16px;
-  padding: 40px;
-  max-width: 500px;
+  background: linear-gradient(135deg, #2a2340 0%, #1e2a4a 100%);
+  border: 2px solid rgba(212, 160, 23, 0.4);
+  border-radius: 20px;
+  padding: 36px 32px 28px;
+  max-width: 520px;
+  width: 90%;
   text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
 }
 
 .victory-animation {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .trophy {
-  font-size: 64px;
-  animation: bounce 1s infinite;
+  font-size: 56px;
+  animation: trophyFloat 2.5s ease-in-out infinite;
 }
 
-.fireworks {
-  font-size: 32px;
-  margin-top: 10px;
-}
-
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-20px); }
+@keyframes trophyFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-12px) scale(1.05); }
 }
 
 .victory-title {
-  font-size: 24px;
-  color: var(--accent);
-  margin-bottom: 30px;
+  font-size: 26px;
+  font-weight: 700;
+  color: #f0c040;
+  margin-bottom: 6px;
+  text-shadow: 0 0 20px rgba(240, 192, 64, 0.3);
 }
 
-.victory-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  margin-bottom: 30px;
+.victory-round-badge {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: 24px;
+  letter-spacing: 1px;
 }
 
-.stat-item {
+/* --- Player results --- */
+.victory-players {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.victory-player {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.victory-player.is-winner {
+  background: rgba(240, 192, 64, 0.06);
+  border-color: rgba(240, 192, 64, 0.2);
+}
+
+.vp-header {
+  display: flex;
+  align-items: center;
   gap: 8px;
+  margin-bottom: 8px;
 }
 
-.stat-label {
+.vp-rank {
+  font-size: 18px;
+}
+
+.vp-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  flex: 1;
+}
+
+.victory-player.is-winner .vp-name {
+  color: #f0c040;
+}
+
+.vp-gold {
+  font-size: 13px;
+  color: #eab308;
+  font-weight: 500;
+}
+
+.vp-cities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.vp-city {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 3px 8px;
   font-size: 12px;
-  color: var(--muted);
 }
 
-.stat-value {
-  font-size: 24px;
-  font-weight: bold;
-  color: var(--text);
+.vp-city.city-dead {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(255, 60, 60, 0.15);
+  opacity: 0.5;
 }
 
+.vp-city-name {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.vp-city.city-dead .vp-city-name {
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+.vp-city-hp {
+  color: #60a5fa;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.vp-city.city-dead .vp-city-hp {
+  color: #ef4444;
+}
+
+/* --- Action buttons --- */
 .victory-actions {
   display: flex;
   gap: 12px;
@@ -3121,30 +3873,35 @@ function restartGame() {
 }
 
 .victory-btn {
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-size: 16px;
+  padding: 10px 28px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
   border: none;
-  transition: all 0.3s;
+  transition: all 0.2s;
 }
 
 .victory-btn--restart {
-  background: var(--accent);
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
   color: white;
 }
 
 .victory-btn--restart:hover {
-  background: #3b82f6;
+  background: linear-gradient(135deg, #60a5fa, #3b82f6);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
 }
 
 .victory-btn--exit {
-  background: var(--muted);
-  color: white;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .victory-btn--exit:hover {
-  background: #6b7280;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 /* 战斗等待界面 */
@@ -3154,7 +3911,7 @@ function restartGame() {
   justify-content: center;
   min-height: 100vh;
   padding: 40px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: linear-gradient(150deg, #2a2340 0%, #1e2a4a 30%, #2a3a5c 60%, #3a2a4a 100%);
 }
 
 .waiting-content {
@@ -3182,14 +3939,14 @@ function restartGame() {
 
 .waiting-content h3 {
   font-size: 28px;
-  color: #60a5fa;
+  color: #f0c850;
   margin-bottom: 15px;
   font-weight: 700;
 }
 
 .waiting-hint {
   font-size: 16px;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.45);
   margin-bottom: 30px;
 }
 
@@ -3200,7 +3957,7 @@ function restartGame() {
   gap: 20px;
   height: 100vh;
   padding: 20px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: linear-gradient(150deg, #2a2340 0%, #1e2a4a 30%, #2a3a5c 60%, #3a2a4a 100%);
   overflow: hidden;
   transition: grid-template-columns 0.3s ease;
 }
@@ -3229,7 +3986,7 @@ function restartGame() {
 }
 
 .game-main-area::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 5px;
 }
 
@@ -3283,7 +4040,7 @@ function restartGame() {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(30, 41, 59, 0.35);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -3293,12 +4050,12 @@ function restartGame() {
 }
 
 .skill-failure-content {
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  background: linear-gradient(135deg, #2a2340 0%, #1e2a4a 100%);
   border-radius: 20px;
   padding: 0;
   width: 90%;
   max-width: 500px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 60px rgba(100, 116, 145, 0.15);
   animation: slideUp 0.3s ease-out;
   border: 2px solid rgba(239, 68, 68, 0.3);
   overflow: hidden;
@@ -3310,7 +4067,7 @@ function restartGame() {
   display: flex;
   align-items: center;
   gap: 16px;
-  border-bottom: 2px solid rgba(0, 0, 0, 0.2);
+  border-bottom: 2px solid rgba(239, 68, 68, 0.15);
 }
 
 .skill-failure-icon {
@@ -3329,7 +4086,7 @@ function restartGame() {
 
 .skill-failure-body {
   padding: 32px;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .skill-failure-skill,
@@ -3349,7 +4106,7 @@ function restartGame() {
 .skill-failure-reason .label {
   font-size: 14px;
   font-weight: 600;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.45);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -3376,7 +4133,7 @@ function restartGame() {
   padding: 24px 32px;
   display: flex;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .skill-failure-btn {
@@ -3420,5 +4177,117 @@ function restartGame() {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+/* 选择新中心城市弹窗 */
+.new-center-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(30, 41, 59, 0.35);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.new-center-content {
+  background: linear-gradient(135deg, #2a2340 0%, #1e2a4a 100%);
+  border-radius: 20px;
+  padding: 32px;
+  width: 90%;
+  max-width: 600px;
+  box-shadow: 0 20px 60px rgba(100, 116, 145, 0.15);
+  animation: slideUp 0.3s ease-out;
+  border: 2px solid rgba(234, 179, 8, 0.4);
+}
+
+.new-center-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.new-center-icon {
+  font-size: 36px;
+}
+
+.new-center-title {
+  margin: 0;
+  font-size: 24px;
+  color: #fbbf24;
+  font-weight: 700;
+}
+
+.new-center-reason {
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: 24px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.new-center-cities {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.new-center-city-card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.new-center-city-card:hover {
+  border-color: rgba(234, 179, 8, 0.5);
+  background: rgba(234, 179, 8, 0.1);
+}
+
+.new-center-city-card.selected {
+  border-color: #fbbf24;
+  background: rgba(234, 179, 8, 0.2);
+  box-shadow: 0 0 12px rgba(234, 179, 8, 0.3);
+}
+
+.new-center-city-hp {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.new-center-confirm-btn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.new-center-confirm-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.new-center-confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

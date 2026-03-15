@@ -71,7 +71,7 @@
             :class="['player-btn', { selected: targetPlayer === player.name }]"
             @click="targetPlayer = player.name"
           >
-            {{ player.name }} (💰{{ player.gold }})
+            {{ player.name }} (🏙️{{ getAliveCitiesCount(player) }})
           </button>
         </div>
       </div>
@@ -356,6 +356,11 @@ const opponents = computed(() => {
   return gameStore.players.filter(p => p && p.name !== props.currentPlayer?.name)
 })
 
+function getAliveCitiesCount(player) {
+  if (!player.cities) return 0
+  return Object.values(player.cities).filter(c => (c.currentHp || c.hp || 0) > 0 && c.isAlive !== false).length
+}
+
 function getSkillCost(skillName) {
   return SKILL_COSTS[skillName] || 0
 }
@@ -616,8 +621,8 @@ function executeSkill() {
   flex-direction: column;
   gap: 20px;
   padding: 20px;
-  background: #1a1a2e;
-  color: #eee;
+  background: #f8fafc;
+  color: #1e293b;
   border-radius: 12px;
   max-height: 90vh;
   overflow-y: auto;
@@ -625,9 +630,10 @@ function executeSkill() {
 
 /* 技能列表区域 */
 .skill-section {
-  background: #16213e;
+  background: #ffffff;
   padding: 20px;
   border-radius: 8px;
+  border: 1px solid #e2e8f0;
 }
 
 .skill-header h3 {
@@ -645,9 +651,9 @@ function executeSkill() {
 
 .filter-btn {
   padding: 8px 16px;
-  border: 2px solid #3a3a5c;
-  background: #0f3460;
-  color: #eee;
+  border: 2px solid #e2e8f0;
+  background: #f1f5f9;
+  color: #334155;
   border-radius: 20px;
   cursor: pointer;
   transition: all 0.3s;
@@ -655,12 +661,12 @@ function executeSkill() {
 
 .filter-btn:hover {
   border-color: #4ecca3;
-  background: #1a4668;
+  background: #e0f2ec;
 }
 
 .filter-btn.active {
   background: #4ecca3;
-  color: #16213e;
+  color: white;
   border-color: #4ecca3;
 }
 
@@ -674,8 +680,8 @@ function executeSkill() {
   display: flex;
   gap: 12px;
   padding: 12px;
-  background: #0f3460;
-  border: 2px solid #3a3a5c;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
@@ -684,12 +690,12 @@ function executeSkill() {
 .skill-card:hover:not(.disabled) {
   border-color: #4ecca3;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(78, 204, 163, 0.3);
+  box-shadow: 0 4px 12px rgba(78, 204, 163, 0.2);
 }
 
 .skill-card.selected {
   border-color: #4ecca3;
-  background: #1a4668;
+  background: #e0f2ec;
 }
 
 .skill-card.disabled {
@@ -709,18 +715,18 @@ function executeSkill() {
   font-weight: bold;
   font-size: 14px;
   margin-bottom: 4px;
-  color: #4ecca3;
+  color: #0d9472;
 }
 
 .skill-cost {
   font-size: 12px;
-  color: #ffd93d;
+  color: #d97706;
   margin-bottom: 6px;
 }
 
 .skill-description {
   font-size: 11px;
-  color: #aaa;
+  color: #64748b;
 }
 
 .skill-usage,
@@ -733,23 +739,23 @@ function executeSkill() {
 }
 
 .skill-usage {
-  background: #1a4668;
-  color: #4ecca3;
+  background: #e0f2ec;
+  color: #0d9472;
 }
 
 .skill-cooldown-active {
-  background: #4a1a1a;
-  color: #ff6b6b;
+  background: #fee2e2;
+  color: #dc2626;
 }
 
 .skill-cooldown-ready {
-  background: #1a4a1a;
-  color: #51cf66;
+  background: #dcfce7;
+  color: #16a34a;
 }
 
 /* 目标选择区域 */
 .target-section {
-  background: #16213e;
+  background: #ffffff;
   padding: 20px;
   border-radius: 8px;
   border: 2px solid #4ecca3;
@@ -758,7 +764,7 @@ function executeSkill() {
 .target-section h4 {
   margin: 0 0 12px 0;
   font-size: 16px;
-  color: #4ecca3;
+  color: #0d9472;
 }
 
 .target-player-selector {
@@ -773,9 +779,9 @@ function executeSkill() {
 
 .player-btn {
   padding: 10px 20px;
-  border: 2px solid #3a3a5c;
-  background: #0f3460;
-  color: #eee;
+  border: 2px solid #e2e8f0;
+  background: #f1f5f9;
+  color: #334155;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
@@ -784,13 +790,13 @@ function executeSkill() {
 
 .player-btn:hover {
   border-color: #4ecca3;
-  background: #1a4668;
+  background: #e0f2ec;
 }
 
 .player-btn.selected {
   border-color: #4ecca3;
   background: #4ecca3;
-  color: #16213e;
+  color: white;
   font-weight: bold;
 }
 
@@ -809,8 +815,8 @@ function executeSkill() {
 .mini-city-card {
   position: relative;
   padding: 12px;
-  background: #0f3460;
-  border: 2px solid #3a3a5c;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
@@ -820,12 +826,12 @@ function executeSkill() {
 .mini-city-card:hover:not(.disabled):not(.dead) {
   border-color: #4ecca3;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(78, 204, 163, 0.3);
+  box-shadow: 0 4px 12px rgba(78, 204, 163, 0.2);
 }
 
 .mini-city-card.selected {
   border-color: #4ecca3;
-  background: #1a4668;
+  background: #e0f2ec;
 }
 
 .mini-city-card.disabled {
@@ -836,24 +842,24 @@ function executeSkill() {
 .mini-city-card.dead {
   opacity: 0.3;
   cursor: not-allowed;
-  background: #2a2a3a;
+  background: #f1f5f9;
 }
 
 .city-name {
   font-size: 13px;
   font-weight: bold;
   margin-bottom: 4px;
-  color: #4ecca3;
+  color: #0d9472;
 }
 
 .city-hp {
   font-size: 11px;
-  color: #ffd93d;
+  color: #d97706;
 }
 
 .city-status.dead {
   font-size: 10px;
-  color: #ff6b6b;
+  color: #dc2626;
   margin-top: 4px;
 }
 
@@ -864,7 +870,7 @@ function executeSkill() {
   width: 20px;
   height: 20px;
   background: #4ecca3;
-  color: #16213e;
+  color: white;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -876,7 +882,7 @@ function executeSkill() {
 .no-cities-hint {
   text-align: center;
   padding: 20px;
-  color: #888;
+  color: #94a3b8;
   font-size: 14px;
 }
 
@@ -889,7 +895,7 @@ function executeSkill() {
   display: block;
   margin-bottom: 6px;
   font-weight: bold;
-  color: #4ecca3;
+  color: #0d9472;
   font-size: 14px;
 }
 
@@ -897,16 +903,16 @@ function executeSkill() {
 .param-group input {
   width: 100%;
   padding: 8px;
-  border: 2px solid #3a3a5c;
-  background: #0f3460;
-  color: #eee;
+  border: 2px solid #e2e8f0;
+  background: #ffffff;
+  color: #1e293b;
   border-radius: 4px;
   font-size: 14px;
 }
 
 /* 技能详情 */
 .skill-detail {
-  background: #16213e;
+  background: #ffffff;
   padding: 20px;
   border-radius: 8px;
   border: 2px solid #4ecca3;
@@ -915,11 +921,11 @@ function executeSkill() {
 .skill-detail h4 {
   margin: 0 0 10px 0;
   font-size: 20px;
-  color: #4ecca3;
+  color: #0d9472;
 }
 
 .detail-description {
-  color: #aaa;
+  color: #64748b;
   margin-bottom: 20px;
   font-size: 14px;
 }
@@ -942,27 +948,27 @@ function executeSkill() {
 
 .btn-primary {
   background: #4ecca3;
-  color: #16213e;
+  color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
   background: #3bba8f;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(78, 204, 163, 0.4);
+  box-shadow: 0 4px 12px rgba(78, 204, 163, 0.3);
 }
 
 .btn-primary:disabled {
-  background: #3a3a5c;
-  color: #666;
+  background: #cbd5e1;
+  color: #94a3b8;
   cursor: not-allowed;
 }
 
 .btn-secondary {
-  background: #3a3a5c;
-  color: #eee;
+  background: #e2e8f0;
+  color: #334155;
 }
 
 .btn-secondary:hover {
-  background: #4a4a6c;
+  background: #cbd5e1;
 }
 </style>

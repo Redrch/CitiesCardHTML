@@ -38,7 +38,7 @@ const { notifications } = useNotification()
   color: white;
   padding: 12px 20px;
   border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 6px rgba(100, 116, 145, 0.15);
   font-size: 14px;
   max-width: 300px;
   text-align: center;

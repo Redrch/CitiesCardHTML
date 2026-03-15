@@ -3,41 +3,7 @@
  * 包含所有战斗和非战斗金币技能的完整信息
  */
 
-/**
- * 技能成本映射表
- */
-export const SKILL_COSTS = {
-  // 战斗金币技能
-  '擒贼擒王': 3, '草木皆兵': 3, '越战越勇': 3,
-  '吸引攻击': 4, '既来则安': 4,
-  '铜墙铁壁': 5,
-  '背水一战': 6, '料事如神': 6, '暗度陈仓': 6,
-  '同归于尽': 7, '声东击西': 3,
-  '御驾亲征': 8,
-  '狂暴模式': 7, '以逸待劳': 6, '欲擒故纵': 7,
-  '趁火打劫': 8, '晕头转向': 10, '隔岸观火': 10, '挑拨离间': 10,
-  '反戈一击': 11,
-  '围魏救赵': 12,
-  '设置屏障': 15,
-  '按兵不动': 2,
-  '草船借箭': 8,
-  '玉碎瓦全': 5,
-  '潜能激发': 20,
-  // 非战斗金币技能
-  '转账给他人': 0, '无知无畏': 2, '先声夺人': 1, '金币贷款': 1, '金融危机': 1, '定海神针': 1, '焕然一新': 2, '抛砖引玉': 2,
-  '城市保护': 3, '快速治疗': 3, '借尸还魂': 4, '苟延残喘': 4, '高级治疗': 4, '众志成城': 5, '整齐划一': 4, '进制扭曲': 4,
-  '清除加成': 5, '钢铁城市': 5, '时来运转': 5, '实力增强': 5, '城市试炼': 4,
-  '人质交换': 4, '釜底抽薪': 5, '避而不见': 5, '劫富济贫': 5, '一触即发': 5, '技能保护': 5, '突破瓶颈': 5, '坚不可摧': 5, '李代桃僵': 6, '天灾人祸': 6, '博学多才': 6, '血量存储': 6, '海市蜃楼': 6,
-  '解除封锁': 5, '一落千丈': 7, '点石成金': 7, '寸步难行': 7, '连续打击': 7, '数位反转': 7,
-  '波涛汹涌': 8, '狂轰滥炸': 8, '横扫一空': 7, '万箭齐发': 8,
-  '移花接木': 7, '连锁反应': 7, '招贤纳士': 8, '不露踪迹': 7, '降维打击': 8,
-  '狐假虎威': 7, '过河拆桥': 9, '厚积薄发': 9, '无中生有': 5, '深藏不露': 8, '定时爆破': 8, '灰飞烟灭': 9,
-  '搬运救兵·普通': 11, '电磁感应': 9, '士气大振': 8, '战略转移': 9, '无懈可击': 11,
-  '趁其不备·随机': 10, '自相残杀': 9, '当机立断': 10, '中庸之道': 12, '步步高升': 12, '搬运救兵·高级': 13,
-  '强制转移·普通': 13, '强制搬运': 13, '言听计从': 11, '趁其不备·指定': 13, '行政中心': 15, '夷为平地': 12, '副中心制': 11, '以礼来降': 15, '生于紫室': 16,
-  '计划单列': 14, '强制转移·高级': 19, '四面楚歌': 23, '事半功倍': 0,
-  '城市侦探': 1, '城市预言': 6, '一举两得': 3, '明察秋毫': 3, '拔旗易帜': 3, '代行省权': 5, '守望相助': 6, '倒反天罡': 7, '大义灭亲': 13
-}
+import { SKILL_COSTS } from '../constants/skillCosts'
 
 /**
  * 技能详细描述
@@ -168,32 +134,32 @@ export const SKILL_DESCRIPTIONS = {
  * 战斗金币技能列表（用于CityDeployment组件）
  */
 export const BATTLE_SKILLS = [
-  { name: '按兵不动', cost: 2, description: '本回合不出战，获得金币' },
-  { name: '擒贼擒王', cost: 3, description: '优先攻击血量最高的城市' },
-  { name: '草木皆兵', cost: 3, description: '对手伤害减半，若不出牌可抢走1金币' },
-  { name: '越战越勇', cost: 3, description: '疲劳城市战力不减半' },
-  { name: '吸引攻击', cost: 4, description: '城市吸引所有伤害' },
-  { name: '既来则安', cost: 4, description: '新城市第一次出战免疫伤害' },
-  { name: '铜墙铁壁', cost: 5, description: '对手伤害完全无效' },
-  { name: '玉碎瓦全', cost: 5, description: '目标城市攻击力翻倍，出战则消灭' },
-  { name: '背水一战', cost: 6, description: '攻击力×2，但会自毁' },
-  { name: '料事如神', cost: 6, description: '先手偷袭' },
-  { name: '暗度陈仓', cost: 6, description: '额外派出一个城市（3P专属）', modes: ['3P'] },
-  { name: '同归于尽', cost: 7, description: '阵亡时摧毁对方出战城市' },
-  { name: '声东击西', cost: 3, description: '战力劣势时转向攻击另一玩家（3P专属）', modes: ['3P'] },
-  { name: '欲擒故纵', cost: 7, description: '选择对手出战城市设置陷阱' },
-  { name: '御驾亲征', cost: 8, description: '本回合己方至少出战两座城市且中心必须出战，摧毁对手HP最高非中心城市' },
-  { name: '草船借箭', cost: 8, description: '对手的攻击转为治疗，双方退兵' },
-  { name: '狂暴模式', cost: 9, description: '攻击力×5，回合结束血量减半' },
-  { name: '以逸待劳', cost: 9, description: '根据对手出战城市数造成额外伤害' },
-  { name: '趁火打劫', cost: 10, description: '根据造成的伤害抢夺金币' },
-  { name: '晕头转向', cost: 10, description: '交换双方出战城市' },
-  { name: '隔岸观火', cost: 10, description: '你本轮撤兵，其他两方互相攻击（3P专属）', modes: ['3P'] },
-  { name: '挑拨离间', cost: 10, description: '使对手团队内斗（2v2专属）', modes: ['2v2'] },
-  { name: '反戈一击', cost: 11, description: '本轮对手对你的伤害将反弹' },
-  { name: '围魏救赵', cost: 13, description: '战斗特殊处理，最多使用2次' },
-  { name: '设置屏障', cost: 15, description: '设置25000HP的屏障，持续5回合' },
-  { name: '潜能激发', cost: 20, description: '所有城市HP×2，且前3回合溢出30%攻击对方中心' }
+  { name: '按兵不动', cost: SKILL_COSTS['按兵不动'], description: '本回合不出战，获得金币' },
+  { name: '擒贼擒王', cost: SKILL_COSTS['擒贼擒王'], description: '优先攻击血量最高的城市' },
+  { name: '草木皆兵', cost: SKILL_COSTS['草木皆兵'], description: '对手伤害减半，若不出牌可抢走1金币' },
+  { name: '越战越勇', cost: SKILL_COSTS['越战越勇'], description: '疲劳城市战力不减半' },
+  { name: '吸引攻击', cost: SKILL_COSTS['吸引攻击'], description: '城市吸引所有伤害' },
+  { name: '既来则安', cost: SKILL_COSTS['既来则安'], description: '新城市第一次出战免疫伤害' },
+  { name: '铜墙铁壁', cost: SKILL_COSTS['铜墙铁壁'], description: '对手伤害完全无效' },
+  { name: '玉碎瓦全', cost: SKILL_COSTS['玉碎瓦全'], description: '目标城市攻击力翻倍，出战则消灭' },
+  { name: '背水一战', cost: SKILL_COSTS['背水一战'], description: '攻击力×2，但会自毁' },
+  { name: '料事如神', cost: SKILL_COSTS['料事如神'], description: '先手偷袭' },
+  { name: '暗度陈仓', cost: SKILL_COSTS['暗度陈仓'], description: '额外派出一个城市（3P专属）', modes: ['3P'] },
+  { name: '同归于尽', cost: SKILL_COSTS['同归于尽'], description: '阵亡时摧毁对方出战城市' },
+  { name: '声东击西', cost: SKILL_COSTS['声东击西'], description: '战力劣势时转向攻击另一玩家（3P专属）', modes: ['3P'] },
+  { name: '欲擒故纵', cost: SKILL_COSTS['欲擒故纵'], description: '选择对手出战城市设置陷阱' },
+  { name: '御驾亲征', cost: SKILL_COSTS['御驾亲征'], description: '本回合己方至少出战两座城市且中心必须出战，摧毁对手HP最高非中心城市' },
+  { name: '草船借箭', cost: SKILL_COSTS['草船借箭'], description: '对手的攻击转为治疗，双方退兵' },
+  { name: '狂暴模式', cost: SKILL_COSTS['狂暴模式'], description: '攻击力×5，回合结束血量减半' },
+  { name: '以逸待劳', cost: SKILL_COSTS['以逸待劳'], description: '根据对手出战城市数造成额外伤害' },
+  { name: '趁火打劫', cost: SKILL_COSTS['趁火打劫'], description: '根据造成的伤害抢夺金币' },
+  { name: '晕头转向', cost: SKILL_COSTS['晕头转向'], description: '交换双方出战城市' },
+  { name: '隔岸观火', cost: SKILL_COSTS['隔岸观火'], description: '你本轮撤兵，其他两方互相攻击（3P专属）', modes: ['3P'] },
+  { name: '挑拨离间', cost: SKILL_COSTS['挑拨离间'], description: '使对手团队内斗（2v2专属）', modes: ['2v2'] },
+  { name: '反戈一击', cost: SKILL_COSTS['反戈一击'], description: '本轮对手对你的伤害将反弹' },
+  { name: '围魏救赵', cost: SKILL_COSTS['围魏救赵'], description: '战斗特殊处理，最多使用2次' },
+  { name: '设置屏障', cost: SKILL_COSTS['设置屏障'], description: '设置25000HP的屏障，持续5回合' },
+  { name: '潜能激发', cost: SKILL_COSTS['潜能激发'], description: '所有城市HP×2，且前3回合溢出30%攻击对方中心' }
 ]
 
 /**

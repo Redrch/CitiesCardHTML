@@ -500,7 +500,7 @@ function collectFatigueData(battleAnimationData, roomData, battleResults) {
     if (animCityIdx !== -1) {
       battleResults.fatigued.push({
         player: playerNum,
-        cityName: animCityIdx,  // 动画数据中的索引，不是原始cityName
+        animIndex: animCityIdx,  // 动画数据中的城市数组索引
         hpBefore: fatigue.hpBefore,
         hpAfter: fatigue.hpAfter,
         streak: fatigue.streak

@@ -37,6 +37,8 @@ defineProps({
 const emit = defineEmits(['update:modelValue'])
 
 const changelog = [
+  { date: '2026.3.18', version: 'V1.0.8', desc: '修复一些bug，优化界面UI显示' },
+  { date: '2026.3.9', version: 'V1.0.7', desc: '修复了刷新后自动回主界面的问题，增加”求和“和”认输“按钮' },
   { date: '2026.2.26', version: 'V1.0.6', desc: '修复了战斗动画无法显示的问题' },
   { date: '2026.2.22', version: 'V1.0.5', desc: '重构了游戏界面UI，为金币技能添加动画展示' },
   { date: '2026.2.19', version: 'V1.0.4', desc: '修复部分技能逻辑出错问题' },
@@ -58,7 +60,7 @@ function close() {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(30, 41, 59, 0.35);
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -72,7 +74,7 @@ function close() {
   max-width: 600px;
   width: 100%;
   border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px rgba(100, 116, 145, 0.12);
   max-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -80,7 +82,7 @@ function close() {
 
 .modal-header {
   padding: 20px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid #e2e8f0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -126,7 +128,7 @@ function close() {
 
 .changelog-entry:hover {
   transform: translateX(4px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(100, 116, 145, 0.12);
 }
 
 .entry-header {

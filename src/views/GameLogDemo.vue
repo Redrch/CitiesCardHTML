@@ -232,11 +232,13 @@
 <script setup>
 import { ref } from 'vue'
 import { useGameStore } from '../stores/gameStore'
+import { useDialog } from '../composables/useDialog'
 import GameLogFixed from '../components/Game/GameLogFixed.vue'
 import GameLogPanel from '../components/Game/GameLogPanel.vue'
 import GameLog from '../components/Game/GameLog.vue'
 
 const gameStore = useGameStore()
+const { showConfirm } = useDialog()
 const activeTab = ref('fixed')
 const showModal = ref(false)
 
@@ -281,8 +283,8 @@ function nextRound() {
   gameStore.nextRound()
 }
 
-function clearAllLogs() {
-  if (confirm('确定要清空所有日志吗？')) {
+async function clearAllLogs() {
+  if (await showConfirm('确定要清空所有日志吗？', { title: '清空日志', icon: '🗑️' })) {
     gameStore.clearLogs()
   }
 }
@@ -304,7 +306,7 @@ function clearAllLogs() {
 .demo-header h1 {
   font-size: 36px;
   margin: 0 0 10px 0;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 2px 10px rgba(100, 116, 145, 0.15);
 }
 
 .demo-subtitle {
@@ -330,12 +332,12 @@ function clearAllLogs() {
   cursor: pointer;
   transition: all 0.3s ease;
   color: white;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(100, 116, 145, 0.14);
 }
 
 .demo-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 16px rgba(100, 116, 145, 0.15);
 }
 
 .demo-btn--primary {
@@ -391,7 +393,7 @@ function clearAllLogs() {
   background: white;
   border-radius: 16px;
   padding: 30px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 40px rgba(100, 116, 145, 0.14);
   margin-bottom: 30px;
 }
 
@@ -486,7 +488,7 @@ function clearAllLogs() {
   background: white;
   border-radius: 16px;
   padding: 30px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 40px rgba(100, 116, 145, 0.14);
   margin-bottom: 30px;
 }
 
@@ -537,7 +539,7 @@ function clearAllLogs() {
   background: white;
   border-radius: 16px;
   padding: 30px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 40px rgba(100, 116, 145, 0.14);
 }
 
 .demo-recommendations h3 {
@@ -563,7 +565,7 @@ function clearAllLogs() {
 
 .recommendation-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 24px rgba(100, 116, 145, 0.12);
 }
 
 .card-icon {
@@ -572,7 +574,7 @@ function clearAllLogs() {
 }
 
 .recommendation-card h4 {
-  color: #1f2937;
+  color: #1e293b;
   font-size: 18px;
   margin: 0 0 12px 0;
 }

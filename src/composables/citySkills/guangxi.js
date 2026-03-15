@@ -346,12 +346,12 @@ export function handleLaibinSkill(attacker, defender, skillData, addPublicLog, g
   // 筛选对方符合条件的城市（非中心且HP<9000）
   const eligibleCities = []
   if (defender && defender.cities) {
-    Object.values(defender.cities).forEach((city, index) => {
+    Object.entries(defender.cities).forEach(([cityName, city]) => {
       if (city.isAlive !== false &&
           getCurrentHp(city) > 0 &&
-          index !== defender.centerCityName &&
+          cityName !== defender.centerCityName &&
           city.hp < 9000) {
-        eligibleCities.push({ city, index })
+        eligibleCities.push({ city, cityName })
       }
     })
   }

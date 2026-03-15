@@ -82,8 +82,8 @@
             v-for="(city, index) in myCities"
             :key="index"
             class="city-card"
-            :class="{ 'city-selected': selectedCenter === index }"
-            @click="selectedCenter = index"
+            :class="{ 'city-selected': selectedCenter === city.name }"
+            @click="selectedCenter = city.name"
           >
             <div>
               <strong>{{ city.name }}</strong>
@@ -105,7 +105,7 @@
           </div>
 
           <div v-if="selectedCenter !== null" class="muted" style="text-align: center; margin: 12px 0;">
-            已选择 <strong>{{ myCities[selectedCenter].name }}</strong> 作为中心城市
+            已选择 <strong>{{ selectedCenter }}</strong> 作为中心城市
           </div>
 
           <button
@@ -148,7 +148,7 @@
                     <div>
                       <strong>{{ city.name }}</strong>
                       <div class="muted" style="font-size: 10px;">
-                        {{ index === centerCityIndex ? '【中心】' : '' }}
+                        {{ city.name === centerCityName ? '【中心】' : '' }}
                         {{ city.isFatigued ? '疲劳' : '' }}
                       </div>
                     </div>
@@ -229,7 +229,7 @@
         </div>
 
         <!-- 底部操作栏 -->
-        <div style="padding: 12px; background: var(--panel); border-top: 1px solid #1f2937;">
+        <div style="padding: 12px; background: var(--panel); border-top: 1px solid #e2e8f0;">
           <div style="display: flex; gap: 8px; justify-content: center;">
             <button class="btn" @click="showCityDetail = true">查看详情</button>
             <button class="btn btn-primary" @click="nextTurn">结束回合</button>
@@ -267,11 +267,13 @@ import { ref, computed } from 'vue'
 import { usePlayerStore } from '../../stores/playerStore'
 import { useGameState } from '../../composables/useGameState'
 import { useSkills } from '../../composables/useSkills'
+import { useDialog } from '../../composables/useDialog'
 import { calculateCityPower, initializeCityObject, getProvinceName } from '../../utils/cityHelpers'
 
 defineEmits(['exit'])
 
 const playerStore = usePlayerStore()
+const { showConfirm } = useDialog()
 const { drawRandomCities } = useGameState()
 const { getAvailableSkills, canUseSkill: checkSkillAvailable } = useSkills()
 
@@ -284,7 +286,7 @@ const nickname = ref('')
 const gold = ref(3)
 const cityCount = ref(6)
 const myCities = ref([])
-const centerCityIndex = ref(0)
+const centerCityName = ref(null)
 const selectedCenter = ref(null)
 
 // 游戏状态
@@ -317,12 +319,12 @@ function drawInitialCities() {
 function confirmCities() {
   if (selectedCenter.value === null) return
 
-  centerCityIndex.value = selectedCenter.value
+  centerCityName.value = selectedCenter.value
   playerStore.setCities(myCities.value)
   playerStore.setGold(gold.value)
 
   stage.value = 'playing'
-  addLog(`游戏开始！中心城市：${myCities.value[centerCityIndex.value].name}`)
+  addLog(`游戏开始！中心城市：${centerCityName.value}`)
   addLog(`初始金币：${gold.value}`)
 }
 
@@ -360,8 +362,8 @@ function saveGame() {
   showGameMenu.value = false
 }
 
-function restartGame() {
-  if (confirm('确定要重新开始吗？当前进度将丢失！')) {
+async function restartGame() {
+  if (await showConfirm('确定要重新开始吗？当前进度将丢失！', { title: '重新开始', icon: '🔄' })) {
     stage.value = 'setup'
     nickname.value = ''
     gold.value = 3
@@ -408,7 +410,7 @@ function restartGame() {
 .city-card {
   padding: 12px;
   background: var(--panel);
-  border: 1px solid #1f2937;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   display: grid;
   grid-template-columns: 2fr 1fr 1fr;
@@ -420,12 +422,12 @@ function restartGame() {
 
 .city-card:hover {
   border-color: var(--accent);
-  background: #0e1526;
+  background: rgba(59, 130, 246, 0.06);
 }
 
 .city-card.city-selected {
   border-color: var(--accent);
-  background: #18314f;
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .city-card.city-dead {
@@ -437,7 +439,7 @@ function restartGame() {
   padding: 6px 8px;
   margin-bottom: 4px;
   background: var(--bg);
-  border: 1px solid #1f2937;
+  border: 1px solid #e2e8f0;
   border-radius: 4px;
   cursor: pointer;
 }

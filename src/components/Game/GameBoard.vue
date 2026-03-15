@@ -170,11 +170,40 @@ function canUseSkill(skill) {
 <style scoped>
 .game-board {
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+  background: linear-gradient(150deg, #2a2340 0%, #1e2a4a 30%, #2a3a5c 60%, #3a2a4a 100%);
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  position: relative;
+}
+
+/* Subtle battlefield texture overlay */
+.game-board::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 40px,
+    rgba(255, 255, 255, 0.02) 40px,
+    rgba(255, 255, 255, 0.02) 41px
+  ),
+  repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 40px,
+    rgba(255, 255, 255, 0.02) 40px,
+    rgba(255, 255, 255, 0.02) 41px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.game-board > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* 顶部信息栏 */
@@ -182,11 +211,13 @@ function canUseSkill(skill) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(10px);
   padding: 16px 24px;
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 3px solid #d4a017;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
 .game-info {
@@ -201,14 +232,15 @@ function canUseSkill(skill) {
 }
 
 .game-info__item .label {
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.45);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 1px;
+  font-weight: 600;
 }
 
 .game-info__item .value {
-  color: white;
+  color: rgba(255, 255, 255, 0.95);
   font-size: 24px;
   font-weight: bold;
 }
@@ -220,37 +252,44 @@ function canUseSkill(skill) {
 
 .btn {
   padding: 10px 20px;
-  border: none;
-  border-radius: 8px;
+  border: 2px solid transparent;
+  border-radius: 10px;
   font-weight: bold;
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.95);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .btn--primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #d4a017 0%, #b8860b 100%);
+  border-color: #a67c00;
   color: white;
 }
 
 .btn--secondary {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
 }
 
 .btn--success {
   background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  border-color: #2f855a;
   color: white;
 }
 
 .btn--danger {
-  background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border-color: #b91c1c;
   color: white;
 }
 
@@ -284,28 +323,37 @@ function canUseSkill(skill) {
 }
 
 .battle-area {
-  background: rgba(0, 0, 0, 0.9);
-  border: 3px solid #ffd700;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  border: 3px solid #d4a017;
+  outline: 2px solid rgba(212, 160, 23, 0.2);
+  outline-offset: 3px;
   border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 0 40px rgba(255, 215, 0, 0.5);
+  padding: 28px;
+  box-shadow: 0 0 50px rgba(212, 160, 23, 0.3), 0 20px 60px rgba(0, 0, 0, 0.4);
   min-width: 400px;
+  animation: battleGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes battleGlow {
+  from { box-shadow: 0 0 40px rgba(212, 160, 23, 0.25), 0 20px 60px rgba(0, 0, 0, 0.4); }
+  to { box-shadow: 0 0 60px rgba(212, 160, 23, 0.4), 0 20px 60px rgba(0, 0, 0, 0.4); }
 }
 
 .battle-area__title {
   text-align: center;
-  color: #ffd700;
+  color: #d4a017;
   font-size: 24px;
-  font-weight: bold;
+  font-weight: 800;
   margin-bottom: 20px;
-  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+  text-shadow: 0 2px 4px rgba(212, 160, 23, 0.3);
 }
 
 .battle-display {
   display: flex;
   align-items: center;
   gap: 20px;
-  color: white;
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .battle-side {
@@ -319,39 +367,42 @@ function canUseSkill(skill) {
 .battle-player {
   font-size: 18px;
   font-weight: bold;
-  color: #ffd700;
+  color: #d4a017;
 }
 
 .battle-city {
   font-size: 16px;
-  color: white;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .battle-vs {
   font-size: 32px;
   font-weight: bold;
-  color: #ff6b6b;
-  text-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+  color: #c0392b;
+  text-shadow: 0 2px 8px rgba(192, 57, 43, 0.3);
 }
 
 .battle-waiting {
   text-align: center;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.45);
   padding: 20px;
   font-style: italic;
 }
 
 /* 快捷技能栏 */
 .game-board__quick-skills {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(10px);
   border-radius: 12px;
   padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 3px solid rgba(212, 160, 23, 0.4);
 }
 
 .quick-skills__title {
-  color: white;
+  color: rgba(255, 255, 255, 0.45);
   font-size: 14px;
+  font-weight: 700;
   margin-bottom: 12px;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -364,9 +415,9 @@ function canUseSkill(skill) {
 }
 
 .quick-skill-btn {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.8), rgba(118, 75, 162, 0.8));
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(74, 90, 138, 0.85), rgba(107, 91, 138, 0.85));
+  border: 2px solid rgba(212, 160, 23, 0.3);
+  border-radius: 10px;
   padding: 12px 16px;
   color: white;
   cursor: pointer;
@@ -379,9 +430,10 @@ function canUseSkill(skill) {
 }
 
 .quick-skill-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  border-color: #ffd700;
-  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+  transform: translateY(-3px);
+  border-color: #d4a017;
+  box-shadow: 0 4px 16px rgba(212, 160, 23, 0.3);
+  background: linear-gradient(135deg, rgba(74, 90, 138, 0.95), rgba(107, 91, 138, 0.95));
 }
 
 .quick-skill-btn:disabled {
@@ -400,20 +452,21 @@ function canUseSkill(skill) {
 
 .skill-cost {
   font-size: 11px;
-  color: #ffd700;
+  color: #f0c850;
 }
 
 .btn-small {
   padding: 4px 8px;
-  border: none;
-  border-radius: 4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
   font-size: 11px;
   cursor: pointer;
   font-weight: bold;
 }
 
 .btn-small--heal {
-  background: #48bb78;
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  border-color: #2f855a;
   color: white;
 }
 </style>

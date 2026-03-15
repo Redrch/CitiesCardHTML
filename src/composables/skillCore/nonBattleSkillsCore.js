@@ -9,6 +9,8 @@
  * 4. 标准返回 - 统一返回 { success: boolean, message: string, data?: any }
  */
 
+import { SKILL_COSTS } from '../../constants/skillCosts'
+
 /**
  * 城市保护 - 核心逻辑
  *
@@ -40,7 +42,7 @@ export function executeCityProtectionCore(params) {
   }
 
   // 前置检查3：金币检查
-  const cost = 3
+  const cost = SKILL_COSTS['城市保护']
   if (caster.gold < cost) {
     return {
       success: false,
@@ -100,7 +102,7 @@ export function executeIronCityCore(params) {
   }
 
   // 前置检查3：金币检查
-  const cost = 5
+  const cost = SKILL_COSTS['钢铁城市']
   if (caster.gold < cost) {
     return {
       success: false,
@@ -155,7 +157,7 @@ export function executePreemptiveStrikeCore(params) {
   }
 
   // 前置检查2：金币检查
-  const cost = 1
+  const cost = SKILL_COSTS['先声夺人']
   if (caster.gold < cost) {
     return {
       success: false,
@@ -251,7 +253,7 @@ export function executePreemptiveStrikeCore(params) {
   gameStore.setCityKnown(target.name, targetCityName, caster.name)
 
   gameStore.addLog(
-    `${caster.name}对${target.name}使用先声夺人，交换了${casterCity.name}和${targetCity.name}`
+    `${caster.name}对${target.name}使用先声夺人，交换了双方城市`
   )
 
   return {
@@ -288,7 +290,7 @@ export function executeQuickHealCore(params) {
   }
 
   // 前置检查3：金币检查
-  const cost = 3
+  const cost = SKILL_COSTS['快速治疗']
   if (caster.gold < cost) {
     return {
       success: false,

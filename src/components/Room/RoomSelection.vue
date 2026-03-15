@@ -111,11 +111,13 @@
 import { ref } from 'vue'
 import { useRoom } from '../../composables/useRoom'
 import { useNotification } from '../../composables/useNotification'
+import { useSession } from '../../composables/useSession'
 
 const emit = defineEmits(['room-created', 'room-joined', 'back'])
 
 const { showNotification } = useNotification()
 const { createRoom, joinRoom } = useRoom()
+const { loadSession } = useSession()
 
 const roomIdInput = ref('')
 const selectedMode = ref('2P')
@@ -179,10 +181,28 @@ async function handleJoinRoom() {
 
   if (result.success) {
     showNotification('加入房间成功！', 'success')
+
+    // Check for saved session matching this room
+    const savedSession = loadSession()
+    let reconnectInfo = null
+    if (savedSession && savedSession.roomId === roomIdInput.value.trim()) {
+      // Verify player still exists in room data
+      const playerExists = result.roomData?.players?.some(p => p.name === savedSession.playerName)
+      if (playerExists) {
+        reconnectInfo = {
+          playerName: savedSession.playerName,
+          savedStep: savedSession.currentStep,
+          gameMode: savedSession.gameMode,
+          centerCityName: savedSession.centerCityName
+        }
+      }
+    }
+
     emit('room-joined', {
       roomId: roomIdInput.value.trim(),
       roomData: result.roomData,
-      isRoomFull: result.isRoomFull
+      isRoomFull: result.isRoomFull,
+      reconnectInfo
     })
   } else {
     showNotification(result.error || '加入房间失败', 'error')
@@ -196,13 +216,13 @@ async function handleJoinRoom() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  background: linear-gradient(150deg, #2a2340 0%, #1e2a4a 30%, #2a3a5c 60%, #3a2a4a 100%);
   padding: 20px;
   position: relative;
   overflow: hidden;
 }
 
-/* 背景装饰 */
+/* 背景装饰 - ambient glow */
 .room-selection::before {
   content: '';
   position: absolute;
@@ -210,7 +230,7 @@ async function handleJoinRoom() {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+  background: radial-gradient(ellipse at 20% 30%, rgba(212, 160, 23, 0.12) 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
   animation: rotate 30s linear infinite;
 }
 
@@ -232,11 +252,12 @@ async function handleJoinRoom() {
   position: absolute;
   top: 0;
   left: 0;
-  background: rgba(30, 41, 59, 0.8);
-  border: 2px solid rgba(148, 163, 184, 0.3);
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
   padding: 12px 24px;
-  color: #e2e8f0;
+  color: rgba(255, 255, 255, 0.85);
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
@@ -244,12 +265,12 @@ async function handleJoinRoom() {
   display: flex;
   align-items: center;
   gap: 8px;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
 }
 
 .back-btn:hover {
-  background: rgba(51, 65, 85, 0.9);
-  border-color: rgba(148, 163, 184, 0.5);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.25);
   transform: translateX(-4px);
 }
 
@@ -272,18 +293,18 @@ async function handleJoinRoom() {
 .title-text {
   font-size: 48px;
   font-weight: 900;
-  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
+  background: linear-gradient(135deg, #f0c850 0%, #d4a017 40%, #e8c24a 60%, #f5d76e 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin: 0;
-  text-shadow: 0 0 40px rgba(59, 130, 246, 0.5);
+  filter: drop-shadow(0 0 20px rgba(212, 160, 23, 0.3));
   letter-spacing: 3px;
 }
 
 .subtitle {
   font-size: 14px;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.45);
   margin: 8px 0 0 0;
   font-weight: 300;
   letter-spacing: 2px;
@@ -297,15 +318,15 @@ async function handleJoinRoom() {
 
 /* 信息卡片 */
 .info-card {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.05) 100%);
-  border: 2px solid rgba(59, 130, 246, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(212, 160, 23, 0.25);
   border-radius: 16px;
   padding: 20px;
   margin-bottom: 20px;
   display: flex;
   gap: 16px;
   align-items: flex-start;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
   animation: fadeInUp 0.8s ease-out 0.1s both;
 }
 
@@ -321,24 +342,24 @@ async function handleJoinRoom() {
 .info-header {
   font-size: 16px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: rgba(255, 255, 255, 0.85);
   margin-bottom: 8px;
 }
 
 .info-text {
   font-size: 14px;
-  color: #cbd5e1;
+  color: rgba(255, 255, 255, 0.5);
   line-height: 1.6;
 }
 
 /* 提示卡片 */
 .tips-card {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.05) 100%);
-  border: 2px solid rgba(16, 185, 129, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(20, 184, 166, 0.25);
   border-radius: 16px;
   padding: 20px;
   margin-bottom: 24px;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
   animation: fadeInUp 0.8s ease-out 0.2s both;
 }
 
@@ -348,7 +369,7 @@ async function handleJoinRoom() {
   gap: 8px;
   font-size: 16px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: rgba(255, 255, 255, 0.85);
   margin-bottom: 12px;
 }
 
@@ -364,7 +385,7 @@ async function handleJoinRoom() {
 
 .tips-list li {
   font-size: 13px;
-  color: #cbd5e1;
+  color: rgba(255, 255, 255, 0.5);
   line-height: 1.8;
   padding-left: 20px;
   position: relative;
@@ -374,7 +395,7 @@ async function handleJoinRoom() {
   content: '•';
   position: absolute;
   left: 8px;
-  color: #10b981;
+  color: #14b8a6;
   font-weight: bold;
 }
 
@@ -385,25 +406,25 @@ async function handleJoinRoom() {
 
 /* 模式选择卡片 */
 .mode-selector-card {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.05) 100%);
-  border: 2px solid rgba(59, 130, 246, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(139, 92, 246, 0.25);
   border-radius: 16px;
   padding: 24px;
   margin-bottom: 24px;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
   transition: all 0.3s ease;
   animation: fadeInUp 0.8s ease-out 0.3s both;
 }
 
 .mode-selector-card:hover {
-  border-color: rgba(59, 130, 246, 0.4);
+  border-color: rgba(139, 92, 246, 0.4);
 }
 
 .mode-label {
   display: block;
   font-size: 15px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: rgba(255, 255, 255, 0.85);
   margin-bottom: 12px;
 }
 
@@ -421,20 +442,20 @@ async function handleJoinRoom() {
   padding: 14px 18px;
   font-size: 15px;
   border-radius: 12px;
-  background: rgba(30, 41, 59, 0.8);
-  color: #f1f5f9;
-  border: 2px solid rgba(148, 163, 184, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  border: 2px solid rgba(255, 255, 255, 0.12);
   cursor: pointer;
   transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
   font-weight: 600;
   text-align: left;
 }
 
 .mode-option-btn.active {
-  border-color: rgba(59, 130, 246, 0.6);
-  background: rgba(59, 130, 246, 0.15);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  border-color: rgba(139, 92, 246, 0.6);
+  background: rgba(139, 92, 246, 0.15);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
 }
 
 .mode-option-btn.disabled {
@@ -457,8 +478,8 @@ async function handleJoinRoom() {
 .mode-option-tag {
   font-size: 11px;
   font-weight: 700;
-  color: #94a3b8;
-  background: rgba(100, 116, 139, 0.3);
+  color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.1);
   padding: 3px 10px;
   border-radius: 8px;
   letter-spacing: 0.5px;
@@ -470,15 +491,15 @@ async function handleJoinRoom() {
   top: 80px;
   left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%);
-  border: 2px solid rgba(100, 116, 139, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   padding: 16px 32px;
-  color: #e2e8f0;
+  color: rgba(255, 255, 255, 0.9);
   font-size: 16px;
   font-weight: 600;
   backdrop-filter: blur(12px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
   z-index: 1000;
   white-space: nowrap;
 }
@@ -504,11 +525,11 @@ async function handleJoinRoom() {
 .mode-description {
   margin-top: 12px;
   padding: 12px;
-  background: rgba(59, 130, 246, 0.1);
+  background: rgba(139, 92, 246, 0.1);
   border-radius: 8px;
-  border-left: 3px solid #3b82f6;
+  border-left: 3px solid rgba(139, 92, 246, 0.5);
   font-size: 13px;
-  color: #cbd5e1;
+  color: rgba(255, 255, 255, 0.5);
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -546,7 +567,7 @@ async function handleJoinRoom() {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, transparent 100%);
   opacity: 0;
   transition: opacity 0.4s ease;
 }
@@ -558,13 +579,13 @@ async function handleJoinRoom() {
 .create-btn {
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
-  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.35);
   animation: fadeInUp 0.8s ease-out 0.4s both;
 }
 
 .create-btn:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 32px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 12px 32px rgba(59, 130, 246, 0.5);
 }
 
 .create-btn:active {
@@ -574,12 +595,12 @@ async function handleJoinRoom() {
 .join-btn {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
-  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
 }
 
 .join-btn:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 32px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 12px 32px rgba(16, 185, 129, 0.5);
 }
 
 .join-btn:active {
@@ -609,7 +630,7 @@ async function handleJoinRoom() {
   top: 50%;
   width: 45%;
   height: 2px;
-  background: linear-gradient(to right, transparent, rgba(148, 163, 184, 0.3), transparent);
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.1), transparent);
 }
 
 .divider::before {
@@ -621,11 +642,11 @@ async function handleJoinRoom() {
 }
 
 .divider-text {
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.45);
   font-size: 14px;
   font-weight: 600;
   padding: 0 20px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  background: linear-gradient(150deg, #2a2340 0%, #1e2a4a 30%, #2a3a5c 60%, #3a2a4a 100%);
   position: relative;
   z-index: 1;
 }
@@ -641,7 +662,7 @@ async function handleJoinRoom() {
 .join-label {
   font-size: 15px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: rgba(255, 255, 255, 0.85);
   text-align: center;
 }
 
@@ -652,24 +673,24 @@ async function handleJoinRoom() {
   text-align: center;
   letter-spacing: 8px;
   font-family: 'Courier New', monospace;
-  background: rgba(30, 41, 59, 0.8);
-  color: #60a5fa;
-  border: 2px solid rgba(148, 163, 184, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.15);
   border-radius: 12px;
   transition: all 0.3s ease;
   font-weight: 700;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
 }
 
 .room-input:focus {
   outline: none;
-  border-color: #10b981;
+  border-color: rgba(16, 185, 129, 0.6);
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
-  background: rgba(30, 41, 59, 0.9);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .room-input::placeholder {
-  color: #64748b;
+  color: rgba(255, 255, 255, 0.35);
   font-size: 14px;
   letter-spacing: normal;
   font-family: system-ui;

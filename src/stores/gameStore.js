@@ -82,6 +82,7 @@ export const useGameStore = defineStore('game', () => {
   // ========== 交互流程 ==========
   const pendingFortuneSwap = ref(null)        // 待处理的时来运转
   const pendingSwaps = ref([])                // 待处理的先声夺人交换请求数组 [{id, initiatorName, targetName, status, round, initiatorCityName?, targetCityName?}]
+  const drawRequests = ref([])                // 待处理的求和请求数组 [{id, initiatorName, targetName, status, round}]
   const ldtj = reactive({})                   // 李代桃僵状态 [player]: active
 
   // ========== 护盾系统 ==========
@@ -289,6 +290,7 @@ export const useGameStore = defineStore('game', () => {
     foresee.value = null
     pendingFortuneSwap.value = null
     pendingSwaps.value = []
+    drawRequests.value = []
     lastSkillUsed.value = null
     gameStateSnapshot.value = null
   }
@@ -400,41 +402,7 @@ export const useGameStore = defineStore('game', () => {
 
   // 获取玩家的待处理请求（作为目标）
   function getPendingSwapsForPlayer(playerName) {
-    console.log('[gameStore] getPendingSwapsForPlayer 被调用:', {
-      playerName,
-      playerNameType: typeof playerName,
-      totalPendingSwaps: pendingSwaps.value?.length || 0
-    })
-
-    const filtered = pendingSwaps.value.filter((swap, idx) => {
-      const statusMatch = swap.status === 'pending'
-      const targetMatch = swap.targetName === playerName
-      const matches = statusMatch && targetMatch
-
-      console.log(`[gameStore] 检查 swap[${idx}]:`, {
-        swapId: swap.id,
-        'swap.status': swap.status,
-        'swap.targetName': swap.targetName,
-        'swap.targetName类型': typeof swap.targetName,
-        playerName,
-        'playerName类型': typeof playerName,
-        statusMatch,
-        targetMatch,
-        'targetName === playerName': swap.targetName === playerName,
-        '严格相等': swap.targetName === playerName,
-        '字符串比较': String(swap.targetName) === String(playerName),
-        matches
-      })
-
-      return matches
-    })
-
-    console.log('[gameStore] 筛选结果:', {
-      filteredCount: filtered.length,
-      filtered
-    })
-
-    return filtered
+    return pendingSwaps.value.filter(swap => swap.status === 'pending' && swap.targetName === playerName)
   }
 
   // 更新待处理请求状态
@@ -459,6 +427,40 @@ export const useGameStore = defineStore('game', () => {
   // 清理所有待处理请求
   function clearAllPendingSwaps() {
     pendingSwaps.value = []
+  }
+
+  // ========== 求和请求管理 ==========
+
+  // 创建求和请求
+  function createDrawRequest(initiatorName, targetName) {
+    const request = {
+      id: `draw_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      initiatorName,
+      targetName,
+      status: 'pending', // 'pending', 'accepted', 'rejected'
+      round: currentRound.value
+    }
+    drawRequests.value.push(request)
+    return request
+  }
+
+  // 获取玩家的待处理求和请求（作为目标）
+  function getDrawRequestsForPlayer(playerName) {
+    return drawRequests.value.filter(r => r.status === 'pending' && r.targetName === playerName)
+  }
+
+  // 更新求和请求状态
+  function updateDrawRequestStatus(requestId, status) {
+    const request = drawRequests.value.find(r => r.id === requestId)
+    if (request) {
+      request.status = status
+    }
+    return request
+  }
+
+  // 清理已完成的求和请求
+  function clearCompletedDrawRequests() {
+    drawRequests.value = drawRequests.value.filter(r => r.status === 'pending')
   }
 
   // ========== 护盾和保护检查 ==========
@@ -896,6 +898,14 @@ export const useGameStore = defineStore('game', () => {
       for (const cityName of Object.keys(bannedCities[player])) {
         if (bannedCities[player][cityName] > 0) {
           bannedCities[player][cityName]--
+          if (bannedCities[player][cityName] <= 0) {
+            // 禁用到期：清除 isInHealing 标记并删除记录
+            const playerObj = players.value.find(p => p.name === player)
+            if (playerObj && playerObj.cities && playerObj.cities[cityName]) {
+              playerObj.cities[cityName].isInHealing = false
+            }
+            delete bannedCities[player][cityName]
+          }
         }
       }
     }
@@ -999,36 +1009,16 @@ export const useGameStore = defineStore('game', () => {
       }
     }
 
-    // 更新healing治疗状态
+    // 高级治疗的 healing modifier 已废弃（现在立即治疗，仅靠 bannedCities 控制出战禁令）
+    // 清理旧版遗留的 healing modifiers（向后兼容）
     for (const player of players.value) {
       if (!player.cities) continue
-
       Object.entries(player.cities).forEach(([cityName, city]) => {
         if (!city.modifiers) return
-
-        // 查找healing modifier
         const healingIdx = city.modifiers.findIndex(m => m.type === 'healing')
-        if (healingIdx === -1) return
-
-        const healing = city.modifiers[healingIdx]
-        if (healing.roundsLeft > 0) {
-          healing.roundsLeft--
-
-          if (healing.roundsLeft === 0) {
-            // 治疗完成，满血返回
-            city.currentHp = healing.returnHp || city.hp
-            city.isInHealing = false
-
-            // 移除healing modifier
-            city.modifiers.splice(healingIdx, 1)
-
-            // 移除bannedCities记录
-            if (bannedCities[player.name] && bannedCities[player.name][cityName]) {
-              delete bannedCities[player.name][cityName]
-            }
-
-            addLog(`${player.name}的${city.name}高级治疗完成，满血返回战场`)
-          }
+        if (healingIdx !== -1) {
+          city.modifiers.splice(healingIdx, 1)
+          city.isInHealing = false
         }
       })
     }
@@ -1489,6 +1479,13 @@ export const useGameStore = defineStore('game', () => {
     updatePendingSwapStatus,
     clearCompletedSwaps,
     clearAllPendingSwaps,
+
+    // ========== 求和请求方法 ==========
+    drawRequests,
+    createDrawRequest,
+    getDrawRequestsForPlayer,
+    updateDrawRequestStatus,
+    clearCompletedDrawRequests,
 
     // ========== 护盾和保护方法 ==========
     isBlockedByJianbukecui,

@@ -4,7 +4,14 @@
     <!-- 左侧：部署主界面 -->
     <div class="deployment-main-area">
       <div class="city-deployment panel">
-        <div v-if="roomId" class="room-info">房间号: {{ roomId }}</div>
+        <div class="top-bar">
+          <button class="exit-room-btn" @click="$emit('exit-room')">← 退出本房间</button>
+          <div class="top-bar-right">
+            <button class="surrender-btn" @click="$emit('surrender')">🏳️ 认输</button>
+            <button class="draw-request-btn" @click="$emit('request-draw')">🤝 求和</button>
+            <div v-if="roomId" class="room-info">房间号: {{ roomId }}</div>
+          </div>
+        </div>
         <h3>玩家{{ currentPlayer?.name }}的游戏界面 - 选择出战城市</h3>
         <div class="deployment-info">
       <div class="info-item">
@@ -280,6 +287,7 @@
 import { ref, computed, watch } from 'vue'
 import { useGameStore } from '../../stores/gameStore'
 import { useNotification } from '../../composables/useNotification'
+import { useDialog } from '../../composables/useDialog'
 import { SKILL_COSTS } from '../../constants/skillCosts'
 import { getCitySkill } from '../../data/citySkills'
 import { BATTLE_SKILLS, SKILL_DESCRIPTIONS } from '../../data/goldSkills'
@@ -307,10 +315,11 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['deployment-confirmed', 'cancel', 'skill-used'])
+const emit = defineEmits(['deployment-confirmed', 'cancel', 'skill-used', 'exit-room', 'surrender', 'request-draw'])
 
 const gameStore = useGameStore()
 const { showNotification } = useNotification()
+const { showAlert } = useDialog()
 
 const selectedCities = ref([])
 const showBattleSkills = ref(false)
@@ -550,7 +559,7 @@ function handleSkillUsed(data) {
 /**
  * 处理非战斗技能使用失败
  */
-function handleSkillFailed(data) {
+async function handleSkillFailed(data) {
   console.log('[CityDeployment] 技能使用失败', data)
   const message = data.result?.message || data.error || '未知错误'
 
@@ -558,7 +567,7 @@ function handleSkillFailed(data) {
   showNotification(`技能使用失败: ${message}`, 'error')
 
   // 显示弹窗提示
-  alert(`❌ 技能使用失败\n\n技能名称：${data.skill}\n失败原因：${message}`)
+  await showAlert(`技能使用失败\n\n技能名称：${data.skill}\n失败原因：${message}`, { title: '技能失败', icon: '❌' })
 }
 
 /**
@@ -662,18 +671,95 @@ function confirmDeployment() {
 .city-deployment h3 {
   font-size: 20px;
   font-weight: 800;
-  color: #f1f5f9;
+  color: #1e293b;
   margin: 0 0 16px 0;
   letter-spacing: 0.5px;
-  background: linear-gradient(90deg, #60a5fa, #a78bfa);
+  background: linear-gradient(90deg, #7db4ff, #c084fc);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
+.top-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.surrender-btn {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 8px;
+  padding: 6px 14px;
+  color: #fca5a5;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.surrender-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #fecaca;
+}
+
+.draw-request-btn {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 8px;
+  padding: 6px 14px;
+  color: #fcd34d;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.draw-request-btn:hover {
+  background: rgba(245, 158, 11, 0.3);
+  border-color: rgba(245, 158, 11, 0.6);
+  color: #fde68a;
+}
+
+.exit-room-btn {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 8px;
+  padding: 6px 14px;
+  color: #fca5a5;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.exit-room-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #fecaca;
+}
+
+.top-bar .room-info {
+  margin-bottom: 0;
+  flex: 1;
+}
+
 .room-info {
   font-size: 12px;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.45);
   margin-bottom: 12px;
   padding: 8px 14px;
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(37, 99, 235, 0.05) 100%);
@@ -688,9 +774,9 @@ function confirmDeployment() {
   gap: 24px;
   margin: 16px 0;
   padding: 18px 24px;
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(8px);
 }
 
@@ -702,7 +788,7 @@ function confirmDeployment() {
 
 .label {
   font-size: 11px;
-  color: #64748b;
+  color: rgba(255, 255, 255, 0.45);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -716,7 +802,7 @@ function confirmDeployment() {
 
 .roster-cities h4 {
   margin: 20px 0 14px 0;
-  color: #f1f5f9;
+  color: rgba(255, 255, 255, 0.85);
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -730,8 +816,8 @@ function confirmDeployment() {
 }
 
 .city-card {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
-  border: 2px solid rgba(148, 163, 184, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   padding: 18px;
   cursor: pointer;
@@ -748,7 +834,7 @@ function confirmDeployment() {
 
 .city-card.selected {
   border-color: #34d399;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.08) 100%);
+  background: rgba(52, 211, 153, 0.12);
   box-shadow: 0 8px 24px rgba(52, 211, 153, 0.2);
 }
 
@@ -760,8 +846,8 @@ function confirmDeployment() {
 }
 
 .city-card.center {
-  border-color: rgba(251, 191, 36, 0.6);
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(217, 119, 6, 0.05) 100%);
+  border-color: rgba(251, 191, 36, 0.5);
+  background: rgba(251, 191, 36, 0.08);
 }
 
 .city-header {
@@ -776,18 +862,18 @@ function confirmDeployment() {
 .city-header strong {
   font-size: 18px;
   font-weight: 800;
-  color: #f1f5f9;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .city-header .muted {
-  color: #64748b;
+  color: rgba(255, 255, 255, 0.45);
   font-weight: 600;
   letter-spacing: 0.3px;
 }
 
 .center-badge {
   background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-  color: #0f172a;
+  color: #1e293b;
   padding: 3px 10px;
   border-radius: 6px;
   font-size: 11px;
@@ -801,14 +887,14 @@ function confirmDeployment() {
 .city-hp-visual {
   margin: 10px 0;
   padding: 10px 12px;
-  background: rgba(15, 23, 42, 0.5);
+  background: rgba(0, 0, 0, 0.15);
   border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .hp-text {
   font-size: 13px;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.45);
   margin-bottom: 6px;
   display: flex;
   align-items: center;
@@ -816,19 +902,12 @@ function confirmDeployment() {
   font-weight: 600;
 }
 
-.hp-text::before {
-  content: 'HP';
-  font-size: 11px;
-  font-weight: 800;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
+/* hp-text::before removed - template already includes HP: label */
 
 .hp-bar-container {
   width: 100%;
   height: 6px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(59, 130, 246, 0.06);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -850,7 +929,7 @@ function confirmDeployment() {
   padding: 8px 0;
   font-size: 13px;
   font-weight: 700;
-  color: #60a5fa;
+  color: #7db4ff;
   text-align: center;
   border-top: 1px solid rgba(148, 163, 184, 0.1);
   letter-spacing: 0.5px;
@@ -913,7 +992,7 @@ function confirmDeployment() {
 
 .battle-skill-section h4 {
   margin-bottom: 12px;
-  color: #f1f5f9;
+  color: rgba(255, 255, 255, 0.85);
   font-size: 15px;
   font-weight: 700;
 }
@@ -921,7 +1000,7 @@ function confirmDeployment() {
 .skill-select {
   width: 100%;
   padding: 12px 16px;
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 10px;
   color: var(--text);
@@ -937,15 +1016,15 @@ function confirmDeployment() {
 .skills-section {
   margin: 20px 0;
   padding: 22px;
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(8px);
 }
 
 .skills-section h4 {
   margin: 0 0 16px 0;
-  color: #f1f5f9;
+  color: rgba(255, 255, 255, 0.85);
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.3px;
@@ -954,7 +1033,7 @@ function confirmDeployment() {
 .intelligence-section {
   margin: 20px 0;
   padding: 22px;
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
+  background: rgba(59, 130, 246, 0.08);
   border: 2px solid rgba(59, 130, 246, 0.25);
   border-radius: 14px;
   backdrop-filter: blur(8px);
@@ -962,7 +1041,7 @@ function confirmDeployment() {
 
 .intelligence-section h4 {
   margin: 0 0 16px 0;
-  color: #60a5fa;
+  color: #7db4ff;
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.3px;
@@ -1053,7 +1132,7 @@ function confirmDeployment() {
 .skill-select {
   flex: 1;
   padding: 12px 16px;
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 10px;
   color: var(--text);
@@ -1124,7 +1203,7 @@ function confirmDeployment() {
 
 .confirm-btn:disabled {
   background: rgba(100, 116, 139, 0.3);
-  color: #64748b;
+  color: rgba(255, 255, 255, 0.45);
   cursor: not-allowed;
   box-shadow: none;
 }
@@ -1184,7 +1263,7 @@ function confirmDeployment() {
 }
 
 .no-skill {
-  color: #64748b;
+  color: rgba(255, 255, 255, 0.45);
   font-style: italic;
   font-size: 12px;
   font-weight: 500;
@@ -1197,8 +1276,8 @@ function confirmDeployment() {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1216,11 +1295,11 @@ function confirmDeployment() {
 }
 
 .skill-detail-content {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.99) 100%);
+  background: linear-gradient(135deg, #2a2340 0%, #1e2a4a 100%);
   border-radius: 20px;
   max-width: 500px;
   width: 90%;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(139, 92, 246, 0.2);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(139, 92, 246, 0.2);
   animation: slideUp 0.3s;
   border: 2px solid rgba(139, 92, 246, 0.5);
   backdrop-filter: blur(16px);
@@ -1356,7 +1435,7 @@ function confirmDeployment() {
   justify-content: space-between;
   align-items: center;
   padding: 12px 14px;
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(255, 255, 255, 0.04);
   border-radius: 10px;
   border: 1px solid rgba(148, 163, 184, 0.08);
 }
@@ -1376,7 +1455,7 @@ function confirmDeployment() {
 .nonbattle-city-skills-section {
   margin: 20px 0;
   padding: 22px;
-  background: linear-gradient(135deg, rgba(30, 27, 59, 0.9) 0%, rgba(15, 15, 42, 0.95) 100%);
+  background: rgba(139, 92, 246, 0.08);
   border: 2px solid rgba(139, 92, 246, 0.25);
   border-radius: 14px;
   backdrop-filter: blur(8px);
@@ -1407,14 +1486,14 @@ function confirmDeployment() {
 }
 
 .city-skills-horizontal-scroll::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.5);
+  background: rgba(241, 245, 251, 0.6);
   border-radius: 4px;
 }
 
 .city-skills-horizontal-scroll::-webkit-scrollbar-thumb {
   background: linear-gradient(90deg, #8b5cf6 0%, #6366f1 100%);
   border-radius: 4px;
-  border: 1px solid rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(241, 245, 251, 0.6);
 }
 
 .city-skills-horizontal-scroll::-webkit-scrollbar-thumb:hover {
@@ -1460,7 +1539,7 @@ function confirmDeployment() {
 .skill-card-city {
   font-size: 14px;
   font-weight: 700;
-  color: #60a5fa;
+  color: #7db4ff;
   text-align: center;
   padding-bottom: 8px;
   border-bottom: 1px solid rgba(139, 92, 246, 0.3);
@@ -1471,7 +1550,7 @@ function confirmDeployment() {
   font-weight: 700;
   color: #c084fc;
   text-align: center;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 1px 2px rgba(100, 116, 145, 0.12);
 }
 
 .skill-card-type {
@@ -1493,21 +1572,21 @@ function confirmDeployment() {
 .skill-card-type .type-badge.active {
   background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
   color: white;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 1px 2px rgba(100, 116, 145, 0.12);
 }
 
 .skill-card-type .type-badge.passive {
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 1px 2px rgba(100, 116, 145, 0.12);
 }
 
 .skill-card-usage {
   font-size: 12px;
-  color: #cbd5e1;
+  color: rgba(255, 255, 255, 0.45);
   text-align: center;
   padding: 6px;
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(255, 255, 255, 0.04);
   border-radius: 6px;
   font-weight: 600;
 }
@@ -1558,7 +1637,7 @@ function confirmDeployment() {
   gap: 20px;
   height: 100vh;
   padding: 20px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: linear-gradient(150deg, #2a2340 0%, #1e2a4a 30%, #2a3a5c 60%, #3a2a4a 100%);
   overflow: hidden;
   transition: grid-template-columns 0.3s ease;
 }
@@ -1587,12 +1666,12 @@ function confirmDeployment() {
 }
 
 .deployment-main-area::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.04);
   border-radius: 5px;
 }
 
 .deployment-main-area::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
+  background: linear-gradient(180deg, #d4a017 0%, #b8860b 100%);
   border-radius: 5px;
 }
 

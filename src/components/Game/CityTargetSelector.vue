@@ -99,7 +99,7 @@ const selectedCities = ref([])
 
 const availableCities = computed(() => {
   return props.cities
-    .map((city, index) => ({ ...city, originalIndex: index }))
+    .map((city) => ({ ...city, originalKey: city.name }))
     .filter(city => props.filter(city))
 })
 
@@ -112,7 +112,7 @@ const canConfirm = computed(() => {
 
 function isSelected(city, index) {
   return selectedCities.value.some(selected =>
-    selected.name === city.name && selected.originalIndex === city.originalIndex
+    selected.name === city.name && selected.originalKey === city.originalKey
   )
 }
 
@@ -127,7 +127,7 @@ function toggleSelectCity(city, index) {
   if (!canSelectCity(city)) return
 
   const selectedIndex = selectedCities.value.findIndex(selected =>
-    selected.name === city.name && selected.originalIndex === city.originalIndex
+    selected.name === city.name && selected.originalKey === city.originalKey
   )
 
   if (selectedIndex >= 0) {
@@ -154,7 +154,7 @@ function confirmSelection() {
   if (canConfirm.value) {
     emit('confirm', {
       cities: [...selectedCities.value],
-      indices: selectedCities.value.map(c => c.originalIndex)
+      cityNames: selectedCities.value.map(c => c.originalKey)
     })
     selectedCities.value = []
   }
@@ -168,7 +168,7 @@ function confirmSelection() {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(30, 41, 59, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -177,15 +177,15 @@ function confirmSelection() {
 }
 
 .selector-content {
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  background: linear-gradient(135deg, #f1f5f9 0%, #f0f3f9 100%);
   border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 60px rgba(100, 116, 145, 0.18);
   max-width: 600px;
   width: 90%;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  color: white;
+  color: #1e293b;
 }
 
 .selector-header {
@@ -193,7 +193,7 @@ function confirmSelection() {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 2px solid rgba(209, 217, 230, 0.6);
 }
 
 .selector-title {
@@ -202,9 +202,9 @@ function confirmSelection() {
 }
 
 .close-button {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(59, 130, 246, 0.08);
   border: none;
-  color: white;
+  color: #1e293b;
   font-size: 24px;
   width: 36px;
   height: 36px;
@@ -217,7 +217,7 @@ function confirmSelection() {
 }
 
 .close-button:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(59, 130, 246, 0.15);
   transform: rotate(90deg);
 }
 
@@ -243,7 +243,7 @@ function confirmSelection() {
 }
 
 .city-option {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(59, 130, 246, 0.08);
   border: 2px solid transparent;
   border-radius: 12px;
   padding: 16px;
@@ -255,14 +255,14 @@ function confirmSelection() {
 }
 
 .city-option:hover:not(.city-option--disabled) {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(209, 217, 230, 0.8);
   transform: translateX(4px);
 }
 
 .city-option--selected {
   background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  border-color: rgba(255, 255, 255, 0.5);
+  border-color: rgba(209, 217, 230, 0.9);
 }
 
 .city-option--disabled {
@@ -295,7 +295,7 @@ function confirmSelection() {
 
 .city-option__hp {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(30, 41, 59, 0.8);
 }
 
 .city-option__check {
@@ -316,7 +316,7 @@ function confirmSelection() {
 
 .selector-footer {
   padding: 16px 24px;
-  border-top: 2px solid rgba(255, 255, 255, 0.1);
+  border-top: 2px solid rgba(209, 217, 230, 0.6);
   display: flex;
   gap: 12px;
   justify-content: flex-end;
@@ -333,12 +333,12 @@ function confirmSelection() {
 }
 
 .btn--secondary {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  background: rgba(59, 130, 246, 0.08);
+  color: #1e293b;
 }
 
 .btn--secondary:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(59, 130, 246, 0.15);
 }
 
 .btn--primary {

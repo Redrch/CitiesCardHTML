@@ -199,7 +199,7 @@ function close() {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(30, 41, 59, 0.35);
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -208,12 +208,12 @@ function close() {
 }
 
 .modal-content {
-  background: #1e293b;
+  background: linear-gradient(135deg, #ffffff 0%, #f5f7fc 100%);
   margin: 20px;
   max-width: 800px;
   width: 100%;
   border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 60px rgba(100, 116, 145, 0.18);
   max-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -225,19 +225,19 @@ function close() {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 2px solid rgba(209, 217, 230, 0.7);
 }
 
 .modal-header h2 {
   margin: 0;
   font-size: 24px;
-  color: #f1f5f9;
+  color: #1e293b;
 }
 
 .close-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #e2e8f0;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(209, 217, 230, 0.7);
+  color: #334155;
   padding: 8px 20px;
   border-radius: 8px;
   cursor: pointer;
@@ -246,7 +246,7 @@ function close() {
 }
 
 .close-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(59, 130, 246, 0.12);
 }
 
 .modal-body {
@@ -260,7 +260,7 @@ function close() {
   display: flex;
   gap: 8px;
   margin-bottom: 24px;
-  background: rgba(15, 23, 42, 0.5);
+  background: rgba(59, 130, 246, 0.06);
   border-radius: 12px;
   padding: 6px;
 }
@@ -273,7 +273,7 @@ function close() {
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
-  color: #94a3b8;
+  color: #64748b;
   background: transparent;
   transition: all 0.3s;
   display: flex;
@@ -283,12 +283,12 @@ function close() {
 }
 
 .tab-btn:hover {
-  color: #e2e8f0;
-  background: rgba(51, 65, 85, 0.5);
+  color: #334155;
+  background: rgba(59, 130, 246, 0.08);
 }
 
 .tab-btn.active {
-  color: #f1f5f9;
+  color: white;
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
@@ -319,9 +319,9 @@ function close() {
   gap: 12px;
   align-items: flex-start;
   padding: 10px 14px;
-  background: rgba(15, 23, 42, 0.5);
+  background: rgba(59, 130, 246, 0.04);
   border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(209, 217, 230, 0.5);
 }
 
 .rule-num {
@@ -346,7 +346,7 @@ function close() {
 }
 
 .rule-text {
-  color: #cbd5e1;
+  color: #64748b;
   font-size: 14px;
   line-height: 1.6;
 }
@@ -357,7 +357,7 @@ function close() {
   border: 1px solid rgba(59, 130, 246, 0.3);
   border-radius: 10px;
   padding: 14px 18px;
-  color: #93c5fd;
+  color: #3b82f6;
   font-size: 14px;
   line-height: 1.6;
 }
@@ -365,9 +365,9 @@ function close() {
 /* 技能卡片 */
 .skill-item {
   padding: 12px 16px;
-  background: rgba(15, 23, 42, 0.5);
+  background: rgba(59, 130, 246, 0.04);
   border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(209, 217, 230, 0.5);
 }
 
 .skill-header-row {
@@ -388,7 +388,7 @@ function close() {
 
 .skill-cost-tag {
   background: rgba(245, 158, 11, 0.2);
-  color: #fbbf24;
+  color: #d97706;
   padding: 4px 10px;
   border-radius: 6px;
   font-size: 12px;
@@ -396,7 +396,7 @@ function close() {
 }
 
 .skill-desc {
-  color: #94a3b8;
+  color: #64748b;
   font-size: 13px;
   line-height: 1.6;
 }

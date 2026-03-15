@@ -205,41 +205,51 @@ export function useGameLogic() {
     // 获取出战城市
     console.log('[战斗] ===== 开始战斗计算 =====')
     console.log('[战斗] player1:', player1.name, 'cities数量:', Object.keys(player1.cities).length)
-    console.log('[战斗] player1所有城市:')
-    Object.entries(player1.cities).forEach(([cityName, c]) => console.log(`  ${cityName}: ${c.name} HP:${c.currentHp ?? c.hp}`))
     console.log('[战斗] player2:', player2.name, 'cities数量:', Object.keys(player2.cities).length)
-    console.log('[战斗] player2所有城市:')
-    Object.entries(player2.cities).forEach(([cityName, c]) => console.log(`  ${cityName}: ${c.name} HP:${c.currentHp ?? c.hp}`))
-
-    console.log('[战斗] state1.currentBattleCities:', state1.currentBattleCities)
-    console.log('[战斗] state2.currentBattleCities:', state2.currentBattleCities)
 
     // Normalize currentBattleCities (Firebase may convert arrays to objects)
     const rawBattle1 = Array.isArray(state1.currentBattleCities) ? state1.currentBattleCities : (state1.currentBattleCities ? Object.values(state1.currentBattleCities) : [])
     const rawBattle2 = Array.isArray(state2.currentBattleCities) ? state2.currentBattleCities : (state2.currentBattleCities ? Object.values(state2.currentBattleCities) : [])
 
+    // Helper: resolve cityName that might be a numeric index to actual city name
+    function resolveCityName(cityName, playerCities) {
+      if (playerCities[cityName]) return cityName
+      // Numeric index fallback: try to find the city by index
+      if (!isNaN(cityName) && cityName !== '') {
+        const cityNames = Object.keys(playerCities)
+        const idx = Number(cityName)
+        if (idx >= 0 && idx < cityNames.length) {
+          console.warn(`[战斗] 修正数字cityName: "${cityName}" → "${cityNames[idx]}"`)
+          return cityNames[idx]
+        }
+      }
+      return cityName
+    }
+
     const cities1 = rawBattle1.filter(card => card && card.cityName).map((card, mapIdx) => {
-      const city = player1.cities[card.cityName]
-      console.log(`[战斗诊断] ${player1.name} [${mapIdx}] cityName=${card.cityName}, city.name=${city?.name}, city.currentHp=${city?.currentHp}, city.hp=${city?.hp}, city.isAlive=${city?.isAlive}`)
+      const resolvedName = resolveCityName(card.cityName, player1.cities)
+      const city = player1.cities[resolvedName]
+      console.log(`[战斗诊断] ${player1.name} [${mapIdx}] cityName=${card.cityName}, resolved=${resolvedName}, city.name=${city?.name}, city.currentHp=${city?.currentHp}, city.hp=${city?.hp}, city.isAlive=${city?.isAlive}`)
       if (!city) {
         console.error(`[战斗错误] ${player1.name} cityName=${card.cityName} 对应的城市不存在！`)
         return null
       }
       return {
         ...city,
-        cityName: card.cityName
+        cityName: resolvedName
       }
     }).filter(c => c !== null)
     const cities2 = rawBattle2.filter(card => card && card.cityName).map((card, mapIdx) => {
-      const city = player2.cities[card.cityName]
-      console.log(`[战斗诊断] ${player2.name} [${mapIdx}] cityName=${card.cityName}, city.name=${city?.name}, city.currentHp=${city?.currentHp}, city.hp=${city?.hp}, city.isAlive=${city?.isAlive}`)
+      const resolvedName = resolveCityName(card.cityName, player2.cities)
+      const city = player2.cities[resolvedName]
+      console.log(`[战斗诊断] ${player2.name} [${mapIdx}] cityName=${card.cityName}, resolved=${resolvedName}, city.name=${city?.name}, city.currentHp=${city?.currentHp}, city.hp=${city?.hp}, city.isAlive=${city?.isAlive}`)
       if (!city) {
         console.error(`[战斗错误] ${player2.name} cityName=${card.cityName} 对应的城市不存在！`)
         return null
       }
       return {
         ...city,
-        cityName: card.cityName
+        cityName: resolvedName
       }
     }).filter(c => c !== null)
 

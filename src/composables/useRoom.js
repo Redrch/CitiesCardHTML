@@ -729,26 +729,40 @@ export function useRoom() {
     // 停止监听
     stopRoomListener()
 
-    // 标记玩家离线
+    // 从房间中移除玩家
     if (id && playerName) {
       try {
         const data = await getRoomData(id)
-        if (data && data.heartbeats && data.heartbeats[playerName]) {
-          // 将心跳时间设置为很久之前，立即标记为离线
-          if (typeof data.heartbeats[playerName] === 'object') {
-            data.heartbeats[playerName].lastSeen = 0
-            data.heartbeats[playerName].manualExit = true // 标记为主动退出
-          } else {
-            data.heartbeats[playerName] = {
-              lastSeen: 0,
-              manualExit: true
+        if (data) {
+          // 从玩家列表中移除
+          if (data.players && Array.isArray(data.players)) {
+            const playerIndex = data.players.findIndex(p => p.name === playerName)
+            if (playerIndex >= 0) {
+              data.players.splice(playerIndex, 1)
+              console.log(`[退出] 已从玩家列表移除: ${playerName}`)
             }
           }
+
+          // 从围观者列表中移除（如果存在）
+          if (data.spectators && Array.isArray(data.spectators)) {
+            const spectatorIndex = data.spectators.findIndex(s => s.name === playerName)
+            if (spectatorIndex >= 0) {
+              data.spectators.splice(spectatorIndex, 1)
+              console.log(`[退出] 已从围观者列表移除: ${playerName}`)
+            }
+          }
+
+          // 清理心跳记录
+          if (data.heartbeats && data.heartbeats[playerName]) {
+            delete data.heartbeats[playerName]
+            console.log(`[退出] 已清理心跳记录: ${playerName}`)
+          }
+
           await saveRoomData(id, data)
-          console.log(`[退出] 已标记玩家 ${playerName} 为离线状态`)
+          console.log(`[退出] 玩家 ${playerName} 已完全从房间移除`)
         }
       } catch (error) {
-        console.error('[退出] 标记离线失败:', error)
+        console.error('[退出] 移除玩家失败:', error)
       }
     }
 
