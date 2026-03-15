@@ -294,9 +294,9 @@ async function playAnimationSequence() {
 async function playFatigueAnimation(fatiguedCities) {
   console.log('[BattleAnimation] 播放疲劳减半动画', fatiguedCities)
 
-  for (const { player, cityName, hpBefore, hpAfter } of fatiguedCities) {
+  for (const { player, animIndex, hpBefore, hpAfter } of fatiguedCities) {
     const playerData = player === 1 ? player1.value : player2.value
-    const city = playerData.cities[cityName]
+    const city = playerData.cities[animIndex]
 
     if (city) {
       city.fatigued = true
@@ -431,7 +431,8 @@ onMounted(() => {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.95);
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(6px);
   z-index: 10000;
   display: flex;
   align-items: center;
@@ -482,9 +483,9 @@ onMounted(() => {
 
 .battle-title h2 {
   font-size: 36px;
-  color: #60a5fa;
+  color: #ffffff;
   margin: 10px 0 0 0;
-  text-shadow: 0 0 20px rgba(96, 165, 250, 0.5);
+  text-shadow: 0 2px 10px rgba(30, 41, 59, 0.4);
 }
 
 /* 特殊事件横幅 */
@@ -524,7 +525,7 @@ onMounted(() => {
   font-size: 32px;
   font-weight: bold;
   color: white;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 2px 10px rgba(100, 116, 145, 0.12);
 }
 
 /* 战斗区域 */
@@ -537,19 +538,19 @@ onMounted(() => {
 
 /* 玩家区域 */
 .player-area {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  border: 2px solid #334155;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   padding: 20px;
+  backdrop-filter: blur(10px);
 }
 
 .player-name {
   font-size: 24px;
   font-weight: bold;
-  color: #60a5fa;
+  color: #f0c850;
   text-align: center;
   margin-bottom: 20px;
-  text-shadow: 0 0 10px rgba(96, 165, 250, 0.5);
 }
 
 .city-cards {
@@ -561,8 +562,8 @@ onMounted(() => {
 
 /* 城市卡片 */
 .city-card {
-  background: linear-gradient(135deg, #475569 0%, #334155 100%);
-  border: 2px solid #64748b;
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid rgba(255, 255, 255, 0.15);
   border-radius: 12px;
   padding: 15px;
   position: relative;
@@ -606,7 +607,7 @@ onMounted(() => {
 .city-name {
   font-size: 18px;
   font-weight: bold;
-  color: #e2e8f0;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .city-skill {
@@ -628,18 +629,18 @@ onMounted(() => {
 .hp-label {
   font-size: 14px;
   font-weight: bold;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.45);
   min-width: 30px;
 }
 
 .hp-progress-container {
   flex: 1;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   height: 32px;
   position: relative;
   overflow: hidden;
-  border: 1px solid #475569;
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .hp-progress {
@@ -656,8 +657,8 @@ onMounted(() => {
   transform: translate(-50%, -50%);
   font-size: 14px;
   font-weight: bold;
-  color: white;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
   z-index: 1;
 }
 
@@ -677,7 +678,7 @@ onMounted(() => {
 }
 
 .hp-max {
-  color: #cbd5e1;
+  color: rgba(255, 255, 255, 0.45);
 }
 
 /* HP变化标签 */
@@ -721,7 +722,7 @@ onMounted(() => {
   font-size: 18px;
   font-weight: bold;
   color: #fbbf24;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(30, 41, 59, 0.75);
   padding: 8px 16px;
   border-radius: 8px;
   border: 2px solid #fbbf24;
@@ -758,7 +759,7 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(30, 41, 59, 0.6);
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -841,20 +842,19 @@ onMounted(() => {
 .total-attack {
   text-align: center;
   padding: 15px;
-  background: rgba(96, 165, 250, 0.1);
-  border: 2px solid #60a5fa;
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid rgba(212, 160, 23, 0.3);
   border-radius: 10px;
   font-size: 18px;
-  color: #e2e8f0;
+  color: rgba(255, 255, 255, 0.85);
   margin-top: 15px;
 }
 
 .attack-value {
   font-size: 28px;
   font-weight: bold;
-  color: #60a5fa;
+  color: #f0c850;
   margin-left: 10px;
-  text-shadow: 0 0 10px rgba(96, 165, 250, 0.5);
 }
 
 /* VS分隔符 */
@@ -937,7 +937,7 @@ onMounted(() => {
 }
 
 .battle-animation-container::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 5px;
 }
 

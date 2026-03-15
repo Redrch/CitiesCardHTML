@@ -44,11 +44,14 @@
 
     <!-- 通知容器 -->
     <NotificationContainer />
+
+    <!-- 全局对话框 -->
+    <AppDialog />
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import MainMenu from './components/MainMenu/MainMenu.vue'
 import ModeSelection from './components/MainMenu/ModeSelection.vue'
 import PlayerModeOffline from './components/PlayerMode/PlayerModeNew.vue'
@@ -59,8 +62,10 @@ import QuestionBankModal from './components/Modals/QuestionBankModal.vue'
 import CityInfoModal from './components/Modals/CityInfoModal.vue'
 import ChangelogModal from './components/Modals/ChangelogModal.vue'
 import NotificationContainer from './components/Common/NotificationContainer.vue'
+import AppDialog from './components/Common/AppDialog.vue'
 
-const currentView = ref('menu')
+const currentView = ref(sessionStorage.getItem('citycard_current_view') || 'menu')
+watch(currentView, (v) => sessionStorage.setItem('citycard_current_view', v))
 const showGameIntro = ref(false)
 const showSkillGuide = ref(false)
 const showQuestionBank = ref(false)

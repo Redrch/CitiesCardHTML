@@ -384,8 +384,8 @@ export function useBattleSkills() {
         gameStore,
         caster.name,
         '料事如神',
-        `${caster.name}使用了料事如神，先手偷袭生效，攻击${target.name}的${targetCityObj.name}（屏障存在，2500打屏障后反弹处理）`,
-        `${caster.name}使用了料事如神进行先手偷袭`
+        `${caster.name}使用了料事如神，先手偷袭生效，攻击${target.name}的城市（屏障存在，2500打屏障后反弹处理）`,
+        `${caster.name}使用了料事如神，先手偷袭${target.name}的${targetCityObj.name}`
       )
     } else {
       // 无屏障，直击5000
@@ -405,8 +405,8 @@ export function useBattleSkills() {
         gameStore,
         caster.name,
         '料事如神',
-        `${caster.name}使用了料事如神，先手偷袭${target.name}的${targetCityObj.name}，造成5000伤害`,
-        `${caster.name}使用了料事如神进行先手偷袭`
+        `${caster.name}使用了料事如神，先手偷袭${target.name}的城市，造成5000伤害`,
+        `${caster.name}使用了料事如神，先手偷袭${target.name}的${targetCityObj.name}，造成5000伤害`
       )
     }
 
@@ -1005,7 +1005,7 @@ export function useBattleSkills() {
       gameStore,
       caster.name,
       '欲擒故纵',
-      `${caster.name}使用了欲擒故纵，欲擒故纵生效，对${target.name}的${targetCity.name}设置陷阱，双方本轮退兵`,
+      `${caster.name}使用了欲擒故纵，欲擒故纵生效，对${target.name}的城市设置陷阱，双方本轮退兵`,
       `你对${target.name}的${targetCity.name}使用了欲擒故纵`
     )
 
@@ -1139,8 +1139,8 @@ export function useBattleSkills() {
       gameStore,
       caster.name,
       '晕头转向',
-      `${caster.name}使用了晕头转向，晕头转向生效，交换了出战城市：${swapText}`,
-      `你对${target.name}使用了晕头转向`
+      `${caster.name}使用了晕头转向，晕头转向生效，交换了出战城市`,
+      `你对${target.name}使用了晕头转向，交换了出战城市：${swapText}`
     )
 
     return {
@@ -1403,7 +1403,7 @@ export function useBattleSkills() {
       gameStore,
       caster.name,
       '玉碎瓦全',
-      `${caster.name}使用了玉碎瓦全，玉碎瓦全生效，对${target.name}的${targetCity.name}：若本回合出战则攻击力翻倍并回合结束时消灭，若不出战则HP减半`,
+      `${caster.name}使用了玉碎瓦全，玉碎瓦全生效，对${target.name}的城市：若本回合出战则攻击力翻倍并回合结束时消灭，若不出战则HP减半`,
       `你对${target.name}的${targetCity.name}使用了玉碎瓦全`
     )
 

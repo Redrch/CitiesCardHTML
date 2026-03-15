@@ -37,13 +37,13 @@
       </div>
 
       <!-- 当前选中的中心城市（3P不需要） -->
-      <div v-if="!is3P && centerIndex !== null" class="selected-center-card">
+      <div v-if="!is3P && centerCityName !== null" class="selected-center-card">
         <div class="selected-center-label">当前选中的中心城市</div>
         <div class="selected-center-info">
           <div class="selected-center-icon">🏛️</div>
           <div class="selected-center-details">
-            <div class="selected-center-name">{{ cities[centerIndex]?.name }}</div>
-            <div class="selected-center-hp">HP: {{ cities[centerIndex]?.hp }}</div>
+            <div class="selected-center-name">{{ selectedCenterCity?.name }}</div>
+            <div class="selected-center-hp">HP: {{ selectedCenterCity?.hp }}</div>
           </div>
         </div>
       </div>
@@ -53,8 +53,8 @@
         <div
           v-for="(city, idx) in cities"
           :key="idx"
-          :class="['city-card', { selected: !is3P && centerIndex === idx, 'city-card--no-select': is3P }]"
-          @click="!is3P && selectCenter(idx)"
+          :class="['city-card', { selected: !is3P && city.name === centerCityName, 'city-card--no-select': is3P }]"
+          @click="!is3P && selectCenter(city)"
         >
           <div class="city-card-header">
             <div class="city-name">{{ city.name }}</div>
@@ -82,7 +82,7 @@
             </template>
           </div> -->
           <div v-if="!is3P" class="city-select-status">
-            {{ centerIndex === idx ? '✓ 已选择' : '点击选择' }}
+            {{ city.name === centerCityName ? '✓ 已选择' : '点击选择' }}
           </div>
         </div>
       </div>
@@ -132,6 +132,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useNotification } from '../../composables/useNotification'
+import { useDialog } from '../../composables/useDialog'
 import { getCitySkill, SKILL_TYPE } from '../../data/citySkills'
 import { PROVINCE_MAP } from '../../data/cities'
 
@@ -144,8 +145,8 @@ const props = defineProps({
     type: Array,
     required: true
   },
-  initialCenterIndex: {
-    type: Number,
+  initialCenterName: {
+    type: String,
     default: null
   },
   currentDrawCount: {
@@ -163,20 +164,21 @@ const is3P = computed(() => props.gameMode === '3P')
 const emit = defineEmits(['confirm', 'redraw', 'center-selected'])
 
 const { showNotification } = useNotification()
+const { showConfirm } = useDialog()
 const centerCityName = ref(null) // 改用城市名称
 const drawCount = ref(props.currentDrawCount)
 const isRedrawing = ref(false)
 const selectedSkillCity = ref(null)
 
-// 根据初始索引获取城市名称
-if (props.initialCenterIndex !== null && props.cities[props.initialCenterIndex]) {
-  centerCityName.value = props.cities[props.initialCenterIndex].name
+// 根据初始城市名称设置
+if (props.initialCenterName !== null) {
+  centerCityName.value = props.initialCenterName
 }
 
-// 计算当前选中城市的索引（用于UI显示）
-const centerIndex = computed(() => {
+// 计算当前选中的城市对象
+const selectedCenterCity = computed(() => {
   if (!centerCityName.value) return null
-  return props.cities.findIndex(c => c.name === centerCityName.value)
+  return props.cities.find(c => c.name === centerCityName.value)
 })
 
 // 选中的技能详情
@@ -190,8 +192,7 @@ const canRedrawCities = computed(() => {
   return drawCount.value < 5
 })
 
-function selectCenter(idx) {
-  const city = props.cities[idx]
+function selectCenter(city) {
   if (!city) return
 
   centerCityName.value = city.name
@@ -219,7 +220,7 @@ async function handleRedraw() {
     return
   }
 
-  if (!confirm(`确定要重新抽取城市吗？\n\n剩余重抽次数: ${5 - drawCount.value}`)) {
+  if (!await showConfirm(`确定要重新抽取城市吗？\n\n剩余重抽次数: ${5 - drawCount.value}`, { title: '重新抽取', icon: '🎲' })) {
     return
   }
 
@@ -290,13 +291,13 @@ function getSkillCategoryLabel(category) {
 <style scoped>
 .center-city-selection {
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  background: linear-gradient(150deg, #2a2340 0%, #1e2a4a 30%, #2a3a5c 60%, #3a2a4a 100%);
   padding: 40px 20px;
   position: relative;
   overflow: hidden;
 }
 
-/* 背景装饰 */
+/* 背景装饰 - 环境光 */
 .center-city-selection::before {
   content: '';
   position: absolute;
@@ -304,7 +305,7 @@ function getSkillCategoryLabel(category) {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+  background: radial-gradient(ellipse at 20% 30%, rgba(212, 160, 23, 0.12) 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
   animation: rotate 30s linear infinite;
   pointer-events: none;
 }
@@ -331,18 +332,18 @@ function getSkillCategoryLabel(category) {
 .title-text {
   font-size: 48px;
   font-weight: 900;
-  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
+  background: linear-gradient(135deg, #f0c850 0%, #d4a017 40%, #e8c24a 60%, #f5d76e 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin: 0;
-  text-shadow: 0 0 40px rgba(59, 130, 246, 0.5);
+  filter: drop-shadow(0 0 20px rgba(212, 160, 23, 0.3));
   letter-spacing: 3px;
 }
 
 .subtitle {
   font-size: 14px;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.45);
   margin: 8px 0 0 0;
   font-weight: 300;
   letter-spacing: 2px;
@@ -351,7 +352,7 @@ function getSkillCategoryLabel(category) {
 
 .player-name {
   font-size: 16px;
-  color: #cbd5e1;
+  color: rgba(255, 255, 255, 0.45);
   margin-top: 12px;
   font-weight: 500;
 }
@@ -363,12 +364,12 @@ function getSkillCategoryLabel(category) {
 
 /* 抽取信息卡片 */
 .draw-info-card {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.05) 100%);
-  border: 2px solid rgba(59, 130, 246, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   padding: 24px;
   margin-bottom: 20px;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
   animation: fadeInUp 0.8s ease-out 0.1s both;
 }
 
@@ -382,7 +383,7 @@ function getSkillCategoryLabel(category) {
 }
 
 .draw-label {
-  color: #cbd5e1;
+  color: rgba(255, 255, 255, 0.45);
   font-weight: 600;
 }
 
@@ -436,7 +437,7 @@ function getSkillCategoryLabel(category) {
 
 .redraw-disabled {
   text-align: center;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.45);
   font-size: 14px;
   font-weight: 500;
 }
@@ -448,15 +449,15 @@ function getSkillCategoryLabel(category) {
 
 /* 提示卡片 */
 .tip-card {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.05) 100%);
-  border: 2px solid rgba(16, 185, 129, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
   padding: 16px 20px;
   margin-bottom: 24px;
   display: flex;
   align-items: center;
   gap: 12px;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
   animation: fadeInUp 0.8s ease-out 0.2s both;
 }
 
@@ -467,18 +468,18 @@ function getSkillCategoryLabel(category) {
 
 .tip-text {
   font-size: 14px;
-  color: #cbd5e1;
+  color: rgba(255, 255, 255, 0.85);
   line-height: 1.6;
 }
 
 /* 选中的中心城市卡片 */
 .selected-center-card {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.1) 100%);
-  border: 2px solid rgba(245, 158, 11, 0.4);
+  background: rgba(212, 160, 23, 0.12);
+  border: 2px solid rgba(212, 160, 23, 0.4);
   border-radius: 16px;
   padding: 20px;
   margin-bottom: 24px;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
   animation: fadeInUp 0.8s ease-out 0.3s both;
 }
 
@@ -508,7 +509,7 @@ function getSkillCategoryLabel(category) {
 .selected-center-name {
   font-size: 24px;
   font-weight: 900;
-  color: #f1f5f9;
+  color: rgba(255, 255, 255, 0.85);
   margin-bottom: 4px;
 }
 
@@ -528,19 +529,19 @@ function getSkillCategoryLabel(category) {
 }
 
 .city-card {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.05) 100%);
-  border: 2px solid rgba(148, 163, 184, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   padding: 20px;
   cursor: pointer;
   transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
 }
 
 .city-card:not(.city-card--no-select):hover {
-  border-color: rgba(59, 130, 246, 0.5);
+  border-color: rgba(255, 255, 255, 0.3);
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .city-card--no-select {
@@ -548,9 +549,9 @@ function getSkillCategoryLabel(category) {
 }
 
 .city-card.selected {
-  border-color: #f59e0b;
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.1) 100%);
-  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.3);
+  border-color: #d4a017;
+  background: rgba(212, 160, 23, 0.15);
+  box-shadow: 0 8px 24px rgba(212, 160, 23, 0.25);
 }
 
 .city-card-header {
@@ -560,13 +561,13 @@ function getSkillCategoryLabel(category) {
 .city-name {
   font-size: 18px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: rgba(255, 255, 255, 0.85);
   margin-bottom: 4px;
 }
 
 .city-province {
   font-size: 12px;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .city-stats {
@@ -585,7 +586,7 @@ function getSkillCategoryLabel(category) {
 
 .stat-label {
   font-size: 11px;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.45);
   font-weight: 600;
   text-transform: uppercase;
 }
@@ -598,7 +599,7 @@ function getSkillCategoryLabel(category) {
 
 .city-skill {
   padding: 8px 12px;
-  background: rgba(139, 92, 246, 0.1);
+  background: rgba(139, 92, 246, 0.15);
   border-radius: 8px;
   margin-bottom: 12px;
   min-height: 36px;
@@ -614,7 +615,7 @@ function getSkillCategoryLabel(category) {
 }
 
 .city-skill--clickable:hover {
-  background: rgba(139, 92, 246, 0.2);
+  background: rgba(139, 92, 246, 0.25);
   border-color: rgba(139, 92, 246, 0.5);
   transform: translateY(-2px);
 }
@@ -631,13 +632,13 @@ function getSkillCategoryLabel(category) {
 
 .skill-name {
   font-size: 13px;
-  color: #c4b5fd;
+  color: #a78bfa;
   font-weight: 600;
 }
 
 .no-skill {
   font-size: 12px;
-  color: #64748b;
+  color: rgba(255, 255, 255, 0.45);
   font-style: italic;
 }
 
@@ -748,7 +749,7 @@ function getSkillCategoryLabel(category) {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.6);
   z-index: 10000;
   display: flex;
   align-items: center;
@@ -762,14 +763,14 @@ function getSkillCategoryLabel(category) {
 }
 
 .skill-modal {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  background: linear-gradient(135deg, #2a2340, #1e2a4a);
   border: 2px solid rgba(139, 92, 246, 0.5);
   border-radius: 20px;
   max-width: 500px;
   width: 90%;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
   animation: slideIn 0.3s ease-out;
 }
 
@@ -796,13 +797,13 @@ function getSkillCategoryLabel(category) {
   margin: 0;
   font-size: 20px;
   font-weight: 700;
-  color: #c4b5fd;
+  color: #a78bfa;
 }
 
 .skill-modal-close {
   background: none;
   border: none;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.45);
   font-size: 32px;
   cursor: pointer;
   width: 36px;
@@ -816,8 +817,8 @@ function getSkillCategoryLabel(category) {
 }
 
 .skill-modal-close:hover {
-  background: rgba(148, 163, 184, 0.2);
-  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .skill-modal-body {
@@ -836,7 +837,7 @@ function getSkillCategoryLabel(category) {
   gap: 10px;
   font-size: 24px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .skill-detail-icon {
@@ -889,10 +890,10 @@ function getSkillCategoryLabel(category) {
 
 .skill-detail-description {
   font-size: 15px;
-  color: #cbd5e1;
+  color: rgba(255, 255, 255, 0.85);
   line-height: 1.8;
   padding: 16px;
-  background: rgba(139, 92, 246, 0.1);
+  background: rgba(139, 92, 246, 0.15);
   border-left: 4px solid rgba(139, 92, 246, 0.5);
   border-radius: 8px;
 }

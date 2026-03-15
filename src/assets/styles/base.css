@@ -12,12 +12,13 @@ body {
 
 header {
   padding: 16px 20px;
-  border-bottom: 1px solid #1f2937;
-  background: #0b1220;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.88);
   display: flex;
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
+  backdrop-filter: blur(12px);
 }
 
 h1 {
@@ -47,15 +48,25 @@ textarea {
   width: 100%;
   padding: 8px 10px;
   border-radius: 8px;
-  border: 1px solid #273245;
-  background: #0b1220;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.9);
   color: var(--text);
   outline: none;
+  transition: border-color 0.2s;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="password"]:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
 }
 
 select option {
-  color: white;
-  background: #1f2937;
+  color: var(--text);
+  background: #ffffff;
 }
 
 textarea {
@@ -78,14 +89,14 @@ textarea {
 }
 
 .scroll::-webkit-scrollbar-track {
-  background: #0b1220;
+  background: rgba(209, 217, 230, 0.4);
 }
 
 .scroll::-webkit-scrollbar-thumb {
-  background: #22355a;
+  background: #b0bdd0;
   border-radius: 6px;
 }
 
 .scroll::-webkit-scrollbar-thumb:hover {
-  background: #2e4b7d;
+  background: #94a3b8;
 }

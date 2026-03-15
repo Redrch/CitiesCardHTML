@@ -74,10 +74,10 @@
 
         <!-- 游戏未开始 -->
         <div v-if="!roomData.gameState || !roomData.gameState.currentRound" style="text-align: center; padding: 40px 20px;">
-          <div style="font-size: 18px; color: #9ca3af; margin-bottom: 15px;">
+          <div style="font-size: 18px; color: #94a3b8; margin-bottom: 15px;">
             等待游戏开始...
           </div>
-          <div style="font-size: 14px; color: #6b7280;">
+          <div style="font-size: 14px; color: #94a3b8;">
             当前房间：{{ roomData.players?.length || 0 }} / {{ roomData.playerCount }} 玩家
           </div>
           <div v-if="roomData.players?.length === roomData.playerCount" style="margin-top: 10px; color: #10b981; font-size: 14px;">
@@ -90,13 +90,13 @@
           <div style="font-size: 20px; color: #10b981; margin-bottom: 20px; font-weight: bold;">
             ⚔️ 游戏进行中
           </div>
-          <div style="font-size: 16px; color: #e5e7eb; margin-bottom: 15px;">
+          <div style="font-size: 16px; color: #374151; margin-bottom: 15px;">
             当前回合：第 {{ roomData.gameState.currentRound }} 回合
           </div>
 
           <!-- 玩家状态 -->
           <div style="margin-top: 20px;">
-            <div v-for="player in roomData.players" :key="player.name" style="background: #1f2937; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
+            <div v-for="player in roomData.players" :key="player.name" style="background: #f1f5f9; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <div style="font-size: 16px; color: #60a5fa; font-weight: bold;">
                   {{ player.name }}
@@ -107,22 +107,22 @@
               </div>
 
               <!-- 存活城市 -->
-              <div style="margin-bottom: 8px; font-size: 14px; color: #9ca3af;">
+              <div style="margin-bottom: 8px; font-size: 14px; color: #94a3b8;">
                 存活城市：{{ Object.values(player.cities || {}).filter(c => c.isAlive !== false).length || 0 }} / {{ Object.keys(player.cities || {}).length || 0 }}
               </div>
 
               <!-- 当前出战城市 -->
-              <div v-if="roomData.gameState.playerStates && roomData.gameState.playerStates[player.name]" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #374151;">
+              <div v-if="roomData.gameState.playerStates && roomData.gameState.playerStates[player.name]" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
                 <div style="font-size: 12px; color: #60a5fa; margin-bottom: 5px; font-weight: bold;">
                   ⚔️ 出战城市
                 </div>
-                <div v-if="roomData.gameState.playerStates[player.name].currentBattleCities && roomData.gameState.playerStates[player.name].currentBattleCities.length > 0" style="font-size: 12px; color: #e5e7eb;">
+                <div v-if="roomData.gameState.playerStates[player.name].currentBattleCities && roomData.gameState.playerStates[player.name].currentBattleCities.length > 0" style="font-size: 12px; color: #374151;">
                   <div v-for="battleCity in roomData.gameState.playerStates[player.name].currentBattleCities" :key="battleCity.cityName" style="margin: 3px 0;">
                     • {{ player.cities[battleCity.cityName]?.name || '未知' }}
                     <span style="color: #fbbf24;">(HP: {{ Math.floor(player.cities[battleCity.cityName]?.currentHp || player.cities[battleCity.cityName]?.hp || 0) }})</span>
                   </div>
                 </div>
-                <div v-else style="font-size: 12px; color: #6b7280;">
+                <div v-else style="font-size: 12px; color: #94a3b8;">
                   未出战
                 </div>
               </div>
@@ -130,7 +130,7 @@
           </div>
 
           <!-- 战斗日志区域 -->
-          <div style="margin-top: 30px; background: #1f2937; border-radius: 12px; padding: 20px; border: 2px solid rgba(59, 130, 246, 0.3);">
+          <div style="margin-top: 30px; background: #f1f5f9; border-radius: 12px; padding: 20px; border: 2px solid rgba(59, 130, 246, 0.3);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
               <h3 style="margin: 0; color: #60a5fa; font-size: 18px; font-weight: bold;">
                 📋 战斗日志
@@ -162,7 +162,7 @@
               style="
                 max-height: 400px;
                 overflow-y: auto;
-                background: rgba(15, 23, 42, 0.5);
+                background: rgba(241, 245, 251, 0.6);
                 border-radius: 8px;
                 padding: 12px;
               "
@@ -186,11 +186,11 @@
                     {{ formatLogTime(log.timestamp) }}
                   </span>
                   <span style="flex-shrink: 0;">{{ getLogIcon(log.type) }}</span>
-                  <span style="color: #e5e7eb; flex: 1;">{{ log.message }}</span>
+                  <span style="color: #374151; flex: 1;">{{ log.message }}</span>
                 </div>
               </div>
 
-              <div v-if="filteredLogs.length === 0" style="text-align: center; padding: 40px 20px; color: #6b7280;">
+              <div v-if="filteredLogs.length === 0" style="text-align: center; padding: 40px 20px; color: #94a3b8;">
                 <div style="font-size: 48px; margin-bottom: 12px; opacity: 0.5;">📭</div>
                 <div style="font-size: 14px;">暂无日志</div>
               </div>
@@ -220,7 +220,7 @@
         </div>
 
         <div style="text-align: center; margin-top: 20px;">
-          <div style="font-size: 12px; color: #6b7280;">
+          <div style="font-size: 12px; color: #94a3b8;">
             围观者昵称：{{ currentPlayerName }}
           </div>
         </div>
@@ -231,16 +231,16 @@
         <h4>等待玩家加入 ({{ roomData.players?.length || 0 }} / {{ roomData.playerCount }})</h4>
 
         <!-- 离线玩家警告 -->
-        <div v-if="offlinePlayers.length > 0" style="background: #7f1d1d; border: 1px solid #991b1b; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
-          <div style="color: #fca5a5; font-weight: bold; margin-bottom: 8px;">⚠️ 检测到玩家离线</div>
+        <div v-if="offlinePlayers.length > 0" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+          <div style="color: #dc2626; font-weight: bold; margin-bottom: 8px;">⚠️ 检测到玩家离线</div>
           <div style="color: #fecaca; font-size: 12px; margin-bottom: 8px;">
             以下玩家已离线超过30秒：
           </div>
-          <div v-for="({ name, status }) in offlinePlayers" :key="name" style="color: #fef2f2; font-size: 12px; padding: 4px 0;">
+          <div v-for="({ name, status }) in offlinePlayers" :key="name" style="color: #991b1b; font-size: 12px; padding: 4px 0;">
             • {{ name }} (离线 {{ status.offlineSeconds || '?' }} 秒)
           </div>
           <div style="margin-top: 8px; display: flex; gap: 8px;">
-            <button class="btn" @click="kickPlayer(offlinePlayers[0].name)" style="font-size: 12px; padding: 6px 12px; background: #991b1b; border-color: #7f1d1d;">
+            <button class="btn" @click="kickPlayer(offlinePlayers[0].name)" style="font-size: 12px; padding: 6px 12px; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3);">
               踢出离线玩家
             </button>
             <button class="btn" @click="refreshRoom" style="font-size: 12px; padding: 6px 12px;">
@@ -298,6 +298,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { isFirebaseReady } from '../../composables/useFirebase'
 import { useRoom } from '../../composables/useRoom'
 import { useNotification } from '../../composables/useNotification'
+import { useDialog } from '../../composables/useDialog'
 import { useCityDraw } from '../../composables/useCityDraw'
 import { PROVINCE_MAP } from '../../data/cities'
 import { useGameStore } from '../../stores/gameStore'
@@ -314,6 +315,10 @@ const props = defineProps({
   initialRoomData: {
     type: Object,
     default: null
+  },
+  reconnectedPlayerName: {
+    type: String,
+    default: ''
   }
 })
 
@@ -321,6 +326,7 @@ const emit = defineEmits(['all-ready', 'player-joined'])
 
 const gameStore = useGameStore()
 const { showNotification } = useNotification()
+const { showConfirm } = useDialog()
 const { assignCitiesToPlayers } = useCityDraw()
 const {
   roomData,
@@ -538,7 +544,7 @@ async function toggleReady() {
  * 踢出玩家
  */
 async function kickPlayer(playerName) {
-  if (!confirm(`确定要踢出玩家 ${playerName} 吗？\n\n注意：\n1. 此操作不可撤销\n2. 被踢出的玩家需要重新创建房间才能继续游戏\n3. 如果玩家只是暂时掉线，建议等待其重新连接`)) {
+  if (!await showConfirm(`确定要踢出玩家 ${playerName} 吗？\n\n注意：\n1. 此操作不可撤销\n2. 被踢出的玩家需要重新创建房间才能继续游戏\n3. 如果玩家只是暂时掉线，建议等待其重新连接`, { title: '踢出玩家', icon: '⚠️' })) {
     return
   }
 
@@ -572,8 +578,8 @@ watch(() => roomData.value, async (newData) => {
 
     console.log('[WaitingRoom] 所有玩家已准备，检查城市分配')
 
-    // 关键修复：检查是否已经分配过城市
-    const alreadyAssigned = newData.players.some(p => p.cities && Object.keys(p.cities).length > 0)
+    // 关键修复：检查是否所有玩家都已经分配过城市
+    const alreadyAssigned = newData.players.every(p => p.cities && typeof p.cities === 'object' && !Array.isArray(p.cities) && Object.keys(p.cities).length > 0)
 
     if (alreadyAssigned) {
       // 城市已分配，直接触发事件
@@ -614,11 +620,29 @@ watch(() => roomData.value?.gameState?.battleLogs, async (newLogs) => {
   }
 }, { deep: true, immediate: true })
 
-onMounted(() => {
+onMounted(async () => {
   // 开始监听房间变化
   startRoomListener(props.roomId, (data) => {
     roomData.value = data
   })
+
+  // If reconnecting, auto-join with the saved player name
+  if (props.reconnectedPlayerName) {
+    console.log('[WaitingRoom] Auto-joining with reconnected player name:', props.reconnectedPlayerName)
+    const result = await addPlayerToRoom(props.roomId, {
+      name: props.reconnectedPlayerName
+    }, false)
+
+    if (result.success) {
+      hasJoined.value = true
+      currentPlayerName.value = props.reconnectedPlayerName
+      showNotification('重新连接成功！', 'success')
+      emit('player-joined', { name: props.reconnectedPlayerName, asSpectator: false })
+    } else {
+      console.warn('[WaitingRoom] Reconnect auto-join failed:', result.error)
+      showNotification('重连加入失败，请手动输入昵称', 'warning')
+    }
+  }
 })
 
 onUnmounted(() => {
@@ -630,13 +654,13 @@ onUnmounted(() => {
 /* 容器 */
 .waiting-room-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  background: linear-gradient(150deg, #2a2340 0%, #1e2a4a 30%, #2a3a5c 60%, #3a2a4a 100%);
   padding: 40px 20px;
   position: relative;
   overflow: hidden;
 }
 
-/* 背景装饰 */
+/* 背景装饰 - 环境光晕 */
 .waiting-room-container::before {
   content: '';
   position: absolute;
@@ -644,7 +668,7 @@ onUnmounted(() => {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+  background: radial-gradient(ellipse at 20% 30%, rgba(212, 160, 23, 0.12) 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
   animation: rotate 30s linear infinite;
   pointer-events: none;
 }
@@ -658,13 +682,13 @@ onUnmounted(() => {
 .room-id-card {
   max-width: 600px;
   margin: 0 auto 32px;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(37, 99, 235, 0.1) 100%);
-  border: 2px solid rgba(59, 130, 246, 0.4);
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.12);
   border-radius: 24px;
   padding: 32px;
   text-align: center;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 12px 40px rgba(59, 130, 246, 0.2);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
   position: relative;
   z-index: 1;
   animation: fadeInDown 0.8s ease-out;
@@ -682,13 +706,13 @@ onUnmounted(() => {
 .room-id-title {
   font-size: 20px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: rgba(255, 255, 255, 0.85);
   margin: 0 0 4px 0;
 }
 
 .room-id-subtitle {
   font-size: 12px;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.45);
   margin: 0;
   font-weight: 300;
   letter-spacing: 2px;
@@ -698,16 +722,16 @@ onUnmounted(() => {
 .room-id-number {
   font-size: 48px;
   font-weight: 900;
-  color: #60a5fa;
+  color: #f0c850;
   letter-spacing: 12px;
   font-family: 'Courier New', monospace;
   padding: 20px 0;
-  text-shadow: 0 0 20px rgba(96, 165, 250, 0.5);
+  text-shadow: 0 0 20px rgba(240, 200, 80, 0.4), 0 0 40px rgba(240, 200, 80, 0.2);
 }
 
 .copy-btn {
   padding: 14px 28px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #d4a017 0%, #b8860b 100%);
   color: white;
   border: none;
   border-radius: 12px;
@@ -716,7 +740,7 @@ onUnmounted(() => {
   font-weight: 600;
   margin-top: 16px;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 16px rgba(212, 160, 23, 0.3);
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -724,7 +748,7 @@ onUnmounted(() => {
 
 .copy-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 6px 20px rgba(212, 160, 23, 0.45);
 }
 
 .copy-btn.copied {
@@ -748,12 +772,12 @@ onUnmounted(() => {
 }
 
 .status-info.online {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.05) 100%);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.08) 100%);
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
 .status-info.offline {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.05) 100%);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.08) 100%);
   border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
@@ -764,16 +788,16 @@ onUnmounted(() => {
 }
 
 .status-info.online .status-badge {
-  color: #10b981;
+  color: #34d399;
 }
 
 .status-info.offline .status-badge {
-  color: #f59e0b;
+  color: #fbbf24;
 }
 
 .status-desc {
   font-size: 13px;
-  color: #cbd5e1;
+  color: rgba(255, 255, 255, 0.45);
   line-height: 1.6;
 }
 
@@ -781,12 +805,12 @@ onUnmounted(() => {
 .nickname-card {
   max-width: 600px;
   margin: 0 auto;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.05) 100%);
-  border: 2px solid rgba(59, 130, 246, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.12);
   border-radius: 24px;
   padding: 32px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 12px 40px rgba(59, 130, 246, 0.2);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
   position: relative;
   z-index: 1;
   animation: fadeInUp 0.8s ease-out 0.2s both;
@@ -800,7 +824,7 @@ onUnmounted(() => {
 .nickname-header {
   font-size: 18px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: rgba(255, 255, 255, 0.85);
   margin-bottom: 16px;
   text-align: center;
 }
@@ -810,9 +834,9 @@ onUnmounted(() => {
   padding: 16px 20px;
   font-size: 18px;
   text-align: center;
-  background: rgba(30, 41, 59, 0.8);
-  color: #f1f5f9;
-  border: 2px solid rgba(148, 163, 184, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  border: 2px solid rgba(255, 255, 255, 0.15);
   border-radius: 12px;
   transition: all 0.3s ease;
   font-weight: 500;
@@ -822,13 +846,13 @@ onUnmounted(() => {
 
 .nickname-input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(240, 200, 80, 0.6);
+  box-shadow: 0 0 0 3px rgba(240, 200, 80, 0.15);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .nickname-input::placeholder {
-  color: #64748b;
+  color: rgba(255, 255, 255, 0.35);
   font-weight: normal;
 }
 
@@ -837,8 +861,8 @@ onUnmounted(() => {
 }
 
 .room-full-notice {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.05) 100%);
-  border: 2px solid rgba(239, 68, 68, 0.3);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.1) 100%);
+  border: 2px solid rgba(239, 68, 68, 0.35);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 20px;
@@ -862,7 +886,7 @@ onUnmounted(() => {
 .join-mode-label {
   font-size: 15px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: rgba(255, 255, 255, 0.85);
   margin-bottom: 16px;
   text-align: center;
 }
@@ -949,198 +973,37 @@ onUnmounted(() => {
 }
 
 .room-id-display {
-  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
-  border: 2px solid #3b82f6;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
   padding: 25px;
   text-align: center;
   margin: 0 0 25px 0;
-  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.15);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
 .room-id-display h3 {
   margin: 0 0 12px 0;
-  color: #93c5fd;
+  color: rgba(255, 255, 255, 0.45);
   font-size: 16px;
   font-weight: 500;
-}
-
-.room-id-number {
-  font-size: 36px;
-  font-weight: bold;
-  color: #60a5fa;
-  letter-spacing: 6px;
-  font-family: 'Courier New', monospace;
-  padding: 15px 0;
-}
-
-.copy-btn {
-  padding: 10px 20px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  margin-top: 15px;
-  transition: all 0.3s;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-}
-
-.copy-btn:hover {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-}
-
-.copy-btn.copied {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-}
-
-/* 昵称输入区域 */
-.nickname-section {
-  background: var(--panel);
-  border: 2px solid #1f2937;
-  border-radius: 12px;
-  padding: 25px;
-  margin-bottom: 25px;
-}
-
-.nickname-header {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 12px;
-}
-
-.nickname-input {
-  width: 100%;
-  padding: 16px 18px;
-  font-size: 18px;
-  background: #1f2937;
-  color: var(--text);
-  border: 2px solid #374151;
-  border-radius: 10px;
-  transition: all 0.3s;
-  font-weight: 500;
-}
-
-.nickname-input:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-  background: #111827;
-}
-
-.nickname-input::placeholder {
-  color: #6b7280;
-  font-weight: normal;
-}
-
-/* 加入方式选择 */
-.join-mode-section {
-  margin-top: 20px;
-}
-
-.room-full-notice {
-  background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
-  padding: 12px 16px;
-  border-radius: 8px;
-  margin-bottom: 15px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid #ef4444;
-}
-
-.notice-icon {
-  font-size: 20px;
-}
-
-.notice-text {
-  color: #fecaca;
-  font-weight: 500;
-  font-size: 14px;
-}
-
-.join-mode-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text);
-  margin-bottom: 12px;
-}
-
-.join-buttons {
-  display: flex;
-  gap: 12px;
-}
-
-.join-btn {
-  flex: 1;
-  padding: 16px 20px;
-  border-radius: 10px;
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
-  border: none;
-  transition: all 0.3s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.join-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none !important;
-}
-
-.join-btn-battle {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  color: white;
-}
-
-.join-btn-battle:hover:not(:disabled) {
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
-}
-
-.join-btn-spectate {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
-}
-
-.join-btn-spectate:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
-}
-
-.btn-emoji {
-  font-size: 20px;
-}
-
-.btn-label {
-  font-size: 16px;
 }
 
 /* 等待区域 */
 .waiting-room {
-  background: var(--panel);
-  border: 2px solid #1f2937;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
   padding: 25px;
   margin: 0;
+  backdrop-filter: blur(12px);
 }
 
 .waiting-room h4 {
   margin: 0 0 15px 0;
   font-size: 16px;
-  color: var(--text);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .player-list {
@@ -1150,35 +1013,38 @@ onUnmounted(() => {
 }
 
 .player-item {
-  background: #1f2937;
+  background: rgba(255, 255, 255, 0.06);
   padding: 14px 16px;
   border-radius: 8px;
-  border: 2px solid #374151;
+  border: 2px solid rgba(255, 255, 255, 0.1);
   transition: all 0.3s;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .player-item:hover {
-  background: #111827;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .player-item.ready {
   border-color: #10b981;
-  background: rgba(16, 185, 129, 0.05);
+  background: rgba(16, 185, 129, 0.1);
 }
 
 /* 围观者视图 */
 .spectator-view {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  border: 2px solid #3b82f6;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(59, 130, 246, 0.35);
   border-radius: 12px;
   padding: 30px;
   text-align: center;
+  backdrop-filter: blur(12px);
 }
 
 .spectator-view h3 {
   font-size: 22px;
   font-weight: bold;
   margin: 0;
+  color: #60a5fa;
 }
 
 </style>

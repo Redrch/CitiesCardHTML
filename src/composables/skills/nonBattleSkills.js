@@ -8,9 +8,10 @@
  */
 
 import { useGameStore } from '../../stores/gameStore'
-import { checkAndDeductGold } from '../../constants/skillCosts'
+import { checkAndDeductGold, SKILL_COSTS, HP_BANK_WITHDRAW_COST } from '../../constants/skillCosts'
 import { addSkillUsageLog, addSkillEffectLog } from '../game/logUtils'
 import { ALL_CITIES } from '../../data/cities'
+import { isCapitalCity, isPlanCity, isMunicipality, isSpecialAdministrativeRegion } from '../../utils/cityDrawing'
 
 // 注意：player.cities 是以城市名为键的对象：{ '北京市': { name, hp, ... }, ... }
 // 所有 gameStore 状态也使用 cityName 作为键
@@ -603,7 +604,7 @@ export function useNonBattleSkills() {
     const consumed = gameStore.consumeProtection(target.name, cityName)
 
     if (consumed) {
-      addSkillEffectLog(gameStore, `清除加成效果被${target.name}的${targetCity.name}护盾抵消`)
+      addSkillEffectLog(gameStore, `清除加成效果被${target.name}的城市护盾抵消`)
       return {
         success: true,
         message: `效果被护盾抵消`
@@ -619,7 +620,7 @@ export function useNonBattleSkills() {
       targetCity.currentHp = targetCity.hp
     }
 
-    addSkillEffectLog(gameStore, `清除了${target.name}的${targetCity.name}的所有加成`)
+    addSkillEffectLog(gameStore, `清除了${target.name}的城市的所有加成`)
 
     return {
       success: true,
@@ -1146,15 +1147,15 @@ export function useNonBattleSkills() {
     }
 
     // 检查金币是否足够（需要11金币使用无懈可击）
-    if (targetPlayer.gold < 11) {
+    if (targetPlayer.gold < SKILL_COSTS['无懈可击']) {
       return {
         success: false,
-        message: `拒绝交换需要使用无懈可击技能（花费11金币），当前金币不足（${targetPlayer.gold}/11）`
+        message: `拒绝交换需要使用无懈可击技能（花费${SKILL_COSTS['无懈可击']}金币），当前金币不足（${targetPlayer.gold}/${SKILL_COSTS['无懈可击']}）`
       }
     }
 
     // 扣除金币
-    targetPlayer.gold -= 11
+    targetPlayer.gold -= SKILL_COSTS['无懈可击']
     console.log(`[先声夺人] ${swap.targetName}使用无懈可击拒绝交换，花费11金币，剩余${targetPlayer.gold}金币`)
 
     // 更新请求状态
@@ -1241,18 +1242,19 @@ export function useNonBattleSkills() {
     }
     gameStore.anchored[caster.name][cityName] = 10
 
-    // 双日志
+    // 双日志：公开只显示使用了技能，详情为私密
     addSkillUsageLog(
       gameStore,
       caster.name,
       '定海神针',
       `${caster.name}使用了定海神针`,
-      `${caster.name}对${selfCity.name}使用定海神针，10回合内不会被交换`
+      `你对${selfCity.name}使用了定海神针，10回合内不会被交换`
     )
 
     return {
       success: true,
-      message: `${selfCity.name}已固定位置，10回合内不会被交换`
+      message: `${selfCity.name}已固定位置，10回合内不会被交换`,
+      hidePublicLog: true
     }
   }
 
@@ -1386,78 +1388,37 @@ export function useNonBattleSkills() {
   }
 
   /**
-   * 高级治疗 - 2个城市撤下，2回合后满血返回
-   * 注意：战斗预备城市（roster）概念已删除，现在只检查城市是否存活和受伤
+   * 高级治疗 - 选定己方两座非满血城市，立即恢复至满血，但本回合和下回合无法出战
+   * 己方至少有3座存活城市时可用
    */
   function executeGaoJiZhiLiao(caster, cityNames) {
     if (!cityNames || cityNames.length !== 2) {
       return { success: false, message: '需要选择2个城市' }
     }
 
+    // 检查己方至少有3座存活城市
+    const aliveCities = Object.values(caster.cities).filter(c =>
+      c && c.isAlive !== false && ((c.currentHp !== undefined ? c.currentHp : c.hp) > 0)
+    )
+    if (aliveCities.length < 3) {
+      return { success: false, message: `己方至少需要3座存活城市（当前${aliveCities.length}座）` }
+    }
+
     // 筛选存活且非满血的城市
     const cities = cityNames.map(cityName => {
       const city = caster.cities[cityName]
-      if (!city) {
-        console.log(`[高级治疗] 城市名称 ${cityName} 不存在`)
-        return null
-      }
+      if (!city) return null
+      if (city.isAlive === false) return null
 
-      // 检查城市是否存活
-      if (city.isAlive === false) {
-        console.log(`[高级治疗] ${city.name} 已死亡`)
-        return null
-      }
-
-      // 检查是否非满血
-      const currentHp = city.currentHp || city.hp
-
-      // 获取城市的初始HP（最大HP）
-      // 注意：initialCities 可能是数组结构或对象结构
-      let initialCity = null
-      let maxHp = city.hp
-
-      if (gameStore.initialCities[caster.name]) {
-        const initialData = gameStore.initialCities[caster.name]
-
-        // 检查是数组还是对象
-        if (Array.isArray(initialData)) {
-          // 数组结构：按索引查找
-          initialCity = initialData[cityName]
-          console.log(`[高级治疗] 从数组结构获取 initialCity[${cityName}]:`, initialCity)
-        } else {
-          // 对象结构：按城市名称查找
-          initialCity = initialData[city.name]
-          console.log(`[高级治疗] 从对象结构获取 initialCity['${city.name}']:`, initialCity)
-        }
-
-        if (initialCity) {
-          maxHp = initialCity.hp
-        }
-      }
-
-      console.log(`[高级治疗] ${city.name}:`)
-      console.log(`  - city.currentHp: ${city.currentHp}`)
-      console.log(`  - city.hp: ${city.hp}`)
-      console.log(`  - currentHp (computed): ${currentHp}`)
-      console.log(`  - maxHp (from initialCities): ${maxHp}`)
-      console.log(`  - initialCity:`, initialCity)
-      console.log(`  - 受伤: ${currentHp < maxHp}`)
-
-      if (currentHp >= maxHp) {
-        console.log(`[高级治疗] ${city.name} 满血，无法治疗`)
-        return null
-      }
+      const currentHp = city.currentHp !== undefined ? city.currentHp : city.hp
+      const maxHp = city.hp
+      if (currentHp >= maxHp) return null
 
       return { city, cityName, maxHp }
-    }).filter(item => item !== null)
-
-    console.log(`[高级治疗] 筛选后的城市数量: ${cities.length}`)
+    }).filter(Boolean)
 
     if (cities.length !== 2) {
-      return {
-        success: false,
-        message: '需要选择2个存活且受伤的城市'
-      }
+      return { success: false, message: '需要选择2个存活且受伤的城市' }
     }
 
     // 金币检查和扣除
@@ -1466,44 +1427,34 @@ export function useNonBattleSkills() {
       return goldCheck
     }
 
-    // 注意：roster系统已删除，城市不需要从roster中移除
-    // 城市通过bannedCities机制禁用2回合，通过isInHealing标记状态
-
-    // 设置healing状态（2回合后返回）
-    cities.forEach(({ city, cityName, maxHp }) => {
-      city.modifiers = city.modifiers || []
-      city.modifiers.push({
-        type: 'healing',
-        roundsLeft: 2,
-        returnHp: maxHp,  // 返回时恢复到正确的满血值（从initialCities获取）
-        originalCityName: cityName
-      })
-
-      // 标记该城市正在治疗中（可用于UI显示）
-      city.isInHealing = true
+    // 立即恢复满血
+    cities.forEach(({ city, maxHp }) => {
+      city.currentHp = maxHp
     })
 
-    // 设置bannedCities禁用记录（2回合无法出战，使用城市名称作为key）
+    // 本回合和下回合无法出战（bannedCities = 2）
     if (!gameStore.bannedCities[caster.name]) {
       gameStore.bannedCities[caster.name] = {}
     }
     cities.forEach(({ city }) => {
       gameStore.bannedCities[caster.name][city.name] = 2
+      city.isInHealing = true
     })
 
     const cityNamesStr = cities.map(({ city }) => city.name).join('、')
-    // 双日志 - 公开日志不显示城市名，施法者私有日志显示
+    // 公开日志只显示技能名，私有日志显示详情
     addSkillUsageLog(
       gameStore,
       caster.name,
       '高级治疗',
       `${caster.name}使用了高级治疗`,
-      `你对${cityNamesStr}使用高级治疗，2回合后满血返回`
+      `你对${cityNamesStr}使用高级治疗，立即恢复满血，本回合和下回合无法出战`
     )
 
     return {
       success: true,
-      message: `${cityNamesStr}撤下治疗，2回合后满血返回`
+      message: `${cityNamesStr}已恢复满血，本回合和下回合无法出战`,
+      hidePublicLog: true
     }
   }
 
@@ -1650,9 +1601,20 @@ export function useNonBattleSkills() {
 
     const currentHp = selfCity.currentHp || selfCity.hp
 
+    // 收集所有玩家当前持有的城市名（确保不会抽到已被任何玩家使用的城市）
+    const allUsedNames = new Set()
+    gameStore.players.forEach(player => {
+      if (player.cities) {
+        Object.values(player.cities).forEach(c => {
+          if (c && c.name) allUsedNames.add(c.name)
+        })
+      }
+    })
+
     // 从未使用城市池中筛选HP更高的城市
-    const unusedCities = gameStore.getUnusedCities()
-    const higherHpCities = unusedCities.filter(city => city.hp > currentHp)
+    const higherHpCities = ALL_CITIES.filter(city =>
+      !allUsedNames.has(city.name) && city.hp > currentHp
+    )
 
     if (higherHpCities.length === 0) {
       return {
@@ -1694,6 +1656,12 @@ export function useNonBattleSkills() {
     delete caster.cities[oldCityKey]
     caster.cities[newCity.name] = newCity
 
+    // 关键修复：如果替换的是中心城市，将中心转移到新城市
+    if (caster.centerCityName === oldCityKey) {
+      caster.centerCityName = newCity.name
+      console.log(`[点石成金] 中心城市从 ${oldCityKey} 转移到 ${newCity.name}`)
+    }
+
     // 标记新城市为已使用
     gameStore.markCityAsUsed(randomCity.name)
 
@@ -1712,18 +1680,19 @@ export function useNonBattleSkills() {
       }
     }
 
-    // 双日志
+    // 双日志：公开只显示使用了技能，详情为私密
     addSkillUsageLog(
       gameStore,
       caster.name,
       '点石成金',
-      `${caster.name}使用点石成金`,
-      `${caster.name}使用了点石成金`
+      `${caster.name}使用了点石成金`,
+      `你使用了点石成金，${selfCity.name} → ${newCity.name}(HP: ${newCity.hp})`
     )
 
     return {
       success: true,
-      message: `城市已强化，${selfCity.name} → ${newCity.name}(HP: ${newCity.hp})`
+      message: `城市已强化，${selfCity.name} → ${newCity.name}(HP: ${newCity.hp})`,
+      hidePublicLog: true
     }
   }
 
@@ -1827,11 +1796,8 @@ export function useNonBattleSkills() {
     // 记录HP用于日志
     const oldHp = targetCity.currentHp !== undefined ? targetCity.currentHp : targetCity.hp
 
-    // 自毁城市
+    // 自毁城市（只改 currentHp，保留 hp/max HP）
     targetCity.currentHp = 0
-    if (targetCity.hp !== undefined) {
-      targetCity.hp = 0
-    }
     targetCity.isAlive = false
 
     // 随机获得1-5金币
@@ -1894,7 +1860,7 @@ export function useNonBattleSkills() {
 
     // 检查并消耗保护罩/钢铁护盾
     if (gameStore.consumeProtection(target.name, cityName)) {
-      addSkillEffectLog(gameStore, `进制扭曲被${target.name}的${targetCity.name}护盾抵消`)
+      addSkillEffectLog(gameStore, `进制扭曲被${target.name}的城市护盾抵消`)
       return {
         success: true,
         message: `效果被护盾抵消`
@@ -1930,8 +1896,8 @@ export function useNonBattleSkills() {
         gameStore,
         caster.name,
         '进制扭曲',
-        `${caster.name}对${target.name}的${targetCity.name}使用进制扭曲，HP从${currentHp}变为${newHp}，城市阵亡`,
-        `${caster.name}使用了进制扭曲`
+        `${caster.name}对${target.name}的城市使用进制扭曲，城市阵亡`,
+        `${caster.name}对${target.name}的${targetCity.name}使用进制扭曲，HP从${currentHp}变为${newHp}，城市阵亡`
       )
     } else {
       // 双日志
@@ -1939,8 +1905,8 @@ export function useNonBattleSkills() {
         gameStore,
         caster.name,
         '进制扭曲',
-        `${caster.name}对${target.name}的${targetCity.name}使用进制扭曲，HP从${currentHp}变为${newHp}`,
-        `${caster.name}使用了进制扭曲`
+        `${caster.name}对${target.name}的城市使用进制扭曲`,
+        `${caster.name}对${target.name}的${targetCity.name}使用进制扭曲，HP从${currentHp}变为${newHp}`
       )
     }
 
@@ -1990,7 +1956,7 @@ export function useNonBattleSkills() {
 
     // 检查并消耗保护罩/钢铁护盾
     if (gameStore.consumeProtection(target.name, cityName)) {
-      addSkillEffectLog(gameStore, `一落千丈被${target.name}的${targetCity.name}护盾抵消`)
+      addSkillEffectLog(gameStore, `一落千丈被${target.name}的城市护盾抵消`)
       return {
         success: true,
         message: `效果被护盾抵消`
@@ -2021,8 +1987,8 @@ export function useNonBattleSkills() {
         gameStore,
         caster.name,
         '一落千丈',
-        `${caster.name}对${target.name}的${targetCity.name}使用一落千丈，当前HP从${currentHp}降至${newCurrentHp}，初始HP降至${newBaseHp}，城市阵亡`,
-        `${caster.name}使用了一落千丈`
+        `${caster.name}对${target.name}的城市使用一落千丈，城市阵亡`,
+        `${caster.name}对${target.name}的${targetCity.name}使用一落千丈，HP从${currentHp}降至${newCurrentHp}，初始HP降至${newBaseHp}，城市阵亡`
       )
     } else {
       // 双日志
@@ -2030,8 +1996,8 @@ export function useNonBattleSkills() {
         gameStore,
         caster.name,
         '一落千丈',
-        `${caster.name}对${target.name}的${targetCity.name}使用一落千丈，当前HP从${currentHp}降至${newCurrentHp}，初始HP降至${newBaseHp}`,
-        `${caster.name}使用了一落千丈`
+        `${caster.name}对${target.name}的城市使用一落千丈`,
+        `${caster.name}对${target.name}的${targetCity.name}使用一落千丈，HP从${currentHp}降至${newCurrentHp}，初始HP降至${newBaseHp}`
       )
     }
 
@@ -2122,7 +2088,7 @@ export function useNonBattleSkills() {
 
     // 记录日志
     if (blockedCities.length > 0) {
-      addSkillEffectLog(gameStore, `连续打击被${target.name}的${blockedCities.join('、')}护盾抵消`)
+      addSkillEffectLog(gameStore, `连续打击被${target.name}的${blockedCities.length}个城市护盾抵消`)
     }
     if (affectedCities.length > 0) {
       // 双日志
@@ -2130,8 +2096,8 @@ export function useNonBattleSkills() {
         gameStore,
         caster.name,
         '连续打击',
-        `${caster.name}对${target.name}的${affectedCities.join('、')}使用连续打击，当前HP和初始HP都除以2`,
-        `${caster.name}使用了连续打击`
+        `${caster.name}对${target.name}的${affectedCities.length}个城市使用连续打击，当前HP和初始HP都除以2`,
+        `${caster.name}对${target.name}的${affectedCities.join('、')}使用连续打击，当前HP和初始HP都除以2`
       )
     }
 
@@ -2227,7 +2193,7 @@ export function useNonBattleSkills() {
 
     // 记录日志
     if (blockedCities.length > 0) {
-      addSkillEffectLog(gameStore, `波涛汹涌被${target.name}的${blockedCities.join('、')}护盾抵消`)
+      addSkillEffectLog(gameStore, `波涛汹涌被${target.name}的${blockedCities.length}个城市护盾抵消`)
     }
 
     const logMessage = affectedCities.length > 0
@@ -2490,8 +2456,8 @@ export function useNonBattleSkills() {
         gameStore,
         caster.name,
         '万箭齐发',
-        `${caster.name}的万箭齐发击破了${target.name}的${targetCity.name}护盾`,
-        `${caster.name}使用了万箭齐发`
+        `${caster.name}的万箭齐发击破了${target.name}的城市护盾`,
+        `${caster.name}的万箭齐发击破了${target.name}的${targetCity.name}护盾`
       )
       return {
         success: true,
@@ -2520,8 +2486,8 @@ export function useNonBattleSkills() {
         gameStore,
         caster.name,
         '万箭齐发',
-        `${caster.name}对${target.name}的${targetCity.name}使用万箭齐发，造成${totalDamage}伤害并摧毁`,
-        `${caster.name}使用了万箭齐发`
+        `${caster.name}对${target.name}的城市使用万箭齐发，造成${totalDamage}伤害并摧毁`,
+        `${caster.name}对${target.name}的${targetCity.name}使用万箭齐发，造成${totalDamage}伤害并摧毁`
       )
     } else {
       // 双日志
@@ -2529,8 +2495,8 @@ export function useNonBattleSkills() {
         gameStore,
         caster.name,
         '万箭齐发',
-        `${caster.name}对${target.name}的${targetCity.name}使用万箭齐发，造成${totalDamage}伤害`,
-        `${caster.name}使用了万箭齐发`
+        `${caster.name}对${target.name}的城市使用万箭齐发，造成${totalDamage}伤害`,
+        `${caster.name}对${target.name}的${targetCity.name}使用万箭齐发，造成${totalDamage}伤害`
       )
     }
 
@@ -2566,14 +2532,14 @@ export function useNonBattleSkills() {
         return { success: false, message: '不能对中心城市使用降维打击' }
       }
 
-      // 手动扣除10金币（因为skillCosts中是8金币）
-      if (caster.gold < 10) {
+      // 手动扣除金币（直辖市/香港版本比基础费用多2金币）
+      if (caster.gold < (SKILL_COSTS['降维打击'] + 2)) {
         return {
           success: false,
-          message: `金币不足（需要10，当前${caster.gold}）`
+          message: `金币不足（需要${SKILL_COSTS['降维打击'] + 2}，当前${caster.gold}）`
         }
       }
-      caster.gold -= 10
+      caster.gold -= (SKILL_COSTS['降维打击'] + 2)
 
       // 获取澳门城市数据
       const macau = gameStore.getCityByName('澳门特别行政区')
@@ -2606,7 +2572,7 @@ export function useNonBattleSkills() {
         gameStore.initialCities[target.name][cityName] = replacementCity
       }
 
-      addSkillEffectLog(gameStore, `对${target.name}使用降维打击（直辖市/香港版，花费10金币），${targetCity.name}被替换为澳门特别行政区(${macau.hp})`)
+      addSkillEffectLog(gameStore, `对${target.name}使用降维打击（直辖市/香港版，花费10金币），城市被替换`)
 
       return {
         success: true,
@@ -2685,7 +2651,7 @@ export function useNonBattleSkills() {
       gameStore.initialCities[target.name][targetCityKey] = replacementCity
     }
 
-    addSkillEffectLog(gameStore, `对${target.name}使用降维打击，${targetCity.name}(${targetHp})被替换为${replacementCity.name}(${replacementCity.hp})`)
+    addSkillEffectLog(gameStore, `对${target.name}使用降维打击，城市被替换`)
 
     return {
       success: true,
@@ -2785,7 +2751,7 @@ export function useNonBattleSkills() {
 
     // 检查并消耗保护罩/钢铁护盾
     if (gameStore.consumeProtection(target.name, cityName)) {
-      addSkillEffectLog(gameStore, `定时爆破被${target.name}的${targetCity.name}护盾抵消`)
+      addSkillEffectLog(gameStore, `定时爆破被${target.name}的城市护盾抵消`)
       return {
         success: true,
         message: `效果被护盾抵消`
@@ -2807,8 +2773,8 @@ export function useNonBattleSkills() {
       gameStore,
       caster.name,
       '定时爆破',
-      `${caster.name}对${target.name}的${targetCity.name}放置了定时炸弹`,
-      `${caster.name}使用了定时爆破`
+      `${caster.name}对${target.name}的城市放置了定时炸弹`,
+      `${caster.name}对${target.name}的${targetCity.name}放置了定时炸弹`
     )
 
     return {
@@ -2869,8 +2835,8 @@ export function useNonBattleSkills() {
         gameStore,
         caster.name,
         '灰飞烟灭',
-        `${caster.name}的灰飞烟灭击破了${target.name}的${targetCity.name}护盾${isMunicipality ? '（直辖市/特区，花费12金币）' : ''}`,
-        `${caster.name}使用了灰飞烟灭`
+        `${caster.name}的灰飞烟灭击破了${target.name}的城市护盾${isMunicipality ? '（直辖市/特区，花费12金币）' : ''}`,
+        `${caster.name}的灰飞烟灭击破了${target.name}的${targetCity.name}护盾`
       )
       return {
         success: true,
@@ -2894,8 +2860,8 @@ export function useNonBattleSkills() {
       gameStore,
       caster.name,
       '灰飞烟灭',
-      `${caster.name}灰飞烟灭了${target.name}的${targetCity.name}${isMunicipality ? '（直辖市/特区，花费12金币）' : ''}，冷却5回合`,
-      `${caster.name}使用了灰飞烟灭`
+      `${caster.name}灰飞烟灭了${target.name}的城市${isMunicipality ? '（直辖市/特区，花费12金币）' : ''}，冷却5回合`,
+      `${caster.name}灰飞烟灭了${target.name}的${targetCity.name}，冷却5回合`
     )
 
     return {
@@ -3053,8 +3019,8 @@ export function useNonBattleSkills() {
         gameStore,
         caster.name,
         '连锁反应',
-        `${caster.name}的连锁反应击破了${target.name}的${targetCity.name}护盾`,
-        `${caster.name}使用了连锁反应`
+        `${caster.name}的连锁反应击破了${target.name}的城市护盾`,
+        `${caster.name}的连锁反应击破了${target.name}的${targetCity.name}护盾`
       )
       return {
         success: true,
@@ -3084,8 +3050,8 @@ export function useNonBattleSkills() {
       gameStore,
       caster.name,
       '连锁反应',
-      `${caster.name}对${target.name}的${targetName}使用连锁反应，造成2000伤害${targetDied ? '并阵亡' : `（剩余${Math.floor(newHp)}）`}`,
-      `${caster.name}使用了连锁反应`
+      `${caster.name}对${target.name}的城市使用连锁反应，造成2000伤害${targetDied ? '并阵亡' : ''}`,
+      `${caster.name}对${target.name}的${targetName}使用连锁反应，造成2000伤害${targetDied ? '并阵亡' : `（剩余${Math.floor(newHp)}）`}`
     )
 
 
@@ -3103,7 +3069,7 @@ export function useNonBattleSkills() {
       .filter(rosterCityName => rosterCityName !== cityName && target.cities[rosterCityName] && target.cities[rosterCityName].isAlive !== false)
 
     if (otherRosterCities.length === 0) {
-      addSkillEffectLog(gameStore, `连锁反应：${targetName}阵亡，但对手无其他出阵城市`)
+      addSkillEffectLog(gameStore, `连锁反应：目标城市阵亡，但对手无其他出阵城市`)
       return {
         success: true,
         message: `${targetName}阵亡，但对手无其他出阵城市`
@@ -3117,7 +3083,7 @@ export function useNonBattleSkills() {
 
       // 检查并消耗保护罩/钢铁护盾
       if (gameStore.consumeProtection(target.name, rosterCityName)) {
-        addSkillEffectLog(gameStore, `${cName}的护盾抵消了1000伤害`)
+        addSkillEffectLog(gameStore, `${target.name}的城市护盾抵消了1000伤害`)
         return
       }
 
@@ -3137,7 +3103,7 @@ export function useNonBattleSkills() {
     // 如果没有城市因1000伤害阵亡，结束
     if (deadFrom1000.length === 0) {
       const affectedNames = otherRosterCities.map(rosterCityName => target.cities[rosterCityName].name).join('、')
-      addSkillEffectLog(gameStore, `连锁反应：${targetName}阵亡，其余出阵城市（${affectedNames}）各受1000伤害`)
+      addSkillEffectLog(gameStore, `连锁反应：目标城市阵亡，其余出阵城市各受1000伤害`)
       return {
         success: true,
         message: `${targetName}阵亡，其余出阵城市各受1000伤害`
@@ -3145,15 +3111,15 @@ export function useNonBattleSkills() {
     }
 
     // 阶段3：有城市因1000伤害阵亡，对仍存活的出阵城市额外造成500伤害
-    const stillAlive = otherRosterCities.filter(idx => target.cities[idx].isAlive !== false)
+    const stillAlive = otherRosterCities.filter(rosterCityName => target.cities[rosterCityName].isAlive !== false)
     const deadFrom500 = []
 
-    stillAlive.forEach(idx => {
-      const city = target.cities[idx]
+    stillAlive.forEach(rosterCityName => {
+      const city = target.cities[rosterCityName]
       const cityName = city.name
 
       // 检查并消耗保护罩/钢铁护盾
-      if (gameStore.consumeProtection(target.name, idx)) {
+      if (gameStore.consumeProtection(target.name, rosterCityName)) {
         addSkillEffectLog(gameStore, `${cityName}的护盾抵消了500伤害`)
         return
       }
@@ -4022,11 +3988,9 @@ export function useNonBattleSkills() {
     // 计算平均HP
     const avgHp = Math.round((targetCity.hp + myCity.hp) / 2)
 
-    // 设置HP
+    // 设置HP（只改 currentHp，保留 hp/max HP）
     targetCity.city.currentHp = avgHp
-    targetCity.city.hp = avgHp
     myCity.city.currentHp = avgHp
-    myCity.city.hp = avgHp
 
     // 将对手被选中的城市标记为已知
     gameStore.setCityKnown(target.name, targetCity.city.name, caster.name)
@@ -4176,8 +4140,8 @@ export function useNonBattleSkills() {
       gameStore,
       caster.name,
       '天灾人祸',
-      `${caster.name}对${target.name}的${targetCity.name}使用了天灾人祸，该城市攻击力变为1，持续2回合`,
-      `${caster.name}使用了天灾人祸`
+      `${caster.name}对${target.name}的城市使用了天灾人祸，该城市攻击力变为1，持续2回合`,
+      `${caster.name}对${target.name}的${targetCity.name}使用了天灾人祸，攻击力变为1，持续2回合`
     )
 
     return {
@@ -4298,8 +4262,8 @@ export function useNonBattleSkills() {
       gameStore,
       caster.name,
       '避而不见',
-      `${caster.name}对${target.name}的${targetCity.name}使用了避而不见，该城市${duration}回合无法出战`,
-      `${caster.name}使用了避而不见`
+      `${caster.name}对${target.name}的城市使用了避而不见，该城市${duration}回合无法出战`,
+      `${caster.name}对${target.name}的${targetCity.name}使用了避而不见，${duration}回合无法出战`
     )
 
     return {
@@ -4586,10 +4550,10 @@ export function useNonBattleSkills() {
       }
 
       // 提取需要1金币
-      if (caster.gold < 1) {
+      if (caster.gold < HP_BANK_WITHDRAW_COST) {
         return { success: false, message: '金币不足，提取需要1金币！' }
       }
-      caster.gold -= 1
+      caster.gold -= HP_BANK_WITHDRAW_COST
 
       // 提取指定HP
       selfCity.currentHp = (selfCity.currentHp || selfCity.hp) + amount
@@ -4679,9 +4643,9 @@ export function useNonBattleSkills() {
     addSkillUsageLog(
       gameStore,
       caster.name,
-      '了海市蜃楼',
+      '海市蜃楼',
       `${caster.name}使用了海市蜃楼，创建中心投影，持续5回合（75%概率拦截对中心的伤害）`,
-      `${caster.name}使用了了海市蜃楼`
+      `${caster.name}使用了海市蜃楼`
     )
 
     return {
@@ -4810,9 +4774,9 @@ export function useNonBattleSkills() {
     addSkillUsageLog(
       gameStore,
       caster.name,
-      '了解除封锁',
+      '解除封锁',
       `${caster.name}使用了解除封锁，${skillName}的禁用状态已解除`,
-      `${caster.name}使用了了解除封锁`
+      `${caster.name}使用了解除封锁`
     )
 
     return {
@@ -4904,8 +4868,8 @@ export function useNonBattleSkills() {
       gameStore,
       caster.name,
       '数位反转',
-      `${caster.name}对${targetPlayer.name}的${targetCity.name}使用了数位反转（${costMsg}），HP从${Math.floor(currentHp)}变为${newHp}（每局限1次）`,
-      `${caster.name}使用了数位反转`
+      `${caster.name}对${targetPlayer.name}的城市使用了数位反转（${costMsg}）（每局限1次）`,
+      `${caster.name}对${targetPlayer.name}的${targetCity.name}使用了数位反转，HP从${Math.floor(currentHp)}变为${newHp}`
     )
 
     return {
@@ -5382,6 +5346,18 @@ export function useNonBattleSkills() {
       clearedEffects.push('潜能激发溢出')
     }
 
+    // 8. 清除对方的海市蜃楼
+    if (gameStore.mirage && gameStore.mirage[target.name]) {
+      delete gameStore.mirage[target.name]
+      clearedEffects.push('海市蜃楼')
+    }
+
+    // 9. 清除金融危机（全局效果）
+    if (gameStore.financialCrisis && gameStore.financialCrisis.roundsLeft > 0) {
+      gameStore.financialCrisis = null
+      clearedEffects.push('金融危机')
+    }
+
     if (clearedEffects.length === 0) {
       // 双日志
       addSkillUsageLog(
@@ -5462,8 +5438,8 @@ export function useNonBattleSkills() {
       gameStore,
       caster.name,
       '言听计从',
-      `${caster.name}对${target.name}使用了言听计从，要求本回合出战${targetCity.name}，否则将被抢夺`,
-      `${caster.name}使用了言听计从`
+      `${caster.name}对${target.name}使用了言听计从，要求本回合出战指定城市，否则将被抢夺`,
+      `${caster.name}对${target.name}使用了言听计从，要求出战${targetCity.name}，否则将被抢夺`
     )
 
     return {
@@ -5619,7 +5595,7 @@ export function useNonBattleSkills() {
 
     // 检查是否是省会（需要省会判断逻辑）
     // 简化：假设城市有isCapitalCity属性或根据名称判断
-    const isCapital = capital.isCapitalCity || gameStore.isCapitalCity(capital.name)
+    const isCapital = capital.isCapitalCity || isCapitalCity(capital.name)
     if (!isCapital) {
       return { success: false, message: '目标城市不是省会城市' }
     }
@@ -5950,8 +5926,8 @@ export function useNonBattleSkills() {
     // 检查战斗预备城市数量是否不足
     const mode = gameStore.gameMode || '2P'
     const requiredRosterSize = (mode === '2v2') ? 4 : 5
-    const aliveRosterCities = (gameStore.roster[caster.name] || []).filter(idx => {
-      const city = caster.cities[idx]
+    const aliveRosterCities = (gameStore.roster[caster.name] || []).filter(rosterCityName => {
+      const city = caster.cities[rosterCityName]
       return city && (city.currentHp || city.hp) > 0
     })
 
@@ -6357,11 +6333,11 @@ export function useNonBattleSkills() {
     }
 
     // 检查是否是省会
-    if (gameStore.isCapitalCity(myCity.name, myProv)) {
+    if (isCapitalCity(myCity.name, myProv)) {
       return { success: false, message: '己方城市是省会，无法使用拔旗易帜' }
     }
 
-    if (gameStore.isCapitalCity(oppCity.name, oppProv)) {
+    if (isCapitalCity(oppCity.name, oppProv)) {
       return { success: false, message: '对方城市是省会，无法使用拔旗易帜' }
     }
 
@@ -6622,7 +6598,7 @@ export function useNonBattleSkills() {
       }
     }
 
-    addSkillEffectLog(gameStore, `${caster.name}抢夺了${target.name}的${targetCityName}，HP恢复至${initialHp}`)
+    addSkillEffectLog(gameStore, `${caster.name}抢夺了${target.name}的城市，HP恢复至${initialHp}`)
 
     // === Step 2: 从未使用城市池抽取同省城市 ===
     const province = gameStore.getProvinceOfCity(targetCityName)
@@ -6694,8 +6670,8 @@ export function useNonBattleSkills() {
       gameStore,
       caster.name,
       '以礼来降',
-      `${caster.name}对${target.name}的${targetCityName}使用了以礼来降，抢夺该城市并恢复HP至${initialHp}${bonusMsg}`,
-      `${caster.name}使用了以礼来降`
+      `${caster.name}对${target.name}的城市使用了以礼来降，抢夺该城市`,
+      `${caster.name}对${target.name}的${targetCityName}使用了以礼来降，抢夺该城市并恢复HP至${initialHp}${bonusMsg}`
     )
 
     return {
@@ -6960,9 +6936,9 @@ export function useNonBattleSkills() {
     addSkillUsageLog(
       gameStore,
       caster.name,
-      '了强制转移·普通',
+      '强制转移·普通',
       `${caster.name}对${target.name}使用了强制转移·普通，${centerCity.name}被淘汰，${target.name}需要选择新的中心城市`,
-      `${caster.name}使用了了强制转移·普通`
+      `${caster.name}使用了强制转移·普通`
     )
 
     return {
@@ -7059,9 +7035,9 @@ export function useNonBattleSkills() {
     addSkillUsageLog(
       gameStore,
       caster.name,
-      '了强制转移·高级',
+      '强制转移·高级',
       `${caster.name}对${target.name}使用了强制转移·高级，${oldCenterCity?.name}被淘汰，${newCenterCity.name}成为新的中心城市`,
-      `${caster.name}使用了了强制转移·高级`
+      `${caster.name}使用了强制转移·高级`
     )
 
     return {
@@ -7155,9 +7131,9 @@ export function useNonBattleSkills() {
     addSkillUsageLog(
       gameStore,
       caster.name,
-      '了夷为平地',
-      `${caster.name}对${target.name}使用了夷为平地，摧毁了钢铁中心城市${targetCity.name}，${target.name}需要选择新的中心城市`,
-      `${caster.name}使用了了夷为平地`
+      '夷为平地',
+      `${caster.name}对${target.name}使用了夷为平地，摧毁了钢铁中心城市，${target.name}需要选择新的中心城市`,
+      `${caster.name}对${target.name}使用了夷为平地，摧毁了钢铁中心城市${targetCity.name}`
     )
 
         return {
@@ -7187,8 +7163,8 @@ export function useNonBattleSkills() {
       gameStore,
       caster.name,
       '了夷为平地',
-      `${caster.name}对${target.name}使用了夷为平地，摧毁了钢铁副中心${targetCity.name}，HP降至${Math.floor(targetCity.currentHp)}`,
-      `${caster.name}使用了了夷为平地`
+      `${caster.name}对${target.name}使用了夷为平地，摧毁了钢铁副中心城市`,
+      `${caster.name}对${target.name}使用了夷为平地，摧毁了钢铁副中心${targetCity.name}，HP降至${Math.floor(targetCity.currentHp)}`
     )
 
           return {
@@ -7218,8 +7194,8 @@ export function useNonBattleSkills() {
       gameStore,
       caster.name,
       '了夷为平地',
-      `${caster.name}对${target.name}使用了夷为平地，摧毁了钢铁城市${targetCity.name}`,
-      `${caster.name}使用了了夷为平地`
+      `${caster.name}对${target.name}使用了夷为平地，摧毁了钢铁城市`,
+      `${caster.name}对${target.name}使用了夷为平地，摧毁了钢铁城市${targetCity.name}`
     )
 
           return {
@@ -7256,47 +7232,43 @@ export function useNonBattleSkills() {
       if (!city || city.currentHp <= 0 || city.isAlive === false) return
 
       // 检查是否为直辖市、特别行政区、省会、首府、计划单列市
-      const isSpecialCity = gameStore.isCapitalCity(city.name) ||
-                           gameStore.isPlanCity(city.name) ||
-                           gameStore.isMunicipality(city.name) ||
-                           gameStore.isSpecialAdministrativeRegion(city.name)
+      const isSpecialCity = isCapitalCity(city.name) ||
+                           isPlanCity(city.name) ||
+                           isMunicipality(city.name) ||
+                           isSpecialAdministrativeRegion(city.name)
 
       if (isSpecialCity) {
-        const beforeHp = city.hp
-        city.hp = city.hp * 3
+        const currentHpVal = city.currentHp !== undefined ? city.currentHp : city.hp
+        const beforeHp = currentHpVal
+        const newHp = currentHpVal * 3
 
-        // 应用HP上限
-        const currentHp = city.currentHp || city.hp
-        if (currentHp > city.hp) {
-          city.currentHp = city.hp
-        }
-
-        // 同步更新initialCities中的HP
-        if (gameStore.initialCities[caster.name] &&
-            gameStore.initialCities[caster.name][cityName]) {
-          gameStore.initialCities[caster.name][cityName].hp = city.hp
-        }
+        // 应用HP上限：baseHp>30000 → 上限100000，否则上限80000
+        const baseHp = city.baseHp || city.hp
+        const hpCap = (baseHp > 30000) ? 100000 : 80000
+        city.currentHp = Math.min(newHp, hpCap)
+        // 不修改 city.hp（max HP），只有一落千丈/连续打击可以改 max HP
 
         adminCitiesToBoost.push({
           name: city.name,
           before: Math.floor(beforeHp),
-          after: Math.floor(city.hp)
+          after: Math.floor(city.currentHp)
         })
       }
     })
 
     if (adminCitiesToBoost.length === 0) {
-      // 双日志
+      // 双日志：公开只显示使用了技能
       addSkillUsageLog(
         gameStore,
         caster.name,
         '行政中心',
-        `${caster.name}使用了行政中心，但没有符合条件的城市`,
-        `${caster.name}使用了行政中心`
+        `${caster.name}使用了行政中心`,
+        `你使用了行政中心，但没有符合条件的城市`
       )
       return {
         success: true,
-        message: '没有符合条件的城市（需要直辖市、特别行政区、省会、首府或计划单列市）'
+        message: '没有符合条件的城市（需要直辖市、特别行政区、省会、首府或计划单列市）',
+        hidePublicLog: true
       }
     }
 
@@ -7304,18 +7276,19 @@ export function useNonBattleSkills() {
       `${c.name}(${c.before}→${c.after})`
     ).join('、')
 
-    // 双日志
+    // 双日志：公开只显示使用了技能，详情为私密
     addSkillUsageLog(
       gameStore,
       caster.name,
       '行政中心',
-      `${caster.name}使用了行政中心，提升了${adminCitiesToBoost.length}座城市：${summary}`,
-      `${caster.name}使用了行政中心`
+      `${caster.name}使用了行政中心`,
+      `你使用了行政中心，提升了${adminCitiesToBoost.length}座城市：${summary}`
     )
 
     return {
       success: true,
       message: `成功提升${adminCitiesToBoost.length}座特殊城市的HP（×3）`,
+      hidePublicLog: true,
       data: {
         boosted: adminCitiesToBoost
       }
@@ -7347,7 +7320,7 @@ export function useNonBattleSkills() {
     }
 
     // 检查是否已经是省会
-    const isCapital = selfCity.isCapitalCity || gameStore.isCapitalCity(selfCity.name, prov)
+    const isCapital = selfCity.isCapitalCity || isCapitalCity(selfCity.name, prov)
 
     if (isCapital) {
       return { success: false, message: '该城市已经是省会城市，无需代行省权' }
@@ -8207,7 +8180,7 @@ export function useNonBattleSkills() {
     gameStore.lastSkillUsed = {
       userName: caster.name,
       skillName: '城市侦探',
-      cost: 1,
+      cost: SKILL_COSTS['城市侦探'],
       roundNumber: gameStore.currentRound,
       timestamp: Date.now()
     }
@@ -8401,7 +8374,7 @@ export function useNonBattleSkills() {
     gameStore.lastSkillUsed = {
       userName: caster.name,
       skillName: '一举两得',
-      cost: 3,
+      cost: SKILL_COSTS['一举两得'],
       roundNumber: gameStore.currentRound,
       timestamp: Date.now()
     }
@@ -8449,7 +8422,7 @@ export function useNonBattleSkills() {
     const oppState = gameStore.playerStates[target.name]
     if (!oppState || !oppState.currentBattleCities || oppState.currentBattleCities.length === 0) {
       // 对方未部署，返还金币
-      caster.gold += 3
+      caster.gold += SKILL_COSTS['一举两得']
       return {
         success: false,
         message: `${target.name}还未部署城市！金币已返还`
@@ -8631,7 +8604,7 @@ export function useNonBattleSkills() {
 
     if (myProvinces.size === 0) {
       // 返还金币
-      caster.gold += 23
+      caster.gold += SKILL_COSTS['四面楚歌']
       // 双日志
       addSkillUsageLog(
         gameStore,
@@ -8649,7 +8622,7 @@ export function useNonBattleSkills() {
     // 确定是否有中心城市概念（仅2P和2v2）
     const gameMode = gameStore.gameMode || '2P'
     const hasCenterCity = (gameMode === '2P' || gameMode === '2v2')
-    const oppCenterIndex = hasCenterCity ? target.centerCityName : null
+    const oppCenterName = hasCenterCity ? target.centerCityName : null
 
     const transferredCities = []
     const halvedCities = []
@@ -8658,7 +8631,7 @@ export function useNonBattleSkills() {
     // 第一阶段：对手所有非中心的特殊城市HP全部减半
     for (const [ci, city] of Object.entries(target.cities)) {
       if (!city || (city.currentHp || city.hp) <= 0) continue
-      if (hasCenterCity && ci === oppCenterIndex) continue
+      if (hasCenterCity && ci === oppCenterName) continue
 
       const effectiveName = getEffectiveName(target.name, ci)
       const isSpecial = isCapitalCity(effectiveName) ||
@@ -8707,7 +8680,7 @@ export function useNonBattleSkills() {
     const citiesToRemove = []
     for (const [ci, city] of Object.entries(target.cities)) {
       if (!city || (city.currentHp || city.hp) <= 0) continue
-      if (hasCenterCity && ci === oppCenterIndex) continue
+      if (hasCenterCity && ci === oppCenterName) continue
 
       const effectiveName = getEffectiveName(target.name, ci)
       const isSpecial = isCapitalCity(effectiveName) ||
@@ -8750,7 +8723,7 @@ export function useNonBattleSkills() {
         // 普通城市：正常归顺
         transferredCities.push({
           cityObj: JSON.parse(JSON.stringify(city)),
-          originalIndex: ci
+          originalCityName: ci
         })
         citiesToRemove.push(ci)
       }
@@ -8761,7 +8734,7 @@ export function useNonBattleSkills() {
     for (const item of transferredCities) {
       let initialCity = null
       if (gameStore.initialCities && gameStore.initialCities[target.name]) {
-        initialCity = gameStore.initialCities[target.name][item.originalIndex]
+        initialCity = gameStore.initialCities[target.name][item.originalCityName]
       }
       transferredInitialCities.push(initialCity || { name: item.cityObj.name, hp: item.cityObj.hp })
     }
@@ -8869,7 +8842,7 @@ export function useNonBattleSkills() {
     gameStore.lastSkillUsed = {
       userName: caster.name,
       skillName: '四面楚歌',
-      cost: 23,
+      cost: SKILL_COSTS['四面楚歌'],
       roundNumber: gameStore.currentRound,
       timestamp: Date.now()
     }
@@ -8982,7 +8955,7 @@ export function useNonBattleSkills() {
     gameStore.lastSkillUsed = {
       userName: caster.name,
       skillName: '博学多才',
-      cost: 6,
+      cost: SKILL_COSTS['博学多才'],
       roundNumber: gameStore.currentRound,
       timestamp: Date.now()
     }

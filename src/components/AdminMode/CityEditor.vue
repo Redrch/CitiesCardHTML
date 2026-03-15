@@ -16,11 +16,11 @@
       <!-- 城市列表 -->
       <div v-if="selectedPlayer" class="scroll" style="max-height: 500px;">
         <div
-          v-for="(city, index) in selectedPlayer.cities"
-          :key="index"
+          v-for="(city, cityName) in selectedPlayer.cities"
+          :key="cityName"
           class="city-edit-card"
-          :class="{ 'city-dead': !city.isAlive, 'city-selected': selectedCityIndex === index }"
-          @click="selectCity(index)"
+          :class="{ 'city-dead': !city.isAlive, 'city-selected': selectedCityKey === cityName }"
+          @click="selectCity(cityName)"
         >
           <div class="city-header">
             <strong>{{ city.name }}</strong>
@@ -29,7 +29,7 @@
             </span>
           </div>
 
-          <div v-if="selectedCityIndex === index" class="city-edit-form">
+          <div v-if="selectedCityKey === cityName" class="city-edit-form">
             <!-- HP编辑 -->
             <div class="edit-section">
               <label>当前HP</label>
@@ -127,7 +127,7 @@
                 <button class="btn" @click="reviveCity(city)">复活城市</button>
                 <button class="btn" @click="killCity(city)">击杀城市</button>
                 <button class="btn" @click="clearModifiers(city)">清除加成</button>
-                <button class="btn" @click="resetCity(city, index)">重置城市</button>
+                <button class="btn" @click="resetCity(city, cityName)">重置城市</button>
               </div>
             </div>
 
@@ -183,18 +183,18 @@ const props = defineProps({
 const emit = defineEmits(['city-modified'])
 
 const selectedPlayerName = ref('')
-const selectedCityIndex = ref(null)
+const selectedCityKey = ref(null)
 
 const selectedPlayer = computed(() => {
   return props.players.find(p => p.name === selectedPlayerName.value)
 })
 
 function onPlayerChange() {
-  selectedCityIndex.value = null
+  selectedCityKey.value = null
 }
 
-function selectCity(index) {
-  selectedCityIndex.value = selectedCityIndex.value === index ? null : index
+function selectCity(cityName) {
+  selectedCityKey.value = selectedCityKey.value === cityName ? null : cityName
 }
 
 function setHpToMax(city) {
@@ -246,8 +246,8 @@ function clearModifiers(city) {
   emitChange(`${city.name} 的所有加成已清除`)
 }
 
-function resetCity(city, index) {
-  const originalCity = selectedPlayer.value.cities[index]
+function resetCity(city, cityName) {
+  const originalCity = selectedPlayer.value.cities[cityName]
   city.currentHp = city.hp
   city.isAlive = true
   city.isFatigued = false
@@ -266,7 +266,7 @@ function removeModifier(city, modifierIndex) {
 function emitChange(message) {
   emit('city-modified', {
     player: selectedPlayerName.value,
-    city: selectedPlayer.value?.cities[selectedCityIndex.value],
+    city: selectedPlayer.value?.cities[selectedCityKey.value],
     message
   })
 }
@@ -281,7 +281,7 @@ function emitChange(message) {
   padding: 10px;
   margin-bottom: 8px;
   background: var(--bg);
-  border: 1px solid #1f2937;
+  border: 1px solid #e2e8f0;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
@@ -289,12 +289,12 @@ function emitChange(message) {
 
 .city-edit-card:hover {
   border-color: var(--accent);
-  background: #0e1526;
+  background: rgba(59, 130, 246, 0.06);
 }
 
 .city-edit-card.city-selected {
   border-color: var(--accent);
-  background: #18314f;
+  background: rgba(59, 130, 246, 0.1);
   cursor: default;
 }
 
@@ -312,7 +312,7 @@ function emitChange(message) {
 .city-edit-form {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #1f2937;
+  border-top: 1px solid #e2e8f0;
 }
 
 .city-summary {

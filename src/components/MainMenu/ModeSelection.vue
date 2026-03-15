@@ -80,7 +80,7 @@ function showComingSoon() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  background: linear-gradient(150deg, #2a2340 0%, #1e2a4a 30%, #2a3a5c 60%, #3a2a4a 100%);
   padding: 20px;
   position: relative;
   overflow: hidden;
@@ -94,7 +94,7 @@ function showComingSoon() {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+  background: radial-gradient(ellipse at 20% 30%, rgba(212, 160, 23, 0.12) 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
   animation: rotate 30s linear infinite;
 }
 
@@ -116,11 +116,11 @@ function showComingSoon() {
   position: absolute;
   top: 0;
   left: 0;
-  background: rgba(30, 41, 59, 0.8);
-  border: 2px solid rgba(148, 163, 184, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
   padding: 12px 24px;
-  color: #e2e8f0;
+  color: rgba(255, 255, 255, 0.85);
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
@@ -128,12 +128,12 @@ function showComingSoon() {
   display: flex;
   align-items: center;
   gap: 8px;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
 }
 
 .back-btn:hover {
-  background: rgba(51, 65, 85, 0.9);
-  border-color: rgba(148, 163, 184, 0.5);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.25);
   transform: translateX(-4px);
 }
 
@@ -151,18 +151,18 @@ function showComingSoon() {
 .title-text {
   font-size: 56px;
   font-weight: 900;
-  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
+  background: linear-gradient(135deg, #f0c850 0%, #d4a017 40%, #e8c24a 60%, #f5d76e 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin: 0;
-  text-shadow: 0 0 40px rgba(59, 130, 246, 0.5);
+  filter: drop-shadow(0 0 20px rgba(212, 160, 23, 0.3));
   letter-spacing: 4px;
 }
 
 .subtitle {
   font-size: 16px;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.45);
   margin: 10px 0 0 0;
   font-weight: 300;
   letter-spacing: 2px;
@@ -179,15 +179,15 @@ function showComingSoon() {
 }
 
 .mode-card {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.05) 100%);
-  border: 2px solid rgba(59, 130, 246, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.12);
   border-radius: 24px;
   padding: 40px 32px;
   cursor: pointer;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
   text-align: left;
 }
 
@@ -198,7 +198,7 @@ function showComingSoon() {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%);
+  background: linear-gradient(135deg, rgba(212, 160, 23, 0.06) 0%, rgba(139, 92, 246, 0.04) 100%);
   opacity: 0;
   transition: opacity 0.4s ease;
 }
@@ -209,9 +209,10 @@ function showComingSoon() {
 
 .mode-card:hover {
   transform: translateY(-8px) scale(1.02);
-  border-color: rgba(59, 130, 246, 0.6);
-  box-shadow: 0 20px 60px rgba(59, 130, 246, 0.3),
-              0 0 0 1px rgba(59, 130, 246, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3),
+              0 0 30px rgba(212, 160, 23, 0.1),
+              0 0 0 1px rgba(255, 255, 255, 0.15);
 }
 
 .mode-card:active {
@@ -233,14 +234,14 @@ function showComingSoon() {
 .mode-title {
   font-size: 32px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: #ffffff;
   margin: 0 0 12px 0;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  text-shadow: none;
 }
 
 .mode-desc {
   font-size: 16px;
-  color: #cbd5e1;
+  color: rgba(255, 255, 255, 0.45);
   margin: 0 0 20px 0;
   font-weight: 400;
 }
@@ -253,7 +254,7 @@ function showComingSoon() {
 
 .mode-features li {
   font-size: 14px;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.5);
   margin-bottom: 8px;
   padding-left: 0;
 }
@@ -271,37 +272,37 @@ function showComingSoon() {
 }
 
 .mode-badge.recommended {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+  background: linear-gradient(135deg, #0d9668 0%, #047852 100%);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
 .mode-badge.hot {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+  background: linear-gradient(135deg, #e07b2a 0%, #d4910b 100%);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
 }
 
 .mode-badge.coming-soon-badge {
-  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
-  box-shadow: 0 4px 12px rgba(100, 116, 139, 0.4);
+  background: linear-gradient(135deg, #4a5568 0%, #374151 100%);
+  box-shadow: 0 4px 12px rgba(74, 85, 104, 0.4);
   animation: none;
 }
 
 /* 敬请期待卡片 */
 .mode-card.coming-soon {
-  opacity: 0.6;
-  border-color: rgba(100, 116, 139, 0.3);
-  background: linear-gradient(135deg, rgba(100, 116, 139, 0.1) 0%, rgba(71, 85, 105, 0.05) 100%);
+  opacity: 0.5;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .mode-card.coming-soon:hover {
   transform: translateY(-4px) scale(1.01);
-  border-color: rgba(100, 116, 139, 0.5);
-  box-shadow: 0 12px 40px rgba(100, 116, 139, 0.2);
-  opacity: 0.75;
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  opacity: 0.65;
 }
 
 .mode-card.coming-soon::before {
-  background: linear-gradient(135deg, rgba(100, 116, 139, 0.1) 0%, transparent 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, transparent 100%);
 }
 
 /* Toast 提示 */
@@ -310,15 +311,15 @@ function showComingSoon() {
   top: 80px;
   left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%);
-  border: 2px solid rgba(100, 116, 139, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.15);
   border-radius: 16px;
   padding: 16px 32px;
-  color: #e2e8f0;
+  color: rgba(255, 255, 255, 0.85);
   font-size: 16px;
   font-weight: 600;
   backdrop-filter: blur(12px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
   z-index: 1000;
   white-space: nowrap;
 }
@@ -365,7 +366,7 @@ function showComingSoon() {
 
 .hint-text p {
   font-size: 14px;
-  color: #64748b;
+  color: rgba(255, 255, 255, 0.4);
   margin: 0;
   font-weight: 400;
 }

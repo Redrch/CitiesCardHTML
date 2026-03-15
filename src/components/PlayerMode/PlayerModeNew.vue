@@ -157,6 +157,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useGameStore } from '../../stores/gameStore'
+import { useDialog } from '../../composables/useDialog'
 import { useGameLogic } from '../../composables/game/useGameLogic'
 import { ALL_CITIES } from '../../data/cities'
 import GameBoard from '../Game/GameBoard.vue'
@@ -168,6 +169,7 @@ const emit = defineEmits(['exit'])
 
 const gameStore = useGameStore()
 const gameLogic = useGameLogic()
+const { showAlert, showConfirm } = useDialog()
 
 const nickname = ref('')
 const selectedMode = ref('2P')
@@ -208,8 +210,8 @@ function confirmCities() {
   gameStarted.value = true
 }
 
-function handleExit() {
-  if (confirm('确定要退出游戏吗？')) {
+async function handleExit() {
+  if (await showConfirm('确定要退出游戏吗？', { title: '退出游戏', icon: '🚪' })) {
     gameLogic.resetGame()
     gameStarted.value = false
     drawnCities.value = []
@@ -231,14 +233,14 @@ function handleEndTurn(player) {
   }
 }
 
-function handleHealCity(player, cityName) {
+async function handleHealCity(player, cityName) {
   const result = gameLogic.healCity(player, cityName)
   if (!result.success) {
-    alert(result.message)
+    await showAlert(result.message, { title: '治疗失败', icon: '❌' })
   }
 }
 
-function handleQuickSkill(skill) {
+async function handleQuickSkill(skill) {
   // 根据技能名称执行相应操作
   const target = gameStore.players.find(p => p.name !== currentPlayer.value?.name)
 
@@ -247,25 +249,25 @@ function handleQuickSkill(skill) {
     if (injuredCity) {
       handleHealCity(currentPlayer.value, injuredCity.name)
     } else {
-      alert('没有受伤的城市需要治疗')
+      await showAlert('没有受伤的城市需要治疗', { title: '提示', icon: '💡' })
     }
   } else if (skill.name === '城市保护') {
     const centerCity = Object.values(currentPlayer.value.cities).find(c => c.isCenter && c.isAlive)
     if (centerCity) {
       const result = gameLogic.useSkill('城市保护', [centerCity])
       if (!result.success) {
-        alert(result.message)
+        await showAlert(result.message, { title: '技能失败', icon: '❌' })
       }
     }
   } else if (skill.name === '金币贷款') {
     const result = gameLogic.useSkill('金币贷款', [])
     if (!result.success) {
-      alert(result.message)
+      await showAlert(result.message, { title: '技能失败', icon: '❌' })
     }
   }
 }
 
-function handleSkillSelected(skillData) {
+async function handleSkillSelected(skillData) {
   console.log('Skill selected:', skillData)
   showSkillSelector.value = false
 
@@ -276,7 +278,7 @@ function handleSkillSelected(skillData) {
   const result = gameLogic.useSkill(skillData.skill.name, skillData.params || [])
 
   if (!result.success) {
-    alert(result.message || '技能使用失败')
+    await showAlert(result.message || '技能使用失败', { title: '技能失败', icon: '❌' })
   }
 }
 
@@ -291,7 +293,7 @@ function restartGame() {
 <style scoped>
 #playerMode {
   min-height: 100vh;
-  background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+  background: linear-gradient(135deg, #bfdbfe 0%, #c7d2fe 50%, #ddd6fe 100%);
 }
 
 .player-setup {
@@ -307,11 +309,11 @@ function restartGame() {
   top: 20px;
   left: 20px;
   padding: 12px 24px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(10px);
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(209, 217, 230, 0.7);
   border-radius: 8px;
-  color: white;
+  color: #334155;
   font-weight: bold;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -319,26 +321,26 @@ function restartGame() {
 }
 
 .exit-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(59, 130, 246, 0.08);
   transform: translateX(-4px);
 }
 
 .setup-container {
   max-width: 900px;
   width: 100%;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.80);
   backdrop-filter: blur(20px);
   border-radius: 24px;
   padding: 40px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 60px rgba(100, 116, 145, 0.12);
 }
 
 .setup-title {
   text-align: center;
-  color: white;
+  color: #1e293b;
   font-size: 36px;
   margin: 0 0 40px 0;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  text-shadow: none;
 }
 
 .setup-section {
@@ -347,7 +349,7 @@ function restartGame() {
 
 .setup-label {
   display: block;
-  color: white;
+  color: #1e293b;
   font-size: 16px;
   font-weight: bold;
   margin-bottom: 12px;
@@ -358,10 +360,10 @@ function restartGame() {
 .nickname-input {
   width: 100%;
   padding: 16px 20px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid rgba(209, 217, 230, 0.7);
   border-radius: 12px;
-  color: white;
+  color: #1e293b;
   font-size: 18px;
   transition: all 0.3s ease;
 }
@@ -373,7 +375,7 @@ function restartGame() {
 }
 
 .nickname-input::placeholder {
-  color: rgba(255, 255, 255, 0.5);
+  color: #94a3b8;
 }
 
 .mode-select {
@@ -384,10 +386,10 @@ function restartGame() {
 
 .mode-btn {
   padding: 20px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.85);
+  border: 2px solid rgba(209, 217, 230, 0.7);
   border-radius: 12px;
-  color: white;
+  color: #1e293b;
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
@@ -397,7 +399,7 @@ function restartGame() {
 }
 
 .mode-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.95);
   transform: translateY(-4px);
 }
 
@@ -444,7 +446,7 @@ function restartGame() {
 }
 
 .preview-title {
-  color: white;
+  color: #1e293b;
   font-size: 20px;
   margin-bottom: 20px;
   text-align: center;
@@ -485,13 +487,13 @@ function restartGame() {
 }
 
 .reroll-btn {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.85);
+  color: #334155;
+  border: 2px solid rgba(209, 217, 230, 0.7);
 }
 
 .reroll-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(59, 130, 246, 0.08);
 }
 
 /* 胜利模态框 */
@@ -501,7 +503,7 @@ function restartGame() {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.9);
+  background: rgba(30, 41, 59, 0.35);
   backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
@@ -573,10 +575,10 @@ function restartGame() {
 }
 
 .victory-title {
-  color: white;
+  color: #1e293b;
   font-size: 36px;
   margin: 0 0 32px 0;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  text-shadow: none;
   font-weight: bold;
 }
 
@@ -586,7 +588,7 @@ function restartGame() {
   gap: 16px;
   margin-bottom: 32px;
   padding: 24px;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(59, 130, 246, 0.06);
   border-radius: 12px;
 }
 
@@ -597,7 +599,7 @@ function restartGame() {
 }
 
 .stat-label {
-  color: rgba(255, 255, 255, 0.8);
+  color: #64748b;
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -646,7 +648,7 @@ function restartGame() {
   gap: 20px;
   height: 100vh;
   padding: 20px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
   overflow: hidden;
 }
 
@@ -667,7 +669,7 @@ function restartGame() {
 }
 
 .game-main-area::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(59, 130, 246, 0.06);
   border-radius: 5px;
 }
 

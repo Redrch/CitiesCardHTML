@@ -33,11 +33,13 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useGameStore } from '../stores/gameStore'
+import { useDialog } from '../composables/useDialog'
 import GameBoard from '../components/Game/GameBoard.vue'
 import GameLogFixed from '../components/Game/GameLogFixed.vue'
 import GameLog from '../components/Game/GameLog.vue'
 
 const gameStore = useGameStore()
+const { showConfirm } = useDialog()
 
 const showLogModal = ref(false)
 const showSkillsModal = ref(false)
@@ -48,8 +50,8 @@ const currentPlayer = computed(() => {
   return gameStore.players[0] || null
 })
 
-function handleExit() {
-  if (confirm('确定要退出游戏吗？')) {
+async function handleExit() {
+  if (await showConfirm('确定要退出游戏吗？', { title: '退出游戏', icon: '🚪' })) {
     // 退出逻辑
     console.log('退出游戏')
   }
@@ -80,7 +82,7 @@ function handleCityClick(player, cityName) {
   gap: 20px;
   height: 100vh;
   padding: 20px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
   overflow: hidden;
 }
 
@@ -129,7 +131,7 @@ function handleCityClick(player, cityName) {
 }
 
 .game-main-area::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(100, 116, 145, 0.14);
   border-radius: 5px;
 }
 

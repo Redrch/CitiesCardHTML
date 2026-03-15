@@ -81,8 +81,10 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 import { useGameStore } from '../../stores/gameStore'
+import { useDialog } from '../../composables/useDialog'
 
 const gameStore = useGameStore()
+const { showConfirm } = useDialog()
 const logContainer = ref(null)
 const filter = ref('all')
 const isCollapsed = ref(false)
@@ -133,8 +135,8 @@ function formatTime(timestamp) {
   return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`
 }
 
-function clearLogs() {
-  if (confirm('确定要清空所有日志吗？')) {
+async function clearLogs() {
+  if (await showConfirm('确定要清空所有日志吗？', { title: '清空日志', icon: '🗑️' })) {
     gameStore.logs = []
   }
 }
@@ -162,9 +164,9 @@ watch(() => gameStore.logs?.length, () => {
   bottom: 20px;
   width: 450px;
   max-height: 600px;
-  background: linear-gradient(135deg, #1a1f36 0%, #1e2a47 100%);
+  background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
   border-radius: 16px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 10px 40px rgba(30, 41, 59, 0.35);
   display: flex;
   flex-direction: column;
   z-index: 900;
@@ -182,8 +184,8 @@ watch(() => gameStore.logs?.length, () => {
   justify-content: space-between;
   align-items: center;
   padding: 14px 18px;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 2px solid rgba(209, 217, 230, 0.6);
+  background: rgba(100, 116, 145, 0.12);
   border-radius: 14px 14px 0 0;
 }
 
@@ -195,7 +197,7 @@ watch(() => gameStore.logs?.length, () => {
 
 .game-log__title {
   margin: 0;
-  color: white;
+  color: #1e293b;
   font-size: 16px;
   font-weight: bold;
 }
@@ -215,8 +217,8 @@ watch(() => gameStore.logs?.length, () => {
   width: 28px;
   height: 28px;
   border: none;
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  background: rgba(59, 130, 246, 0.08);
+  color: #1e293b;
   border-radius: 6px;
   font-size: 14px;
   cursor: pointer;
@@ -227,7 +229,7 @@ watch(() => gameStore.logs?.length, () => {
 }
 
 .icon-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(59, 130, 246, 0.15);
   transform: scale(1.05);
 }
 
@@ -235,15 +237,15 @@ watch(() => gameStore.logs?.length, () => {
   display: flex;
   gap: 6px;
   padding: 12px 18px;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 2px solid rgba(209, 217, 230, 0.6);
+  background: rgba(100, 116, 145, 0.08);
 }
 
 .filter-btn {
   padding: 6px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(209, 217, 230, 0.7);
+  background: rgba(59, 130, 246, 0.05);
+  color: rgba(30, 41, 59, 0.7);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -252,8 +254,8 @@ watch(() => gameStore.logs?.length, () => {
 }
 
 .filter-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  background: rgba(59, 130, 246, 0.15);
+  color: #1e293b;
 }
 
 .filter-btn--active {
@@ -275,7 +277,7 @@ watch(() => gameStore.logs?.length, () => {
   gap: 10px;
   padding: 10px 12px;
   margin-bottom: 6px;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(100, 116, 145, 0.08);
   border-radius: 8px;
   border-left: 3px solid;
   transition: all 0.2s ease;
@@ -283,7 +285,7 @@ watch(() => gameStore.logs?.length, () => {
 }
 
 .log-entry:hover {
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(100, 116, 145, 0.12);
   transform: translateX(3px);
 }
 
@@ -300,7 +302,7 @@ watch(() => gameStore.logs?.length, () => {
 }
 
 .log-entry__time {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(30, 41, 59, 0.6);
   font-size: 11px;
   font-family: 'Courier New', monospace;
   min-width: 55px;
@@ -314,7 +316,7 @@ watch(() => gameStore.logs?.length, () => {
 
 .log-entry__message {
   flex: 1;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(30, 41, 59, 0.9);
   line-height: 1.4;
   word-break: break-word;
 }
@@ -326,7 +328,7 @@ watch(() => gameStore.logs?.length, () => {
   justify-content: center;
   gap: 12px;
   padding: 40px 20px;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(30, 41, 59, 0.5);
 }
 
 .log-empty__icon {
@@ -343,17 +345,17 @@ watch(() => gameStore.logs?.length, () => {
 }
 
 .game-log__content::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(100, 116, 145, 0.08);
   border-radius: 3px;
 }
 
 .game-log__content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(59, 130, 246, 0.15);
   border-radius: 3px;
 }
 
 .game-log__content::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(59, 130, 246, 0.2);
 }
 
 /* 响应式调整 */

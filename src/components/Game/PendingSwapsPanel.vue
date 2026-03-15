@@ -88,6 +88,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useGameStore } from '../../stores/gameStore'
 import { useNonBattleSkills } from '../../composables/skills/nonBattleSkills'
+import { useDialog } from '../../composables/useDialog'
 
 const props = defineProps({
   currentPlayer: {
@@ -100,37 +101,12 @@ const emit = defineEmits(['swap-accepted', 'swap-rejected'])
 
 const gameStore = useGameStore()
 const { acceptPreemptiveStrike, rejectPreemptiveStrike } = useNonBattleSkills()
+const { showAlert, showConfirm } = useDialog()
 const selectedCityName = ref(null)
-
-onMounted(() => {
-  console.log('[PendingSwapsPanel] 组件已挂载, currentPlayer:', props.currentPlayer.name)
-})
 
 // 获取当前玩家的待处理交换请求
 const pendingSwaps = computed(() => {
-  const swaps = gameStore.getPendingSwapsForPlayer(props.currentPlayer.name)
-  console.log('[PendingSwapsPanel] 计算pendingSwaps:', {
-    playerName: props.currentPlayer.name,
-    totalSwaps: gameStore.pendingSwaps?.length || 0,
-    filteredSwaps: swaps.length,
-    swaps: swaps
-  })
-  // 详细诊断：打印每个swap的字段
-  if (gameStore.pendingSwaps && gameStore.pendingSwaps.length > 0) {
-    console.log('[PendingSwapsPanel] ===== 详细诊断所有swaps =====')
-    gameStore.pendingSwaps.forEach((swap, idx) => {
-      console.log(`[PendingSwapsPanel] swap[${idx}]:`, {
-        id: swap.id,
-        initiatorName: swap.initiatorName,
-        targetName: swap.targetName,
-        status: swap.status,
-        initiatorCityIdx: swap.initiatorCityName,
-        matches: swap.status === 'pending' && swap.targetName === props.currentPlayer.name
-      })
-    })
-    console.log('[PendingSwapsPanel] ===================================')
-  }
-  return swaps
+  return gameStore.getPendingSwapsForPlayer(props.currentPlayer.name)
 })
 
 /**
@@ -207,14 +183,14 @@ function handleCityClick(cityName, city) {
  */
 async function handleAccept(swap) {
   if (selectedCityName.value === null) {
-    alert('请先选择一个城市')
+    await showAlert('请先选择一个城市', { title: '提示', icon: '💡' })
     return
   }
 
   const targetCity = props.currentPlayer.cities[selectedCityName.value]
 
   if (!targetCity || !canSelectCity(targetCity, selectedCityName.value)) {
-    alert('选择的城市无效')
+    await showAlert('选择的城市无效', { title: '提示', icon: '⚠️' })
     return
   }
 
@@ -232,7 +208,7 @@ async function handleAccept(swap) {
     emit('swap-accepted', { swap, result })
     selectedCityName.value = null
   } else {
-    alert(result.message || '交换失败')
+    await showAlert(result.message || '交换失败', { title: '交换失败', icon: '❌' })
   }
 }
 
@@ -240,7 +216,7 @@ async function handleAccept(swap) {
  * 处理拒绝交换
  */
 async function handleReject(swap) {
-  if (!confirm(`确定拒绝 ${swap.initiatorName} 的先声夺人请求吗？`)) {
+  if (!await showConfirm(`确定拒绝 ${swap.initiatorName} 的先声夺人请求吗？`, { title: '拒绝交换', icon: '⚠️' })) {
     return
   }
 
@@ -252,7 +228,7 @@ async function handleReject(swap) {
   if (result.success) {
     emit('swap-rejected', { swap, result })
   } else {
-    alert(result.message || '拒绝失败')
+    await showAlert(result.message || '拒绝失败', { title: '操作失败', icon: '❌' })
   }
 }
 </script>
@@ -263,7 +239,7 @@ async function handleReject(swap) {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
   border: 3px solid #f59e0b;
   border-radius: 16px;
   padding: 24px;
@@ -271,7 +247,7 @@ async function handleReject(swap) {
   width: 90%;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 20px 60px rgba(30, 41, 59, 0.35);
   z-index: 9999;
   animation: slideIn 0.3s ease-out;
 }
@@ -338,7 +314,7 @@ async function handleReject(swap) {
 }
 
 .swap-request-card {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(241, 245, 251, 0.7);
   border: 2px solid rgba(148, 163, 184, 0.3);
   border-radius: 12px;
   padding: 20px;
@@ -379,7 +355,7 @@ async function handleReject(swap) {
   align-items: center;
   gap: 8px;
   padding: 16px;
-  background: rgba(30, 41, 59, 0.6);
+  background: rgba(241, 245, 251, 0.7);
   border: 2px dashed rgba(148, 163, 184, 0.4);
   border-radius: 8px;
   margin-top: 8px;
@@ -411,7 +387,7 @@ async function handleReject(swap) {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: rgba(30, 41, 59, 0.8);
+  background: rgba(255, 255, 255, 0.85);
   border: 1px solid rgba(96, 165, 250, 0.3);
   border-radius: 8px;
 }
@@ -427,7 +403,7 @@ async function handleReject(swap) {
 .city-name {
   font-size: 14px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: #334155;
   margin-bottom: 4px;
 }
 
@@ -465,7 +441,7 @@ async function handleReject(swap) {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: rgba(30, 41, 59, 0.6);
+  background: rgba(241, 245, 251, 0.7);
   border: 2px solid rgba(148, 163, 184, 0.3);
   border-radius: 8px;
   cursor: pointer;
@@ -475,7 +451,7 @@ async function handleReject(swap) {
 
 .city-option:hover:not(.disabled) {
   border-color: #60a5fa;
-  background: rgba(30, 41, 59, 0.9);
+  background: rgba(96, 165, 250, 0.15);
   transform: translateX(4px);
 }
 
@@ -486,7 +462,7 @@ async function handleReject(swap) {
 
 .city-option.disabled:hover {
   border-color: rgba(148, 163, 184, 0.3);
-  background: rgba(30, 41, 59, 0.6);
+  background: rgba(241, 245, 251, 0.7);
   transform: none;
 }
 
@@ -585,7 +561,7 @@ async function handleReject(swap) {
 }
 
 .btn-accept:disabled {
-  background: #374151;
+  background: #e2e8f0;
   color: #6b7280;
   cursor: not-allowed;
   box-shadow: none;
@@ -605,7 +581,7 @@ async function handleReject(swap) {
 }
 
 .btn-reject:disabled {
-  background: #374151;
+  background: #e2e8f0;
   color: #6b7280;
   cursor: not-allowed;
   box-shadow: none;
@@ -633,7 +609,7 @@ async function handleReject(swap) {
 
 .city-selector::-webkit-scrollbar-track,
 .pending-swaps-panel::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(100, 116, 145, 0.08);
   border-radius: 4px;
 }
 

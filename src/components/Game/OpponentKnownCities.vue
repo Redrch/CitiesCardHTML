@@ -16,11 +16,11 @@
             class="opponent-btn"
             @click="selectOpponent(opponent)"
           >
-            <div class="opponent-avatar">{{ opponent.name.charAt(0) }}</div>
+            <div class="opponent-avatar">{{ opponent.name?.charAt(0) || '?' }}</div>
             <div class="opponent-info">
               <div class="opponent-name">{{ opponent.name }}</div>
               <div class="opponent-stats">
-                金币: {{ opponent.gold || 0 }} | 存活城市: {{ getAliveCitiesCount(opponent) }}
+                存活城市: {{ getAliveCitiesCount(opponent) }}
               </div>
             </div>
           </button>
@@ -127,10 +127,8 @@ const selectedSkill = ref(null)
 
 // 获取所有对手
 const opponents = computed(() => {
-  if (props.allPlayers && props.allPlayers.length > 0) {
-    return props.allPlayers.filter(p => p.name !== props.currentPlayer?.name)
-  }
-  return gameStore.players.filter(p => p.name !== props.currentPlayer?.name)
+  const source = (props.allPlayers && props.allPlayers.length > 0) ? props.allPlayers : gameStore.players
+  return source.filter(p => p && p.name && p.name !== props.currentPlayer?.name)
 })
 
 // 获取存活城市数量
@@ -195,7 +193,7 @@ function showSkillDescription(skill) {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(30, 41, 59, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -209,13 +207,13 @@ function showSkillDescription(skill) {
 }
 
 .modal-content {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  background: linear-gradient(135deg, #f1f5f9 0%, #f0f3f9 100%);
   border-radius: 16px;
   max-width: 900px;
   width: 95%;
   max-height: 90vh;
   overflow: hidden;
-  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 25px 80px rgba(30, 41, 59, 0.35);
   border: 2px solid #3b82f6;
   animation: slideUp 0.3s;
   display: flex;
@@ -239,7 +237,7 @@ function showSkillDescription(skill) {
   align-items: center;
   padding: 16px 24px;
   border-bottom: 2px solid rgba(59, 130, 246, 0.3);
-  background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+  background: linear-gradient(135deg, #c7d2fe 0%, #ddd6fe 100%);
   flex-shrink: 0;
 }
 
@@ -280,7 +278,7 @@ function showSkillDescription(skill) {
 
 .instruction {
   font-size: 15px;
-  color: #cbd5e1;
+  color: #64748b;
   margin-bottom: 16px;
   text-align: center;
 }
@@ -334,7 +332,7 @@ function showSkillDescription(skill) {
 .opponent-name {
   font-size: 17px;
   font-weight: 700;
-  color: #e2e8f0;
+  color: #334155;
   margin-bottom: 4px;
 }
 
@@ -380,7 +378,7 @@ function showSkillDescription(skill) {
 .view-header h4 {
   margin: 0;
   font-size: 15px;
-  color: #e2e8f0;
+  color: #334155;
   flex: 1;
 }
 
@@ -422,7 +420,7 @@ function showSkillDescription(skill) {
 
 /* 城市卡牌 - 紧凑行式布局 */
 .city-card {
-  background: linear-gradient(135deg, #1e3a5f 0%, #0f2642 100%);
+  background: linear-gradient(135deg, #e0e7ff 0%, #dbeafe 100%);
   border: 1.5px solid rgba(96, 165, 250, 0.25);
   border-radius: 10px;
   padding: 10px 14px;
@@ -435,7 +433,7 @@ function showSkillDescription(skill) {
 
 .city-card:hover {
   border-color: rgba(96, 165, 250, 0.6);
-  background: linear-gradient(135deg, #243f6a 0%, #152d4f 100%);
+  background: linear-gradient(135deg, #c7d2fe 0%, #bfdbfe 100%);
 }
 
 .city-card-top {
@@ -529,7 +527,7 @@ function showSkillDescription(skill) {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(30, 41, 59, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -538,14 +536,14 @@ function showSkillDescription(skill) {
 }
 
 .skill-description-content {
-  background: linear-gradient(135deg, #1e3a5f 0%, #0f2642 100%);
+  background: linear-gradient(135deg, #e0e7ff 0%, #dbeafe 100%);
   border: 2px solid #60a5fa;
   border-radius: 12px;
   max-width: 500px;
   width: 90%;
   max-height: 80vh;
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 20px 60px rgba(30, 41, 59, 0.35);
   animation: slideUp 0.3s;
 }
 
@@ -554,7 +552,7 @@ function showSkillDescription(skill) {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+  background: linear-gradient(135deg, #c7d2fe 0%, #ddd6fe 100%);
   border-bottom: 2px solid rgba(96, 165, 250, 0.3);
 }
 
@@ -619,15 +617,15 @@ function showSkillDescription(skill) {
 
 .meta-value {
   font-size: 13px;
-  color: #e2e8f0;
+  color: #334155;
   font-weight: 700;
 }
 
 .skill-description-text {
   font-size: 14px;
   line-height: 1.7;
-  color: #cbd5e1;
-  background: rgba(15, 23, 42, 0.4);
+  color: #64748b;
+  background: rgba(241, 245, 251, 0.5);
   padding: 16px;
   border-radius: 8px;
   border: 1px solid rgba(96, 165, 250, 0.2);
@@ -643,7 +641,7 @@ function showSkillDescription(skill) {
 .opponent-selection::-webkit-scrollbar-track,
 .cities-grid::-webkit-scrollbar-track,
 .skill-description-body::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.5);
+  background: rgba(241, 245, 251, 0.6);
   border-radius: 4px;
 }
 
@@ -652,7 +650,7 @@ function showSkillDescription(skill) {
 .skill-description-body::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
   border-radius: 4px;
-  border: 2px solid rgba(15, 23, 42, 0.5);
+  border: 2px solid rgba(241, 245, 251, 0.6);
 }
 
 .opponent-selection::-webkit-scrollbar-thumb:hover,

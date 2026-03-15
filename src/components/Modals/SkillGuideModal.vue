@@ -83,7 +83,7 @@ function close() {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(30, 41, 59, 0.35);
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -97,7 +97,7 @@ function close() {
   max-width: 900px;
   width: 100%;
   border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px rgba(100, 116, 145, 0.12);
   max-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -105,7 +105,7 @@ function close() {
 
 .modal-header {
   padding: 20px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid #e2e8f0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -173,7 +173,7 @@ function close() {
 
 .skill-card:hover {
   transform: translateX(4px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(100, 116, 145, 0.12);
 }
 
 .battle-skill {

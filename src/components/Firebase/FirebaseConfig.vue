@@ -6,7 +6,7 @@
       {{ isFirebaseReady ? '✓ 在线模式已启用' : '⚠ 当前为本地模式' }}
     </div>
 
-    <div style="background: #1f2937; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    <div style="background: #f1f5f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
       <h3 style="margin-top: 0; color: var(--accent);">快速开始</h3>
 
       <!-- 使用公共服务器选项 -->
@@ -36,11 +36,11 @@
 
     <!-- 高级选项：自定义配置 -->
     <details style="margin: 20px 0;">
-      <summary style="cursor: pointer; padding: 10px; background: #1f2937; border-radius: 6px; margin-bottom: 10px;">
+      <summary style="cursor: pointer; padding: 10px; background: #f1f5f9; border-radius: 6px; margin-bottom: 10px;">
         🔧 高级选项：使用自定义 Firebase 配置
       </summary>
 
-      <div style="padding: 15px; background: #0b1220; border-radius: 6px; margin-top: 10px;">
+      <div style="padding: 15px; background: #f8fafc; border-radius: 6px; margin-top: 10px;">
         <div style="margin-bottom: 15px;">
           <h4 style="margin-top: 0;">创建自己的 Firebase 项目</h4>
           <ol style="line-height: 1.8; color: var(--muted); font-size: 13px;">

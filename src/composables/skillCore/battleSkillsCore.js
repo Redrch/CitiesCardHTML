@@ -9,6 +9,8 @@
  * 4. 标准返回 - 统一返回 { success: boolean, message: string, data?: any }
  */
 
+import { SKILL_COSTS } from '../../constants/skillCosts'
+
 /**
  * 擒贼擒王 - 核心逻辑
  * 本轮优先攻击对手血量最高的城市
@@ -23,7 +25,7 @@ export function executeQinZeiQinWangCore(params) {
   const { caster, target, gameStore } = params
 
   // 前置检查：金币检查
-  const cost = 2
+  const cost = SKILL_COSTS['擒贼擒王']
   if (caster.gold < cost) {
     return {
       success: false,
@@ -69,7 +71,7 @@ export function executeCaoMuJieBingCore(params) {
   const { caster, target, gameStore } = params
 
   // 前置检查：金币检查
-  const cost = 2
+  const cost = SKILL_COSTS['草木皆兵']
   if (caster.gold < cost) {
     return {
       success: false,
@@ -122,7 +124,7 @@ export function executeYueZhanYueYongCore(params) {
   }
 
   // 前置检查2：金币检查
-  const cost = 2
+  const cost = SKILL_COSTS['越战越勇']
   if (caster.gold < cost) {
     return {
       success: false,
@@ -173,7 +175,7 @@ export function executeTongQiangTieBiCore(params) {
   }
 
   // 前置检查2：金币检查
-  const cost = 5
+  const cost = SKILL_COSTS['铜墙铁壁']
   if (caster.gold < cost) {
     return {
       success: false,
@@ -217,7 +219,7 @@ export function executeSetBarrierCore(params) {
   const { caster, gameStore } = params
 
   // 前置检查：金币检查
-  const cost = 15
+  const cost = SKILL_COSTS['设置屏障']
   if (caster.gold < cost) {
     return {
       success: false,
@@ -261,7 +263,7 @@ export function executeQianNengJiFaCore(params) {
   const { caster, gameStore } = params
 
   // 前置检查：金币检查
-  const cost = 20
+  const cost = SKILL_COSTS['潜能激发']
   if (caster.gold < cost) {
     return {
       success: false,
@@ -323,7 +325,7 @@ export function executeYuJiaQinZhengCore(params) {
   }
 
   // 前置检查2：金币检查
-  const cost = 8
+  const cost = SKILL_COSTS['御驾亲征']
   if (caster.gold < cost) {
     return {
       success: false,
@@ -357,7 +359,7 @@ export function executeYuJiaQinZhengCore(params) {
   // 检查并消耗保护罩/钢铁护盾
   if (gameStore.consumeProtection(target.name, cityName)) {
     caster.gold -= cost // 即使被护盾抵消也要扣金币
-    gameStore.addLog(`${caster.name}御驾亲征，击破了${target.name}的${highestHpCity.name}的护盾`)
+    gameStore.addLog(`${caster.name}御驾亲征，击破了${target.name}的城市护盾`)
     return {
       success: true,
       message: `击破了${highestHpCity.name}的护盾`
@@ -379,7 +381,7 @@ export function executeYuJiaQinZhengCore(params) {
     gameStore.deadCities[target.name].push(cityName)
   }
 
-  gameStore.addLog(`${caster.name}御驾亲征，摧毁了${target.name}的${highestHpCity.name}`)
+  gameStore.addLog(`${caster.name}御驾亲征，摧毁了${target.name}的城市`)
 
   return {
     success: true,

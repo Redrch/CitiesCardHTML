@@ -661,7 +661,7 @@ onBeforeUnmount(() => {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(30, 41, 59, 0.35);
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -675,7 +675,7 @@ onBeforeUnmount(() => {
   max-width: 900px;
   width: 100%;
   border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px rgba(100, 116, 145, 0.12);
   max-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -683,7 +683,7 @@ onBeforeUnmount(() => {
 
 .modal-header {
   padding: 20px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid #e2e8f0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -735,14 +735,14 @@ onBeforeUnmount(() => {
   cursor: pointer;
   font-size: 18px;
   font-weight: bold;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 4px rgba(100, 116, 145, 0.15);
   transition: all 0.3s;
 }
 
 .quiz-start-btn:hover {
   background: #45a049;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 8px rgba(100, 116, 145, 0.18);
 }
 
 .quiz-hint {
@@ -798,7 +798,7 @@ onBeforeUnmount(() => {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(30, 41, 59, 0.35);
   z-index: 10000;
   display: flex;
   align-items: center;
@@ -822,7 +822,7 @@ onBeforeUnmount(() => {
   align-items: center;
   margin-bottom: 20px;
   padding-bottom: 15px;
-  border-bottom: 2px solid #e0e0e0;
+  border-bottom: 2px solid #e2e8f0;
 }
 
 .quiz-progress {
@@ -870,7 +870,7 @@ onBeforeUnmount(() => {
 
 .quiz-option-btn {
   background: #f5f5f5;
-  border: 2px solid #e0e0e0;
+  border: 2px solid #e2e8f0;
   padding: 15px 20px;
   border-radius: 8px;
   cursor: pointer;
@@ -918,7 +918,7 @@ onBeforeUnmount(() => {
 
 .result-review h3 {
   color: #333;
-  border-bottom: 2px solid #e0e0e0;
+  border-bottom: 2px solid #e2e8f0;
   padding-bottom: 10px;
   margin-bottom: 15px;
 }
@@ -962,7 +962,7 @@ onBeforeUnmount(() => {
   padding: 10px 14px;
   border-radius: 6px;
   background: #f5f5f5;
-  border: 2px solid #e0e0e0;
+  border: 2px solid #e2e8f0;
   color: #333;
   font-size: 15px;
 }
@@ -1044,14 +1044,14 @@ onBeforeUnmount(() => {
   cursor: pointer;
   font-size: 18px;
   font-weight: bold;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 4px rgba(100, 116, 145, 0.15);
   transition: all 0.3s;
 }
 
 .drill-start-btn:hover {
   background: #651fff;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 8px rgba(100, 116, 145, 0.18);
 }
 
 /* 城市选择弹窗 */
@@ -1061,7 +1061,7 @@ onBeforeUnmount(() => {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(30, 41, 59, 0.35);
   z-index: 10000;
   display: flex;
   align-items: center;
@@ -1092,7 +1092,7 @@ onBeforeUnmount(() => {
 
 .city-select-btn {
   background: #f5f5f5;
-  border: 2px solid #e0e0e0;
+  border: 2px solid #e2e8f0;
   padding: 14px 10px;
   border-radius: 8px;
   cursor: pointer;
@@ -1115,7 +1115,7 @@ onBeforeUnmount(() => {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(30, 41, 59, 0.35);
   z-index: 10000;
   display: flex;
   align-items: center;
@@ -1139,7 +1139,7 @@ onBeforeUnmount(() => {
   gap: 16px;
   margin-bottom: 20px;
   padding-bottom: 15px;
-  border-bottom: 2px solid #e0e0e0;
+  border-bottom: 2px solid #e2e8f0;
 }
 
 .drill-city-name {

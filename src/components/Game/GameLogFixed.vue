@@ -142,9 +142,11 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useGameStore } from '../../stores/gameStore'
 import { useNotification } from '../../composables/useNotification'
+import { useDialog } from '../../composables/useDialog'
 
 const gameStore = useGameStore()
 const { showNotification } = useNotification()
+const { showConfirm } = useDialog()
 
 const logContainer = ref(null)
 const filter = ref('all')
@@ -345,13 +347,13 @@ function copyLogs() {
 /**
  * 清空日志
  */
-function clearLogs() {
+async function clearLogs() {
   if (allLogs.value.length === 0) {
     showNotification('日志已为空', 'info')
     return
   }
 
-  if (confirm('确定要清空所有日志吗？此操作不可撤销。')) {
+  if (await showConfirm('确定要清空所有日志吗？此操作不可撤销。', { title: '清空日志', icon: '🗑️' })) {
     gameStore.clearLogs()
     showNotification('日志已清空', 'success')
   }
@@ -391,13 +393,14 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  background: linear-gradient(135deg, rgba(42, 35, 64, 0.95) 0%, rgba(30, 42, 74, 0.95) 100%);
   border-radius: 16px;
   overflow: hidden;
   box-shadow:
-    0 10px 40px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(96, 165, 250, 0.2);
+    0 10px 40px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 3px solid rgba(212, 160, 23, 0.5);
 }
 
 /* ==================== 标题栏 ==================== */
@@ -406,8 +409,8 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
-  border-bottom: 2px solid rgba(96, 165, 250, 0.3);
+  background: linear-gradient(135deg, rgba(212, 160, 23, 0.12) 0%, rgba(30, 42, 74, 0.8) 100%);
+  border-bottom: 2px solid rgba(212, 160, 23, 0.3);
   backdrop-filter: blur(10px);
 }
 
@@ -424,7 +427,7 @@ onUnmounted(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: #f0c850;
 }
 
 .title-icon {
@@ -438,7 +441,7 @@ onUnmounted(() => {
 }
 
 .title-text {
-  background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+  background: linear-gradient(135deg, #f0c850 0%, #d4a017 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -451,12 +454,12 @@ onUnmounted(() => {
   min-width: 28px;
   height: 24px;
   padding: 0 8px;
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  background: linear-gradient(135deg, #d4a017 0%, #b8860b 100%);
   color: white;
   border-radius: 12px;
   font-size: 12px;
   font-weight: 700;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 2px 8px rgba(212, 160, 23, 0.4);
 }
 
 .round-indicator {
@@ -491,8 +494,8 @@ onUnmounted(() => {
 .action-btn {
   padding: 8px 14px;
   border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
   border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
@@ -504,27 +507,27 @@ onUnmounted(() => {
 }
 
 .action-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
   border-color: rgba(255, 255, 255, 0.3);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .action-btn--copy:hover {
-  background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
-  border-color: #3b82f6;
+  background: linear-gradient(135deg, #d4a017 0%, #e6b422 100%);
+  border-color: #b8860b;
   color: white;
 }
 
 .action-btn--clear:hover {
-  background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
-  border-color: #ef4444;
+  background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%);
+  border-color: #a93226;
   color: white;
 }
 
 .action-btn--scroll:hover {
   background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
-  border-color: #10b981;
+  border-color: #059669;
   color: white;
 }
 
@@ -533,8 +536,8 @@ onUnmounted(() => {
   display: flex;
   gap: 8px;
   padding: 14px 20px;
-  background: rgba(15, 23, 42, 0.6);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   overflow-x: auto;
   scrollbar-width: thin;
 }
@@ -544,11 +547,11 @@ onUnmounted(() => {
 }
 
 .log-filters::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(212, 160, 23, 0.06);
 }
 
 .log-filters::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(212, 160, 23, 0.2);
   border-radius: 2px;
 }
 
@@ -558,8 +561,8 @@ onUnmounted(() => {
   gap: 6px;
   padding: 8px 14px;
   border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
   border-radius: 20px;
   font-size: 13px;
   font-weight: 500;
@@ -569,17 +572,17 @@ onUnmounted(() => {
 }
 
 .filter-chip:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.3);
-  color: white;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(212, 160, 23, 0.4);
+  color: rgba(255, 255, 255, 0.9);
   transform: translateY(-2px);
 }
 
 .filter-chip--active {
-  background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
-  border-color: #3b82f6;
+  background: linear-gradient(135deg, #d4a017 0%, #b8860b 100%);
+  border-color: #b8860b;
   color: white;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 4px 12px rgba(212, 160, 23, 0.35);
 }
 
 .filter-icon {
@@ -593,14 +596,14 @@ onUnmounted(() => {
   min-width: 20px;
   height: 18px;
   padding: 0 6px;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 9px;
   font-size: 11px;
   font-weight: 700;
 }
 
 .filter-chip--active .filter-count {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* ==================== 日志内容 ==================== */
@@ -608,29 +611,30 @@ onUnmounted(() => {
   flex: 1;
   overflow-y: auto;
   padding: 16px 20px;
+  background: rgba(0, 0, 0, 0.15);
   position: relative;
   scroll-behavior: smooth;
 }
 
-/* 自定义滚动条 */
+/* 自定义滚动条 - gold themed */
 .log-content::-webkit-scrollbar {
   width: 10px;
 }
 
 .log-content::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(212, 160, 23, 0.06);
   border-radius: 5px;
   margin: 8px 0;
 }
 
 .log-content::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
+  background: linear-gradient(180deg, #d4a017 0%, #b8860b 100%);
   border-radius: 5px;
-  border: 2px solid rgba(15, 23, 42, 0.5);
+  border: 2px solid rgba(212, 160, 23, 0.06);
 }
 
 .log-content::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(180deg, #e6b422 0%, #d4a017 100%);
 }
 
 /* 日志项 */
@@ -640,7 +644,7 @@ onUnmounted(() => {
   gap: 12px;
   padding: 12px 14px;
   margin-bottom: 8px;
-  background: rgba(30, 41, 59, 0.4);
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 10px;
   border-left: 4px solid;
   transition: all 0.3s ease;
@@ -659,9 +663,9 @@ onUnmounted(() => {
 }
 
 .log-item:hover {
-  background: rgba(30, 41, 59, 0.6);
+  background: rgba(255, 255, 255, 0.1);
   transform: translateX(4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .log-item--new {
@@ -674,25 +678,25 @@ onUnmounted(() => {
 }
 
 .log-item--battle {
-  border-color: #f87171;
+  border-color: #d4a017;
 }
 
 .log-item--skill {
-  border-color: #a78bfa;
+  border-color: #8b5cf6;
 }
 
 .log-item--system {
-  border-color: #60a5fa;
+  border-color: #3b82f6;
 }
 
 .log-item--warning {
-  border-color: #fbbf24;
-  background: rgba(251, 191, 36, 0.05);
+  border-color: #d4a017;
+  background: rgba(212, 160, 23, 0.08);
 }
 
 .log-item--error {
-  border-color: #ef4444;
-  background: rgba(239, 68, 68, 0.05);
+  border-color: #c0392b;
+  background: rgba(192, 57, 43, 0.1);
 }
 
 .log-time {
@@ -702,7 +706,7 @@ onUnmounted(() => {
   color: rgba(255, 255, 255, 0.4);
   min-width: 65px;
   padding: 2px 6px;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 4px;
 }
 
@@ -715,32 +719,32 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .log-icon--battle {
-  background: rgba(248, 113, 113, 0.2);
+  background: rgba(212, 160, 23, 0.15);
 }
 
 .log-icon--skill {
-  background: rgba(167, 139, 250, 0.2);
+  background: rgba(139, 92, 246, 0.15);
 }
 
 .log-icon--system {
-  background: rgba(96, 165, 250, 0.2);
+  background: rgba(59, 130, 246, 0.15);
 }
 
 .log-icon--warning {
-  background: rgba(251, 191, 36, 0.2);
+  background: rgba(212, 160, 23, 0.2);
 }
 
 .log-icon--error {
-  background: rgba(239, 68, 68, 0.2);
+  background: rgba(192, 57, 43, 0.2);
 }
 
 .log-message {
   flex: 1;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.8);
   font-size: 14px;
   line-height: 1.6;
   word-break: break-word;
@@ -770,12 +774,12 @@ onUnmounted(() => {
 .log-round-badge {
   flex-shrink: 0;
   padding: 2px 8px;
-  background: rgba(96, 165, 250, 0.2);
-  border: 1px solid rgba(96, 165, 250, 0.4);
+  background: rgba(212, 160, 23, 0.15);
+  border: 1px solid rgba(212, 160, 23, 0.3);
   border-radius: 12px;
   font-size: 11px;
   font-weight: 600;
-  color: #60a5fa;
+  color: #f0c850;
 }
 
 /* 空状态 */
@@ -786,7 +790,7 @@ onUnmounted(() => {
   justify-content: center;
   padding: 80px 20px;
   text-align: center;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .empty-icon {
@@ -803,7 +807,7 @@ onUnmounted(() => {
 
 .empty-hint {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.35);
 }
 
 /* 新日志指示器 */
@@ -843,8 +847,8 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 12px 20px;
-  background: rgba(15, 23, 42, 0.8);
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .footer-info {
@@ -857,7 +861,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .info-icon {
@@ -875,8 +879,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -901,7 +905,7 @@ onUnmounted(() => {
 
 .status-label {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.7);
   font-weight: 500;
   cursor: pointer;
   user-select: none;

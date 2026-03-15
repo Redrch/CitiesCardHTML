@@ -321,25 +321,14 @@ export function useGameLogic() {
 
     // 4. 屏障倒计时 - 已在gameStore.advanceRound()中处理，此处不再重复
 
-    // 4.5 高级治疗城市modifier倒计时
+    // 4.5 高级治疗现在立即满血，仅靠 bannedCities 控制出战禁令
+    // 清理旧版遗留的 healing modifiers（向后兼容）
     Object.entries(player.cities).forEach(([cityName, city]) => {
       if (!city.modifiers || !Array.isArray(city.modifiers)) return
       const healingIdx = city.modifiers.findIndex(m => m.type === 'healing')
-      if (healingIdx === -1) return
-      const healing = city.modifiers[healingIdx]
-      if (healing.roundsLeft > 0) {
-        healing.roundsLeft--
-        if (healing.roundsLeft <= 0) {
-          // 治疗完成，满血返回
-          city.currentHp = healing.returnHp || city.hp
-          city.isInHealing = false
-          city.modifiers.splice(healingIdx, 1)
-          // 移除bannedCities记录
-          if (gameStore.bannedCities[player.name] && gameStore.bannedCities[player.name][cityName]) {
-            delete gameStore.bannedCities[player.name][cityName]
-          }
-          addPublicLog(`${player.name}的${city.name}高级治疗完成，满血返回战场`)
-        }
+      if (healingIdx !== -1) {
+        city.modifiers.splice(healingIdx, 1)
+        city.isInHealing = false
       }
     })
 

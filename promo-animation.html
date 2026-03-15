@@ -361,7 +361,7 @@ body {
 /* ============================================
    3. TIMELINE ENGINE
    ============================================ */
-const TOTAL_DURATION = 160; // seconds
+const TOTAL_DURATION = 168; // seconds
 let currentTime = 0;
 let isPlaying = false;
 let isMuted = false;
@@ -937,8 +937,8 @@ function startSceneBGM(sceneIndex, elapsed) {
       if (elapsed < 11) sfxRisingSweep(now + (11 - elapsed));
       break;
     }
-    case 1: { // Scene 2 (15-42s): Rules — electronic beat + guzheng accents
-      const remaining = 27 - elapsed;
+    case 1: { // Scene 2 (15-45s): Rules — electronic beat + guzheng accents
+      const remaining = 30 - elapsed;
       if (remaining <= 0) break;
       playSynthPad(110, now, remaining, 0.06);
       playSynthPad(164.8, now, remaining, 0.04);
@@ -958,7 +958,7 @@ function startSceneBGM(sceneIndex, elapsed) {
       }
       break;
     }
-    case 2: { // Scene 3 (42-105s): Skills — building intensity, erhu + synth layers
+    case 2: { // Scene 3 (45-116s): Skills — building intensity, erhu + synth layers
       const remaining = 71 - elapsed;
       if (remaining <= 0) break;
       playSynthPad(PENTA.C3, now, remaining, 0.06);
@@ -984,7 +984,7 @@ function startSceneBGM(sceneIndex, elapsed) {
       });
       break;
     }
-    case 3: { // Scene 4 (105-132s): Modes & Achievements — broad pad + dizi flute
+    case 3: { // Scene 4 (116-143s): Modes & Achievements — broad pad + dizi flute
       const remaining = 27 - elapsed;
       if (remaining <= 0) break;
       playSynthPad(PENTA.C3, now, remaining, 0.07);
@@ -1012,8 +1012,8 @@ function startSceneBGM(sceneIndex, elapsed) {
       }
       break;
     }
-    case 4: { // Scene 5 (132-152s): Ending — synth swell + guzheng cascade + erhu farewell
-      const remaining = 20 - elapsed;
+    case 4: { // Scene 5 (143-168s): Ending — synth swell + guzheng cascade + erhu farewell
+      const remaining = 25 - elapsed;
       if (remaining <= 0) break;
       playSynthPad(PENTA.C3, now, remaining, 0.08);
       playSynthPad(PENTA.E3, now, remaining, 0.06);
@@ -1043,20 +1043,20 @@ const sfxTriggers = [
   { time: 24, type: 'card_swoosh', fired: false },
   { time: 30, type: 'card_swoosh', fired: false },
   { time: 35, type: 'card_swoosh', fired: false },
-  { time: 50, type: 'sword_slash', fired: false },
-  { time: 58, type: 'color_flip', fired: false },
-  { time: 66, type: 'number_glitch', fired: false },
-  { time: 74, type: 'coin_drop', fired: false },
-  { time: 82, type: 'medal_chime', fired: false },
-  { time: 88, type: 'card_swoosh', fired: false },
-  { time: 92, type: 'card_swoosh', fired: false },
-  { time: 96, type: 'card_swoosh', fired: false },
-  { time: 100, type: 'card_swoosh', fired: false },
-  { time: 108, type: 'card_swoosh', fired: false },
-  { time: 115, type: 'medal_chime', fired: false },
+  { time: 53, type: 'sword_slash', fired: false },
+  { time: 61, type: 'color_flip', fired: false },
+  { time: 69, type: 'number_glitch', fired: false },
+  { time: 77, type: 'coin_drop', fired: false },
+  { time: 85, type: 'medal_chime', fired: false },
+  { time: 91, type: 'card_swoosh', fired: false },
+  { time: 95, type: 'card_swoosh', fired: false },
+  { time: 99, type: 'card_swoosh', fired: false },
+  { time: 103, type: 'card_swoosh', fired: false },
+  { time: 111, type: 'card_swoosh', fired: false },
   { time: 118, type: 'medal_chime', fired: false },
   { time: 121, type: 'medal_chime', fired: false },
   { time: 124, type: 'medal_chime', fired: false },
+  { time: 127, type: 'medal_chime', fired: false },
   // glass_shatter and electric_crack removed (no shatter in Scene 5)
 ];
 
@@ -1548,89 +1548,192 @@ function drawSkillShowcase(skill, time) {
 
   switch (skill) {
     case 'sword': {
-      // 御驾亲征 (8 gold): Destroy opponent's highest HP non-center city
-      // Show 3 enemy cities, target the highest HP one, slash it to HP=0
-      const enemyCities = [
-        { name: '深圳市', hp: CITY_HP['深圳市'] },  // 38732 ← highest
-        { name: '成都市', hp: CITY_HP['成都市'] },  // 24764
-        { name: '杭州市', hp: CITY_HP['杭州市'] },  // 23011
+      // 御驾亲征 (8 gold): Blue dispatches center 北京市 + 青岛市, destroys red's 深圳市
+      const cardW = 110, cardH = 150;
+      const blueCards = [
+        { name: '北京市', hp: CITY_HP['北京市'], extra: 'capital' },
+        { name: '青岛市', hp: CITY_HP['青岛市'] || 12400 },
       ];
-      const targetIdx = 0; // 深圳市 has highest HP
+      const redCards = [
+        { name: '深圳市', hp: CITY_HP['深圳市'] },  // target — highest HP
+        { name: '成都市', hp: CITY_HP['成都市'] },
+        { name: '杭州市', hp: CITY_HP['杭州市'] },
+      ];
 
-      const cardW = 115, cardH = 155;
-      const startX = cx - 200;
-      const cardY = cy - 40;
-
-      for (let i = 0; i < enemyCities.length; i++) {
-        const c = enemyCities[i];
-        const cX = startX + i * 120;
-        const isTarget = i === targetIdx;
-        let displayHP = c.hp;
-        let color = '#ff3d3d';
-
-        // Highlight target with glow (after 3s)
-        if (isTarget && sElapsed > 3) {
-          ctx.shadowColor = '#ff3d3d';
-          ctx.shadowBlur = 15 + Math.sin(time * 6) * 5;
-        }
-        // Destroy target HP (after 5s)
-        if (isTarget && sElapsed > 5) {
-          const destroyP = Math.min(1, (sElapsed - 5) / 1.5);
-          displayHP = Math.max(0, Math.floor(c.hp * (1 - destroyP)));
-        }
-
-        drawCard(cX, cardY, cardW, cardH, c.name, displayHP, c.hp, color);
-        ctx.shadowBlur = 0;
-
-        // "最高HP" arrow on target
-        if (isTarget && sElapsed > 3 && sElapsed < 5.5) {
-          ctx.font = 'bold 16px PingFang SC, sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillStyle = '#ff3d3d';
-          ctx.globalAlpha = Math.min(1, (sElapsed - 3) * 2);
-          ctx.fillText('▲ 最高HP', cX + cardW / 2, cardY + cardH + 20);
-          ctx.globalAlpha = 1;
-        }
-      }
-
-      // Slash effect (5-7s)
-      if (sElapsed > 5 && sElapsed < 7) {
-        const slashP = (sElapsed - 5) / 2;
-        const tx = startX + targetIdx * 90 + cardW / 2;
-        const ty = cardY + cardH / 2;
-        ctx.strokeStyle = '#ff3d3d';
-        ctx.lineWidth = 3;
-        ctx.shadowColor = '#ff3d3d';
-        ctx.shadowBlur = 20;
-        ctx.globalAlpha = 1 - slashP;
-        ctx.beginPath();
-        ctx.moveTo(tx - 60 * slashP, ty - 40 * slashP);
-        ctx.lineTo(tx + 60 * slashP, ty + 40 * slashP);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(tx + 60 * slashP, ty - 40 * slashP);
-        ctx.lineTo(tx - 60 * slashP, ty + 40 * slashP);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-        ctx.shadowBlur = 0;
-        if (Math.random() < 0.3) spawnParticles(tx, ty, 2, 'spark', '#ff3d3d');
-      }
-
-      // "直接消灭" text
-      if (sElapsed > 6.5) {
-        ctx.font = 'bold 26px PingFang SC, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#ff3d3d';
-        ctx.globalAlpha = Math.min(1, (sElapsed - 6.5) * 2);
-        ctx.fillText('直接消灭！', cx, cardY + cardH + 40);
-        ctx.globalAlpha = 1;
-      }
+      // Layout: blue on left, red on right
+      const blueX = cx - 320;
+      const redX = cx + 80;
+      const rowY = cy - 30;
+      const gap = cardW + 12;
 
       // Cost display
       ctx.font = '20px PingFang SC, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#ffd700';
-      ctx.fillText('消耗 8 金币', cx, cy - 50);
+      ctx.fillText('消耗 8 金币', cx, cy - 120);
+
+      // Side labels
+      ctx.font = 'bold 16px PingFang SC, sans-serif';
+      const labelY = rowY - 15;
+      const blueAlpha = Math.min(1, sElapsed * 2);
+      ctx.globalAlpha = blueAlpha;
+      ctx.fillStyle = '#00e5ff';
+      ctx.textAlign = 'center';
+      ctx.fillText('蓝方出战', blueX + gap / 2 + cardW / 2, labelY);
+      ctx.fillStyle = '#ff3d3d';
+      ctx.textAlign = 'center';
+      ctx.fillText('红方阵容', redX + gap + cardW / 2, labelY);
+      ctx.globalAlpha = 1;
+
+      // VS in center
+      if (sElapsed > 0.5) {
+        ctx.font = 'bold 28px PingFang SC, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#ffd700';
+        ctx.shadowColor = '#ffd700';
+        ctx.shadowBlur = 10;
+        ctx.fillText('VS', cx, rowY + cardH / 2 + 8);
+        ctx.shadowBlur = 0;
+      }
+
+      // Draw blue cards (slide in from left)
+      for (let i = 0; i < blueCards.length; i++) {
+        const c = blueCards[i];
+        const slideP = Math.min(1, Math.max(0, (sElapsed - i * 0.3) * 3));
+        const ease = 1 - Math.pow(1 - slideP, 3);
+        const targetX = blueX + i * gap;
+        const curX = targetX - 200 * (1 - ease);
+        ctx.globalAlpha = ease;
+        // Center city glow when activating (2-4s)
+        if (i === 0 && sElapsed > 2 && sElapsed < 6) {
+          ctx.shadowColor = '#ffd700';
+          ctx.shadowBlur = 18 + Math.sin(time * 6) * 8;
+        }
+        drawCard(curX, rowY, cardW, cardH, c.name, c.hp, c.hp, '#00e5ff', c.extra);
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+      }
+
+      // "御驾亲征!" label on 北京市 (2-5s)
+      if (sElapsed > 2 && sElapsed < 5.5) {
+        const lAlpha = Math.min(1, (sElapsed - 2) * 2);
+        ctx.globalAlpha = lAlpha;
+        ctx.font = 'bold 15px PingFang SC, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#ffd700';
+        ctx.shadowColor = '#ffd700';
+        ctx.shadowBlur = 8;
+        ctx.fillText('⚔ 御驾亲征!', blueX + cardW / 2, rowY + cardH + 22);
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+      }
+
+      // Draw red cards (slide in from right)
+      for (let i = 0; i < redCards.length; i++) {
+        const c = redCards[i];
+        const slideP = Math.min(1, Math.max(0, (sElapsed - i * 0.25) * 3));
+        const ease = 1 - Math.pow(1 - slideP, 3);
+        const targetX = redX + i * gap;
+        const curX = targetX + 200 * (1 - ease);
+        ctx.globalAlpha = ease;
+
+        let displayHP = c.hp;
+        const isTarget = i === 0; // 深圳市
+
+        // Target highlight (3-4.5s)
+        if (isTarget && sElapsed > 3 && sElapsed < 6) {
+          ctx.shadowColor = '#ff3d3d';
+          ctx.shadowBlur = 15 + Math.sin(time * 7) * 6;
+        }
+        // HP drops to 0 (4.5-6s)
+        if (isTarget && sElapsed > 4.5) {
+          const destroyP = Math.min(1, (sElapsed - 4.5) / 1.2);
+          displayHP = Math.max(0, Math.floor(c.hp * (1 - destroyP)));
+        }
+        // Shake the target card during slash
+        let shakeX = 0, shakeY = 0;
+        if (isTarget && sElapsed > 4.5 && sElapsed < 6) {
+          shakeX = (Math.random() - 0.5) * 8;
+          shakeY = (Math.random() - 0.5) * 6;
+        }
+        // Fade out destroyed card
+        if (isTarget && sElapsed > 6) {
+          ctx.globalAlpha = Math.max(0.15, 1 - (sElapsed - 6) * 0.6);
+        }
+        drawCard(curX + shakeX, rowY + shakeY, cardW, cardH, c.name, displayHP, c.hp, '#ff3d3d');
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+
+        // "▲ 最高HP" indicator
+        if (isTarget && sElapsed > 3 && sElapsed < 5) {
+          ctx.font = 'bold 14px PingFang SC, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#ff3d3d';
+          ctx.globalAlpha = Math.min(1, (sElapsed - 3) * 2);
+          ctx.fillText('▲ 最高HP', targetX + cardW / 2, rowY + cardH + 18);
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      // Sword slash line from 北京市 → 深圳市 (4-6s)
+      if (sElapsed > 4 && sElapsed < 6) {
+        const slashP = Math.min(1, (sElapsed - 4) / 1.5);
+        const fromX = blueX + cardW;
+        const fromY = rowY + cardH / 2;
+        const toX = redX + cardW / 2;
+        const toY = rowY + cardH / 2;
+        const curEndX = fromX + (toX - fromX) * slashP;
+        const curEndY = fromY + (toY - fromY) * slashP;
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#ffd700';
+        ctx.shadowBlur = 20;
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(curEndX, curEndY);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+        // Sparks at slash tip
+        if (slashP > 0.5) spawnParticles(curEndX, curEndY, 2, 'spark', '#ffd700');
+      }
+
+      // X slash on target (5-7s)
+      if (sElapsed > 5 && sElapsed < 7) {
+        const xP = Math.min(1, (sElapsed - 5) / 1);
+        const tx = redX + cardW / 2;
+        const ty = rowY + cardH / 2;
+        ctx.strokeStyle = '#ff3d3d';
+        ctx.lineWidth = 4;
+        ctx.shadowColor = '#ff3d3d';
+        ctx.shadowBlur = 18;
+        ctx.globalAlpha = 1 - xP * 0.4;
+        ctx.beginPath();
+        ctx.moveTo(tx - 50 * xP, ty - 40 * xP);
+        ctx.lineTo(tx + 50 * xP, ty + 40 * xP);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(tx + 50 * xP, ty - 40 * xP);
+        ctx.lineTo(tx - 50 * xP, ty + 40 * xP);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+        if (Math.random() < 0.4) spawnParticles(tx, ty, 3, 'spark', '#ff3d3d');
+      }
+
+      // "直接消灭!" text
+      if (sElapsed > 6) {
+        ctx.font = 'bold 28px PingFang SC, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#ff3d3d';
+        ctx.shadowColor = '#ff3d3d';
+        ctx.shadowBlur = 12;
+        ctx.globalAlpha = Math.min(1, (sElapsed - 6) * 2);
+        ctx.fillText('直接消灭！', cx, rowY + cardH + 50);
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+      }
       break;
     }
 
@@ -2355,7 +2458,7 @@ function drawScene2Content(elapsed) {
       drawCard(x, blueY, cardW, cardH, t.name, hp, t.maxHp, color);
       // Flashing target indicator on lowest HP city
       if (isLowestBlue) {
-        const flash = 0.4 + Math.sin(time * 8) * 0.3;
+        const flash = 0.4 + Math.sin(elapsed * 8) * 0.3;
         ctx.strokeStyle = '#ff3d3d';
         ctx.lineWidth = 3;
         ctx.globalAlpha = flash;
@@ -2405,7 +2508,7 @@ function drawScene2Content(elapsed) {
       ctx.globalAlpha = hp <= 0 && phase > 3 ? 0.4 : 1;
       drawCard(x, redY, cardW, cardH, t.name, hp, t.maxHp, color);
       if (isLowestRed) {
-        const flash = 0.4 + Math.sin(time * 8) * 0.3;
+        const flash = 0.4 + Math.sin(elapsed * 8) * 0.3;
         ctx.strokeStyle = '#00e5ff';
         ctx.lineWidth = 3;
         ctx.globalAlpha = flash;
@@ -2434,7 +2537,7 @@ function drawScene2Content(elapsed) {
     ctx.shadowBlur = 0;
 
     // Attack lines (1.5-3.5s)
-    if (phase > 1.5 && phase < 3.5) {
+    if (phase > 1.5 && phase < 6.5) {
       const atkP = (phase - 1.5) / 2;
       ctx.lineWidth = 2;
       ctx.globalAlpha = 0.6;
@@ -2484,8 +2587,8 @@ function drawScene2Content(elapsed) {
     }
   }
 
-  // ── Rule demos (10-27s, 5 rules at 3.4s each) ──
-  const ruleStart = 10;
+  // ── Rule demos (13-30s, 5 rules at 3.4s each) ──
+  const ruleStart = 13;
   const ruleDuration = 3.4;
   const ruleIndex = Math.floor((elapsed - ruleStart) / ruleDuration);
   if (elapsed >= ruleStart && ruleIndex < 5) {
@@ -3285,9 +3388,98 @@ function drawScene5Content(elapsed, time) {
     ctx.restore();
   }
 
-  // 4-6s: "城市卡牌 现在开局" text
-  if (elapsed >= 4 && elapsed < 6) {
-    const fp = Math.min(1, (elapsed - 4) / 1);
+  // 4-9s: Developer recruitment section
+  if (elapsed >= 4 && elapsed < 9) {
+    const dp = elapsed - 4; // 0-5s within this section
+    const fadeIn = Math.min(1, dp / 0.8);
+    ctx.globalAlpha = fadeIn;
+
+    // Title
+    ctx.fillStyle = '#00e5ff';
+    ctx.font = 'bold 32px PingFang SC, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('我们正在寻找志同道合的开发者', cx, cy - 130);
+
+    // 3 tech stack cards sliding in
+    const stacks = [
+      { label: 'Vue 3', desc: '前端开发', icon: '🟢', color: '#42b883' },
+      { label: 'UI Design', desc: '视觉 / 交互设计', icon: '🎨', color: '#ffd700' },
+      { label: 'Unity', desc: '客户端开发', icon: '⚙️', desc2: 'C#', color: '#00e5ff' },
+    ];
+    const stackCardW = 180, stackCardH = 120, stackGap = 30;
+    const totalW = stacks.length * stackCardW + (stacks.length - 1) * stackGap;
+    const baseX = cx - totalW / 2;
+    const baseY = cy - 60;
+
+    for (let i = 0; i < stacks.length; i++) {
+      const s = stacks[i];
+      const delay = i * 0.4;
+      const slideP = Math.min(1, Math.max(0, (dp - 0.5 - delay) / 0.8));
+      const ease = 1 - Math.pow(1 - slideP, 3);
+      const cardX = baseX + i * (stackCardW + stackGap);
+      const offsetY = 80 * (1 - ease);
+      ctx.globalAlpha = fadeIn * ease;
+
+      // Card background
+      ctx.fillStyle = '#0d1a30';
+      ctx.strokeStyle = s.color;
+      ctx.lineWidth = 2;
+      roundRect(cardX, baseY + offsetY, stackCardW, stackCardH, 12);
+      ctx.fill();
+      roundRect(cardX, baseY + offsetY, stackCardW, stackCardH, 12);
+      ctx.stroke();
+
+      // Glow
+      ctx.shadowColor = s.color;
+      ctx.shadowBlur = 10 + Math.sin(time * 3 + i * 2) * 4;
+      roundRect(cardX, baseY + offsetY, stackCardW, stackCardH, 12);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Icon
+      ctx.font = '32px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(s.icon, cardX + stackCardW / 2, baseY + offsetY + 38);
+
+      // Label
+      ctx.font = 'bold 20px PingFang SC, sans-serif';
+      ctx.fillStyle = s.color;
+      ctx.fillText(s.label, cardX + stackCardW / 2, baseY + offsetY + 68);
+
+      // Description
+      ctx.font = '14px PingFang SC, sans-serif';
+      ctx.fillStyle = '#f0f0f0aa';
+      ctx.fillText(s.desc, cardX + stackCardW / 2, baseY + offsetY + 90);
+    }
+    ctx.globalAlpha = fadeIn;
+
+    // Bottom invitation text (appears after 2s)
+    if (dp > 2) {
+      const textAlpha = Math.min(1, (dp - 2) / 1);
+      ctx.globalAlpha = fadeIn * textAlpha;
+      ctx.fillStyle = '#f0f0f0';
+      ctx.font = '22px PingFang SC, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('如果你热爱游戏开发，欢迎加入我们的团队！', cx, baseY + stackCardH + 50);
+
+      // Subtle particle effect
+      if (Math.random() < 0.15) {
+        const colors = ['#42b883', '#ffd700', '#00e5ff'];
+        spawnParticles(cx + (Math.random() - 0.5) * 500, baseY - 30, 1, 'star', colors[Math.floor(Math.random() * 3)]);
+      }
+    }
+
+    // Fade out at end
+    if (dp > 4) {
+      ctx.globalAlpha = 1 - (dp - 4);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // 9-11s: "城市卡牌 现在开局" text
+  if (elapsed >= 9 && elapsed < 11) {
+    const fp = Math.min(1, (elapsed - 9) / 1);
     ctx.globalAlpha = fp;
     ctx.fillStyle = '#ffd700';
     ctx.font = 'bold 56px PingFang SC, sans-serif';
@@ -3299,9 +3491,9 @@ function drawScene5Content(elapsed, time) {
     ctx.globalAlpha = 1;
   }
 
-  // 6s+: Two QR codes side by side (stay until end)
-  if (elapsed >= 6) {
-    const fadeIn = Math.min(1, (elapsed - 6) / 1);
+  // 11s+: Two QR codes side by side (stay until end)
+  if (elapsed >= 11) {
+    const fadeIn = Math.min(1, (elapsed - 11) / 1);
     ctx.globalAlpha = fadeIn;
 
     // Title
@@ -3453,7 +3645,7 @@ registerScene({
 
 // Scene 2: Core Rules (0:15 - 0:42)
 registerScene({
-  start: 15, end: 42, _active: false,
+  start: 15, end: 45, _active: false,
   enter() {
     renderState.splitScreen = true;
     renderState.fadeOpacity = 0;
@@ -3697,7 +3889,7 @@ function drawRuleDemo(ruleIndex, progress, time) {
 
 // Scene 3: Skills (0:42 - 1:45)
 registerScene({
-  start: 42, end: 113, _active: false,
+  start: 45, end: 116, _active: false,
   enter() {
     renderState.fadeOpacity = 0;
     renderState.skillShowcase = null;
@@ -3748,7 +3940,7 @@ registerScene({
 
 // Scene 4: Modes & Achievements (1:45 - 2:12)
 registerScene({
-  start: 113, end: 140, _active: false,
+  start: 116, end: 143, _active: false,
   enter() {
     renderState.fadeOpacity = 0;
     renderState.achievementWall = false;
@@ -3771,7 +3963,7 @@ registerScene({
 
 // Scene 5: Ending (2:12 - 2:32)
 registerScene({
-  start: 140, end: 160, _active: false,
+  start: 143, end: 168, _active: false,
   _shatterStarted: false,
   enter() {
     renderState.fadeOpacity = 0;
@@ -3789,13 +3981,13 @@ registerScene({
 
     // (shatter effect removed)
 
-    // 16-20s: Fade to black
-    if (elapsed >= 16) {
-      renderState.fadeOpacity = Math.min(1, (elapsed - 16) / 4);
+    // 21-25s: Fade to black
+    if (elapsed >= 21) {
+      renderState.fadeOpacity = Math.min(1, (elapsed - 21) / 4);
     }
 
     // Ambient particles
-    if (elapsed < 8 && Math.random() < 0.1) {
+    if (elapsed < 12 && Math.random() < 0.1) {
       spawnParticles(Math.random() * W, Math.random() * H, 1, 'star', '#ffd700');
     }
   },

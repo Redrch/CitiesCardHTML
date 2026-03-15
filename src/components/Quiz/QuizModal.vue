@@ -100,6 +100,9 @@
 
 <script setup>
 import { useQuiz } from '../../composables/useQuiz'
+import { useDialog } from '../../composables/useDialog'
+
+const { showConfirm } = useDialog()
 
 const {
   isQuizActive,
@@ -121,8 +124,8 @@ function handleSelectAnswer(answer) {
   selectAnswer(answer)
 }
 
-function handleExit() {
-  if (confirm('确定要退出刷题吗？')) {
+async function handleExit() {
+  if (await showConfirm('确定要退出刷题吗？', { title: '退出刷题', icon: '🚪' })) {
     exitQuiz()
   }
 }
@@ -139,7 +142,7 @@ function handleRestart() {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(30, 41, 59, 0.35);
   z-index: 10000;
   overflow: auto;
   display: flex;
@@ -152,7 +155,7 @@ function handleRestart() {
   margin: 20px auto;
   max-width: 900px;
   border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px rgba(100, 116, 145, 0.12);
   padding: 30px;
   color: #333;
 }

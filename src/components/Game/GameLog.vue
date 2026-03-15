@@ -80,6 +80,7 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 import { useGameStore } from '../../stores/gameStore'
+import { useDialog } from '../../composables/useDialog'
 
 const props = defineProps({
   show: {
@@ -91,6 +92,7 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 const gameStore = useGameStore()
+const { showConfirm } = useDialog()
 const logContainer = ref(null)
 const filter = ref('all')
 
@@ -139,8 +141,8 @@ function formatTime(timestamp) {
   return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`
 }
 
-function clearLogs() {
-  if (confirm('确定要清空所有日志吗？')) {
+async function clearLogs() {
+  if (await showConfirm('确定要清空所有日志吗？', { title: '清空日志', icon: '🗑️' })) {
     gameStore.logs = []
   }
 }
@@ -177,7 +179,7 @@ watch(() => props.show, (newVal) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(30, 41, 59, 0.35);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -194,9 +196,9 @@ watch(() => props.show, (newVal) => {
 }
 
 .game-log {
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  background: linear-gradient(135deg, #f1f5f9 0%, #f0f3f9 100%);
   border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 60px rgba(100, 116, 145, 0.18);
   width: 90%;
   max-width: 800px;
   max-height: 80vh;
@@ -221,12 +223,12 @@ watch(() => props.show, (newVal) => {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 2px solid rgba(209, 217, 230, 0.6);
 }
 
 .game-log__title {
   margin: 0;
-  color: white;
+  color: #1e293b;
   font-size: 24px;
 }
 
@@ -234,8 +236,8 @@ watch(() => props.show, (newVal) => {
   width: 36px;
   height: 36px;
   border: none;
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  background: rgba(59, 130, 246, 0.08);
+  color: #1e293b;
   border-radius: 50%;
   font-size: 20px;
   cursor: pointer;
@@ -243,7 +245,7 @@ watch(() => props.show, (newVal) => {
 }
 
 .close-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(59, 130, 246, 0.15);
   transform: rotate(90deg);
 }
 
@@ -251,14 +253,14 @@ watch(() => props.show, (newVal) => {
   display: flex;
   gap: 8px;
   padding: 16px 24px;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 2px solid rgba(209, 217, 230, 0.6);
 }
 
 .filter-btn {
   padding: 8px 16px;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  border: 2px solid rgba(209, 217, 230, 0.7);
+  background: rgba(59, 130, 246, 0.06);
+  color: #334155;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -266,12 +268,13 @@ watch(() => props.show, (newVal) => {
 }
 
 .filter-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(59, 130, 246, 0.15);
 }
 
 .filter-btn--active {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-color: #667eea;
+  color: white;
 }
 
 .game-log__content {
@@ -287,14 +290,14 @@ watch(() => props.show, (newVal) => {
   gap: 12px;
   padding: 12px;
   margin-bottom: 8px;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(100, 116, 145, 0.08);
   border-radius: 8px;
   border-left: 4px solid;
   transition: all 0.3s ease;
 }
 
 .log-entry:hover {
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(100, 116, 145, 0.12);
   transform: translateX(4px);
 }
 
@@ -311,7 +314,7 @@ watch(() => props.show, (newVal) => {
 }
 
 .log-entry__time {
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(30, 41, 59, 0.65);
   font-size: 12px;
   font-family: monospace;
   min-width: 60px;
@@ -323,7 +326,7 @@ watch(() => props.show, (newVal) => {
 
 .log-entry__message {
   flex: 1;
-  color: white;
+  color: #1e293b;
   line-height: 1.5;
 }
 
@@ -334,7 +337,7 @@ watch(() => props.show, (newVal) => {
   justify-content: center;
   gap: 16px;
   padding: 60px 20px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(30, 41, 59, 0.6);
 }
 
 .log-empty__icon {
@@ -349,7 +352,7 @@ watch(() => props.show, (newVal) => {
   display: flex;
   gap: 12px;
   padding: 16px 24px;
-  border-top: 2px solid rgba(255, 255, 255, 0.1);
+  border-top: 2px solid rgba(209, 217, 230, 0.6);
 }
 
 .btn {
@@ -360,20 +363,21 @@ watch(() => props.show, (newVal) => {
   font-weight: bold;
   cursor: pointer;
   transition: all 0.3s ease;
-  color: white;
 }
 
 .btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(100, 116, 145, 0.12);
 }
 
 .btn--primary {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
 }
 
 .btn--secondary {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(59, 130, 246, 0.08);
+  color: #1e293b;
 }
 
 /* 滚动条样式 */
@@ -382,16 +386,16 @@ watch(() => props.show, (newVal) => {
 }
 
 .game-log__content::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(100, 116, 145, 0.08);
   border-radius: 4px;
 }
 
 .game-log__content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(59, 130, 246, 0.2);
   border-radius: 4px;
 }
 
 .game-log__content::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(30, 41, 59, 0.6);
 }
 </style>

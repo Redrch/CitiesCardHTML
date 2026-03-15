@@ -147,12 +147,12 @@ function clearDeployments() {
   padding: 8px;
   margin-bottom: 6px;
   background: var(--bg);
-  border: 1px solid #1f2937;
+  border: 1px solid #e2e8f0;
   border-radius: 4px;
 }
 
 .city-checkbox-item:hover {
-  background: #0e1526;
+  background: rgba(59, 130, 246, 0.06);
 }
 
 .city-checkbox-item.city-dead {

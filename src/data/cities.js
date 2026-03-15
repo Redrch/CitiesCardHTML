@@ -13,7 +13,7 @@ const DEFAULT_NAMES = ['Whale','CRH380BL-3562','Sirius North','猎奇凤爱莉']
       {name: '上海市', hp: 56709},
       {name: '天津市', hp: 18540},
       {name: '重庆市', hp: 33758},
-      {name: '香港特别行政区', hp: 30588},
+      {name: '香港特别行政区', hp: 30520},
       {name: '澳门特别行政区', hp: 3741},
     ];
 
@@ -81,13 +81,13 @@ const DEFAULT_NAMES = ['Whale','CRH380BL-3562','Sirius North','猎奇凤爱莉']
     const 吉林省 = [
       {name: '长春市', hp: 8006},
       {name: '吉林市', hp: 1702},
-      {name: '四平市', hp: 581},
-      {name: '辽源市', hp: 528},
-      {name: '通化市', hp: 766},
-      {name: '白山市', hp: 568},
-      {name: '白城市', hp: 614},
+      {name: '四平市', hp: 602},
+      {name: '辽源市', hp: 547},
+      {name: '通化市', hp: 786},
+      {name: '白山市', hp: 590},
+      {name: '白城市', hp: 627},
       {name: '延边州', hp: 1018},
-      {name: '松原市', hp: 1002}
+      {name: '松原市', hp: 1031}
     ];
 
     const 黑龙江省 = [
@@ -100,7 +100,7 @@ const DEFAULT_NAMES = ['Whale','CRH380BL-3562','Sirius North','猎奇凤爱莉']
       {name: '鸡西市', hp: 649},
       {name: '鹤岗市', hp: 392},
       {name: '双鸭山市', hp: 571},
-      {name: '七台河市', hp: 237},
+      {name: '七台河市', hp: 249},
       {name: '绥化市', hp: 1285},
       {name: '黑河市', hp: 742},
       {name: '大兴安岭地区', hp: 178}
@@ -383,7 +383,7 @@ const DEFAULT_NAMES = ['Whale','CRH380BL-3562','Sirius North','猎奇凤爱莉']
       {name: '日喀则市', hp: 510},
       {name: '那曲市', hp: 268},
       {name: '阿里地区', hp: 114},
-      {name: '林芝市', hp: 268}
+      {name: '林芝市', hp: 292}
     ];
 
     const 陕西省 = [
@@ -392,9 +392,9 @@ const DEFAULT_NAMES = ['Whale','CRH380BL-3562','Sirius North','猎奇凤爱莉']
       {name: '宝鸡市', hp: 2649},
       {name: '咸阳市', hp: 3270},
       {name: '渭南市', hp: 2232},
-      {name: '汉中市', hp: 1910},
-      {name: '安康市', hp: 1141},
-      {name: '商洛市', hp: 780},
+      {name: '汉中市', hp: 2004},
+      {name: '安康市', hp: 1190},
+      {name: '商洛市', hp: 824},
       {name: '延安市', hp: 2372},
       {name: '榆林市', hp: 7501}
     ];
@@ -426,7 +426,7 @@ const DEFAULT_NAMES = ['Whale','CRH380BL-3562','Sirius North','猎奇凤爱莉']
 
     const 青海省 = [
       {name: '西宁市', hp: 1915},
-      {name: '海东市', hp: 605},
+      {name: '海东市', hp: 616},
       {name: '海北州', hp: 123},
       {name: '黄南州', hp: 124},
       {name: '海南州', hp: 246},
@@ -442,13 +442,13 @@ const DEFAULT_NAMES = ['Whale','CRH380BL-3562','Sirius North','猎奇凤爱莉']
       {name: '博尔塔拉州', hp: 575},
       {name: '伊犁州', hp: 1807},
       {name: '塔城地区', hp: 1050},
-      {name: '阿勒泰地区', hp: 465},
+      {name: '阿勒泰地区', hp: 484},
       {name: '克拉玛依市', hp: 1304},
       {name: '吐鲁番市', hp: 640},
       {name: '哈密市', hp: 1163},
       {name: '巴音郭楞州', hp: 1724},
       {name: '阿克苏地区', hp: 2043},
-      {name: '克孜勒苏州', hp: 257},
+      {name: '克孜勒苏州', hp: 272},
       {name: '喀什地区', hp: 1752},
       {name: '和田地区', hp: 598}
     ];
