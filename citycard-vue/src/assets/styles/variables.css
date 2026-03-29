@@ -1,0 +1,42 @@
+/* CSS变量定义 - 城市战争主题 (Dark) */
+:root {
+  --bg: #1e2a4a;
+  --bg-light: #253354;
+  --bg-gradient: linear-gradient(150deg, #2a2340 0%, #1e2a4a 30%, #2a3a5c 60%, #3a2a4a 100%);
+  --panel: rgba(255, 255, 255, 0.08);
+  --panel-hover: rgba(255, 255, 255, 0.12);
+  --panel-translucent: rgba(255, 255, 255, 0.06);
+  --muted: rgba(255, 255, 255, 0.4);
+  --text: rgba(255, 255, 255, 0.85);
+  --text-secondary: rgba(255, 255, 255, 0.55);
+  --text-on-accent: #ffffff;
+  --accent: #60a5fa;
+  --accent-light: #93c5fd;
+  --purple: #a78bfa;
+  --purple-dim: rgba(139, 92, 246, 0.15);
+  --teal: #2dd4bf;
+  --teal-dim: rgba(20, 184, 166, 0.15);
+  --orange: #fb923c;
+  --orange-dim: rgba(249, 115, 22, 0.15);
+  --pink: #f472b6;
+  --pink-dim: rgba(236, 72, 153, 0.15);
+  --good: #34d399;
+  --bad: #f87171;
+  --warn: #fbbf24;
+  --error: #f87171;
+  --border: rgba(255, 255, 255, 0.12);
+  --border-accent: rgba(212, 160, 23, 0.35);
+  --shadow-color: rgba(0, 0, 0, 0.3);
+
+  /* 战斗主题色 */
+  --battle-gold: #d4a017;
+  --battle-gold-light: #f0c850;
+  --battle-gold-dim: rgba(212, 160, 23, 0.18);
+  --battle-red: #f87171;
+  --battle-red-dim: rgba(248, 113, 113, 0.15);
+  --battle-blue: #60a5fa;
+  --battle-blue-dim: rgba(96, 165, 250, 0.15);
+  --shield-color: #60a5fa;
+  --battle-border: rgba(255, 255, 255, 0.15);
+  --battle-shadow: rgba(0, 0, 0, 0.35);
+}

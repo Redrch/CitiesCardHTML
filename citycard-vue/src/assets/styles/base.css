@@ -1,0 +1,102 @@
+/* 基础样式 */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+}
+
+header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.88);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  backdrop-filter: blur(12px);
+}
+
+h1 {
+  font-size: 18px;
+  margin: 0;
+}
+
+main {
+  display: grid;
+  grid-template-columns: 520px 1fr;
+  gap: 12px;
+  padding: 12px;
+}
+
+label {
+  display: inline-block;
+  margin: 6px 0 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+input[type="text"],
+input[type="number"],
+input[type="password"],
+select,
+textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="password"]:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+select option {
+  color: var(--text);
+  background: #ffffff;
+}
+
+textarea {
+  min-height: 80px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* 滚动条样式 */
+.scroll {
+  max-height: 280px;
+  overflow: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  display: block;
+  width: 100%;
+}
+
+.scroll::-webkit-scrollbar {
+  height: 10px;
+}
+
+.scroll::-webkit-scrollbar-track {
+  background: rgba(209, 217, 230, 0.4);
+}
+
+.scroll::-webkit-scrollbar-thumb {
+  background: #b0bdd0;
+  border-radius: 6px;
+}
+
+.scroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

@@ -8,7 +8,7 @@ const CITY_QUESTIONS = {
     '普通': [
       {
         question: '北京的传统民居形式是什么？',
-        options: ['A. 土坯房', 'B. 四合院', 'C. 窑洞', 'D. 骑楼'],
+        options: ['A. 窑洞', 'B. 四合院', 'C. 土坯房', 'D. 骑楼'],
         answer: 'B'
       },
       {
@@ -3238,8 +3238,8 @@ const CITY_QUESTIONS = {
       },
       {
         "question": "重庆在行政区划上有一个显著特点，即它是：",
-        "options": ["A. 面积最大的直辖市", "B. 人口最多的直辖市", "C. 唯一的内陆直辖市", "D. 另外三个选项都是"],
-        "answer": "D"
+        "options": ["A. 比所有地级行政区面积都大", "B. 常住人口最多的直辖市", "C. 唯一的内陆直辖市", "D. 唯一一个不与其它直辖市接壤的直辖市"],
+        "answer": "B"
       },
       {
         "question": "重庆港是中国内河主要港口之一，其主要类型是：",
@@ -3502,7 +3502,7 @@ const CITY_QUESTIONS = {
       },
       {
         "question": "重庆'忠县豆腐乳'的特色是什么？",
-        "options": ["A. 麻辣味", "B. 香甜味", "C. 咸鲜味", "D. 酸辣味"],
+        "options": ["A. 麻辣味", "B. 甜辣味", "C. 咸鲜味", "D. 酸辣味"],
         "answer": "A"
       },
       {
@@ -4295,6 +4295,7 @@ const CITY_QUESTIONS = {
         "answer": "B"
       },
       {
+
         "question": "苏州创元投资发展（集团）有限公司的前身主要整合了苏州市属多少家产业局？",
         "options": ["A. 8家", "B. 10家", "C. 12家", "D. 15家"],
         "answer": "B"
@@ -4351,7 +4352,32 @@ const CITY_QUESTIONS = {
       },
     ]
   },
-}
+
+  // 默认题库（如果某个城市没有专属题目）
+  'DEFAULT': {
+    '普通': [
+      {
+        question: '这座城市位于中国吗？',
+        options: ['A. 是', 'B. 否', 'C. 不确定', 'D. 以上都不对'],
+        answer: 'A'
+      }
+    ],
+    '进阶': [
+      {
+        question: '城市发展的重要因素不包括？',
+        options: ['A. 地理位置', 'B. 交通条件', 'C. 星座运势', 'D. 经济基础'],
+        answer: 'C'
+      }
+    ],
+    '挑战': [
+      {
+        question: '中国目前有多少个省级行政区（含直辖市、自治区、特别行政区）？',
+        options: ['A. 31个', 'B. 32个', 'C. 33个', 'D. 34个'],
+        answer: 'D'
+      }
+    ]
+  }
+};
 
 /**
  * 获取指定城市和难度的随机题目
@@ -4377,3 +4403,6 @@ function getCityQuestion(cityName, difficulty) {
 function hasCityQuestions(cityName) {
   return CITY_QUESTIONS.hasOwnProperty(cityName) && cityName !== 'DEFAULT';
 }
+
+// ES6 导出
+export { CITY_QUESTIONS, getCityQuestion, hasCityQuestions };
