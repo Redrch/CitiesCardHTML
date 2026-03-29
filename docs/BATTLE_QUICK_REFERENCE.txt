@@ -1,0 +1,210 @@
+================================================================================
+                   战斗系统函数速查表 (Quick Reference)
+================================================================================
+
+【三个主要战斗函数】
+
+┌─ battle2P()          第 22433-23037 行  (605 行) ★★★★★
+│  └─ 功能: 2人模式完整战斗逻辑
+│     └─ 特点: 包含20+个特殊技能，两轮攻击结算，多个后置处理
+│
+├─ battle3P()          第 23040-23310 行  (271 行) ★★★☆☆
+│  └─ 功能: 3人模式战斗逻辑
+│     └─ 特点: 代码最简洁，使用对象存储，缺少淘汰逻辑
+│
+└─ battle2v2()         第 23313-23850 行  (538 行) ★★★★☆
+   └─ 功能: 2v2模式战斗逻辑
+      └─ 特点: 队伍维度，挑拨离间特性，4人遍历
+
+【辅助函数快速位置查找】
+
+  checkAndProcessBattle()    行 22372  (59 行)  - 战斗流程控制
+  confirmBattleAction()      行 24093  (155行)  - 玩家确认出战
+  outputDualVersionLogs()    行 2800   (91 行)  - 隐身技能日志处理
+  recordBattleSkillUsage()   行 8072   (6 行)   - 技能使用记录
+  checkRosterNeedsRefill()   行 24011  (33 行)  - 预备城市补充
+  endOfRoundTickProcessing() 行 23853  (约150行) - 回合末倒计时
+
+【战斗系统分布统计】
+
+  总代码行数: 24757 行
+  战斗代码行数: 1758 行 (7.1%)
+    ├─ 核心战斗: 1414 行 (80.4%)
+    └─ 辅助函数: 344 行 (19.6%)
+
+【关键特性排查清单】
+
+2P 特有:
+  ☐ 欲擒故纸 (yqgzMarks)
+  ☐ 以逸待劳 (yiyidl) - 伤害加成 + 金币掠夺
+  ☐ 趁火打劫 (chhdj) - 伤害比例掠夺
+  ☐ 同归于尽 (tgyjj) - 标记城市阵亡触发
+  ☐ 潜能激发溢出 - 50%溢出伤害打击中心
+
+3P 特有:
+  ☐ 隔岸观火 (gawhUser) - 撤回出战，合并路线
+
+2v2特有:
+  ☐ 挑拨离间 (tblj2v2) - 队内相互开战
+  ☐ 潜能激发伤害分配 - 平均分给对队成员
+
+通用:
+  ☐ 疲劳减半 (streaks >= 1)
+  ☐ 中心城市翻倍 (centerIndex)
+  ☐ 背水一战 (desperate)
+  ☐ 狂暴模式 (buffs, berserkFired)
+  ☐ 蓝色奖励 (blue)
+  ☐ 御驾亲征 (yujia)
+  ☐ 中心城市阵亡淘汰
+
+【代码重复情况】
+
+高度重复的模式:
+  1. 疲劳减半        - 3处相同代码
+  2. 攻击力计算      - 3处相似代码
+  3. 伤害应用        - 3处相似代码
+  4. 蓝色奖励逻辑    - 3种不同实现
+  5. 绿色技能减伤    - 3处相同代码
+
+估计重复率: 30-40%
+
+【可提取的公共函数】
+
+优先级 5: 
+  - applyFatigue(player, state, roomData)
+  - calculateAttackPower(cards, player, roomData)
+  - applyDamage(attacker, defender, damage, roomData)
+
+优先级 4:
+  - handleBlueBonus(attacker, defender, roomData)
+  - handleDesperateLate(attacker, defender, state, roomData)
+
+优先级 3:
+  - handleBerserkLate(player, roomData)
+
+【战斗数据流】
+
+  玩家操作
+      ↓
+  confirmBattleAction()  - 出战确认（显示为行 24093）
+      ↓
+  checkAndProcessBattle()  - 战斗检查（显示为行 22372）
+      ↓
+  battle2P/3P/2v2()  - 执行战斗
+      ↓
+  endOfRoundTickProcessing()  - 回合末处理（显示为行 23853）
+      ↓
+  saveRoomData()  - 保存数据
+
+【模块化难度评估】
+
+  耦合度:        ★★★★★ (高) - 直接访问roomData
+  参数化:        ★★☆☆☆ (低) - 大量硬编码值
+  错误处理:      ★★☆☆☆ (低) - 缺乏验证
+  可测试性:      ★★☆☆☆ (低) - 依赖完整状态
+  文档完整性:    ★★★☆☆ (中) - 部分注释
+
+  总体重构难度: ⭐⭐⭐⭐ (中高)
+
+【性能复杂度】
+
+  一轮战斗:  O(n²) - n为出战城市数
+  伤害计算:  O(n) - n为防守城市数
+  技能检查:  O(1) - 键值查询
+
+【推荐重构路径】
+
+  第1阶段 (低风险，高收益) - 1-2周
+    ☐ 提取 applyFatigue()
+    ☐ 提取 calculateAttackPower()
+    ☐ 创建 SKILL_CONFIGS
+    ☐ 编写测试框架
+
+  第2阶段 (中等难度) - 1-2月
+    ☐ 提取技能效果处理器
+    ☐ 创建伤害管理系统
+    ☐ 战斗事件系统
+
+  第3阶段 (高难度) - 下季度
+    ☐ 状态机重构
+    ☐ TypeScript迁移
+    ☐ 完整测试覆盖
+
+【必测场景清单】
+
+基础战斗:
+  ☐ 2P: 单方全灭
+  ☐ 2P: 双方互灭
+  ☐ 3P: 三人都存活
+  ☐ 3P: 一人全灭
+  ☐ 2v2: 队A全灭
+  ☐ 2v2: 队B全灭
+
+特殊技能:
+  ☐ 红色技能 (各等级)
+  ☐ 绿色技能 (各等级)
+  ☐ 蓝色奖励 (全灭情况)
+  ☐ 中心城市翻倍
+  ☐ 背水一战
+  ☐ 潜能激发
+  ☐ 狂暴模式
+  ☐ 疲劳减半
+
+边界情况:
+  ☐ 溢出伤害
+  ☐ 金币上限
+  ☐ 预备补充
+  ☐ 日志隐藏
+
+【代码健康度评分】
+
+  可读性:      6/10
+  可维护性:    5/10
+  可测试性:    3/10
+  可扩展性:    4/10
+  性能:        7/10
+  文档:        5/10
+  ──────────
+  平均:        5/10 (需要改进)
+
+【外部依赖函数】
+
+  来自 js/utils/helpers.js:
+    - getRedBonus(level)
+    - getGreenBonus(level)
+    - getYellowHeal(level)
+    - markCityAsKnown()
+    - getUnknownCities()
+    - isInCautiousSet()
+    - checkAndConsumeProtection()
+    - addPublicLog()
+    - addPrivateLog()
+
+【调试技巧】
+
+  1. 检查 roomData.gameState.battleLogs 查看战斗日志
+  2. 检查 state.deadCities 查看已死城市
+  3. 检查 player.streaks 查看疲劳状态
+  4. 检查 roomData.gameState.playerPrivateLogs 查看私有日志
+  5. 在 checkAndProcessBattle() 开头添加 console.log 跟踪流程
+
+【常见问题速查】
+
+Q: 为什么有时候伤害不对?
+A: 检查疲劳减半是否应用 (第 23048-23052 行相关逻辑)
+
+Q: 为什么中心城市没有翻倍?
+A: 检查 player.centerIndex 是否被正确设置
+
+Q: 为什么蓝色奖励没有获得?
+A: 检查对手是否真的全部阵亡 (第 22756-22760 行相关逻辑)
+
+Q: 为什么预备城市补充失效?
+A: 检查 checkRosterNeedsRefill() 是否被调用 (第 22730-22731 行)
+
+Q: 为什么 3P 没有游戏结束?
+A: 3P 缺少游戏结束逻辑，需要在上层处理
+
+================================================================================
+                           报告生成: 2025-11-12
+================================================================================
